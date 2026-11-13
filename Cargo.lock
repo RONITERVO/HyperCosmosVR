@@ -571,7 +571,6 @@ dependencies = [
 name = "cosmos_xr"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cosmos_math",
  "glam 0.34.3",
  "openxr",

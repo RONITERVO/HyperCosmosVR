@@ -58,23 +58,21 @@ jobs:
       - name: Check workspace with clippy (-D warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run hardware-independent crate tests (math, narration, nav, xr)
-        run: cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_xr
+      - name: Run hardware-independent crate tests (math, narration, nav)
+        run: cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav
+
+      - name: Run OpenXR stereo, hand, refresh & format unit tests (excluding registry runtime probe)
+        run: cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
 
       - name: Run topology invariant tests (cosmos_spatial)
         run: cargo test -p cosmos_spatial topology
 
       - name: Run catalog schema, solver & CRC32 tests (cosmos_manifest, excluding 1.05 GiB audio pack test)
-        run: |
-          cargo test -p cosmos_manifest --test manifest_tests real_catalog_matches_v1_json_metadata_and_crc32
-          cargo test -p cosmos_manifest --test manifest_tests app_01_rgb_color_solver_hits_lexicon_over_full_rgb_cube
-          cargo test -p cosmos_manifest --test manifest_tests app_02_music_synth_solver_and_lexicon
-          cargo test -p cosmos_manifest --test manifest_tests app_04_sun_fix_macro_facts_and_evidence_class_rules
-          cargo test -p cosmos_manifest --test manifest_tests corrupted_or_truncated_buffers_return_typed_errors_without_panicking
-          cargo test -p cosmos_manifest --test manifest_tests zone_at_progress_and_feature_at_cover_all_experiences
+        run: cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
 
-      # Note: GPU render tests (`cosmos_render`, `cosmos_app` headless DX12 suite), proprietary font coverage tests,
-      # and full 18,898-MP3 mmap verification (`cosmos_audio`, `real_mmap_catalog_and_audio_pack_verify_all_18898_assets`)
-      # require a Discrete DX12 GPU, local OS/custom fonts, and the optional 1.05 GiB Release audio pack.
-      # They run locally via: cargo test --workspace -- --test-threads=1
+      # Note: GPU render tests (`cosmos_render`, `cosmos_app` headless DX12 suite), OpenXR runtime registry probe,
+      # proprietary font coverage tests, and full 18,898-MP3 mmap verification (`cosmos_audio`,
+      # `real_mmap_catalog_and_audio_pack_verify_all_18898_assets`) require a Discrete DX12 GPU, an OpenXR runtime,
+      # local OS/custom fonts, and the optional 1.05 GiB Release audio pack.
+      # Run all 88 tests locally via: cargo test --workspace -- --test-threads=1
 

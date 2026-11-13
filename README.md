@@ -187,12 +187,13 @@ All passes share camera-relative coordinates (`(0,0,0)` at head midpoint) and a 
 # Lint & static checks across all 10 crates + targets (enforced in CI)
 cargo clippy --workspace --all-targets -- -D warnings
 
-# Hardware-independent unit & catalog checks (runs cleanly in GitHub Actions without GPU/audio pack)
-cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_xr
+# Hardware-independent unit & catalog checks (runs in GitHub Actions CI without GPU/OpenXR/audio pack)
+cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav
+cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
 cargo test -p cosmos_spatial topology
-cargo test -p cosmos_manifest --test manifest_tests real_catalog_matches_v1_json_metadata_and_crc32
+cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
 
-# Full local verification suite (requires Discrete DX12 GPU, staged fonts, and universe_audio.hcvp)
+# Full local verification suite (requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
 cargo test --workspace -- --test-threads=1
 ```
 

@@ -12,6 +12,5 @@ wgpu-hal = { workspace = true }
 windows = { workspace = true }
 windows-core = { workspace = true }
 glam = { workspace = true }
-anyhow = { workspace = true }
 thiserror = { workspace = true }
 
