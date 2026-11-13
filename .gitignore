@@ -1,0 +1,34 @@
+# Build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+*.ilk
+*.exp
+
+# Local IDE / OS metadata
+.vs/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+
+# Local toolchain overrides (use .cargo/config.toml.example as template)
+/.cargo/config.toml
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Large 1.05 GiB bilingual narration pack (distributed via GitHub Release v0.1.0 & tools/fetch_audio_pack.ps1)
+/assets/baked/universe_audio.hcvp
+/assets/baked/universe_audio.hcvp.part
+
+# Proprietary Microsoft system fonts staged locally by tools/stage_runtime_deps.ps1
+/assets/fonts/*.ttf
+/assets/fonts/*.otf
+
+# Auto-generated MSDF glyph atlas cache (re-baked automatically on first boot)
+/assets/baked/msdf_cache/*.bin
+/assets/baked/msdf_cache/*.json
+

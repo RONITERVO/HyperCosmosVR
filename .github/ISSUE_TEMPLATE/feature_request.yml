@@ -1,0 +1,25 @@
+name: Feature or Enhancement Request
+description: Propose a visual documentary improvement, VR ergonomics enhancement, or tooling workflow upgrade.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What capability or visual/audio improvement are you proposing?
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Who Benefits & Use Case
+      description: Helps prioritize for VR learners, desktop explorers, educators, or corporate integrators.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Alignment with HyperCosmosVR Constraints
+      description: How does this preserve zero 2D UI/HUDs, `#000000` OLED void discipline, and multi-scale continuity?
+

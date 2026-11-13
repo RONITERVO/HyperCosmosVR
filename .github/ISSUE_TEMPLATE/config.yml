@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Upstream Spanish-Quick-Apps Content Repo
+    url: https://github.com/RONITERVO/Spanish-Quick-Apps/issues
+    about: Issues specifically about the upstream mobile experiences or source translations.
+

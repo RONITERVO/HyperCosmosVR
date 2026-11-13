@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "required_coverage": "áéíóúüñÁÉÍÓÚÜÑ¿¡äöåÄÖÅΩ♯⁻²³⁵—→·×",
+  "fonts": [
+    {
+      "role": "display_script",
+      "file": "display_script.ttf",
+      "family": "Segoe Script",
+      "fallback": "ui_sans"
+    },
+    {
+      "role": "display_script_bold",
+      "file": "display_script_bold.ttf",
+      "family": "Segoe Script Bold",
+      "fallback": "ui_sans_bold"
+    },
+    {
+      "role": "ui_sans",
+      "file": "ui_sans.ttf",
+      "family": "Segoe UI",
+      "full_required_coverage": true,
+      "fallback": "symbols_fallback"
+    },
+    {
+      "role": "ui_sans_bold",
+      "file": "ui_sans_bold.ttf",
+      "family": "Segoe UI Bold",
+      "full_required_coverage": true,
+      "fallback": "symbols_fallback"
+    },
+    {
+      "role": "symbols_fallback",
+      "file": "symbols_fallback.ttf",
+      "family": "Segoe UI Symbol",
+      "full_required_coverage": true,
+      "fallback": null
+    }
+  ]
+}
+

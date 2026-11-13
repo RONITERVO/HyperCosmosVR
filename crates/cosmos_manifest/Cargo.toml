@@ -1,0 +1,16 @@
+[package]
+name = "cosmos_manifest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Zero-copy mmap universe catalog, bilingual syncvoice audio pack loader, and App 01/02/03-25 domain solvers for HyperCosmosVR"
+
+[dependencies]
+bytemuck = { workspace = true }
+crc32fast = { workspace = true }
+memmap2 = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

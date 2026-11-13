@@ -1,0 +1,27 @@
+name: Content / Translation / Adaptation Question
+description: Report a SyncVoice text/audio mismatch or ask about adapting fonts, translations, or exhibits.
+title: "[Content]: "
+labels: ["content"]
+body:
+  - type: input
+    id: experience
+    attributes:
+      label: Experience ID / Zone
+      placeholder: "e.g. App 04 Sistema solar · Zone earth (u=+6.8)"
+  - type: dropdown
+    id: locale
+    attributes:
+      label: Locale
+      options:
+        - es-ES
+        - en-US
+        - fi-FI
+        - Custom / New Language
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Describe the text cue discrepancy, pronunciation/timing note, or adaptation question.
+    validations:
+      required: true
+

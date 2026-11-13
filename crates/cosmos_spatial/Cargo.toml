@@ -1,0 +1,18 @@
+[package]
+name = "cosmos_spatial"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cosmos_math = { path = "../cosmos_math" }
+glam = { workspace = true, features = ["bytemuck", "serde"] }
+rayon = { workspace = true }
+serde = { workspace = true }
+bytemuck = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+hrtf = { workspace = true }
+image = { workspace = true }
+ttf-parser = { workspace = true }

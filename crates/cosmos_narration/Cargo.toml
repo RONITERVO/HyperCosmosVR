@@ -1,0 +1,14 @@
+[package]
+name = "cosmos_narration"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rest-to-Learn FSM, SharedNarrationMemory contract, and 25-experience target resolver for HyperCosmosVR."
+
+[dependencies]
+cosmos_math = { path = "../cosmos_math" }
+cosmos_spatial = { path = "../cosmos_spatial" }
+cosmos_manifest = { path = "../cosmos_manifest" }
+glam = { workspace = true, features = ["bytemuck", "serde"] }
+serde = { workspace = true }
+thiserror = { workspace = true }

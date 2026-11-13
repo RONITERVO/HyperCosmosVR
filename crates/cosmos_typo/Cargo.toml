@@ -1,0 +1,27 @@
+[package]
+name = "cosmos_typo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Parallel dual-font MSDF atlas baker, Google-Earth 3D layout & angular de-overlap solver, and wgpu stereo multiview text renderer for HyperCosmosVR"
+
+[dependencies]
+ab_glyph = { workspace = true }
+bytemuck = { workspace = true }
+cosmos_manifest = { path = "../cosmos_manifest" }
+cosmos_math = { path = "../cosmos_math" }
+crc32fast = { workspace = true }
+fdsm = { workspace = true }
+fdsm-ttf-parser = { workspace = true }
+glam = { workspace = true, features = ["bytemuck", "serde"] }
+image = { workspace = true }
+nalgebra = { workspace = true }
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+ttf-parser = { workspace = true }
+wgpu = { workspace = true }
+
+[dev-dependencies]
+pollster = { workspace = true }

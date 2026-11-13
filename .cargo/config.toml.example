@@ -1,0 +1,8 @@
+# Optional local Cargo environment overrides.
+# Copy this file to `.cargo/config.toml` ONLY if `cmake.exe` is not on your PATH
+# (for example when building `openxr-sys` outside a Visual Studio Developer Shell).
+# Note: `Start-HyperCosmosVR.cmd` already auto-detects Visual Studio's CMake.
+#
+# [env]
+# CMAKE = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin\\cmake.exe"
+

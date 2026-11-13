@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows-build-and-unit-tests:
+    name: Clippy & Hardware-Independent Tests (Windows x64)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable + clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo registry & target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Locate Visual Studio CMake (for static openxr-sys build)
+        shell: pwsh
+        run: |
+          if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
+            $cand = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\*\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cand) {
+              "CMAKE=$($cand.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+              Write-Host "Using CMake at $($cand.FullName)"
+            }
+          }
+
+      - name: Verify zero oversized or proprietary binaries tracked in Git
+        shell: pwsh
+        run: |
+          $files = git ls-files
+          $badFonts = $files | Where-Object { $_ -match '\.(ttf|otf)$' }
+          if ($badFonts) {
+            throw "Proprietary/local font binaries must not be tracked in Git:`n$($badFonts -join "`n")"
+          }
+          $big = $files | ForEach-Object {
+            if (Test-Path $_) {
+              $len = (Get-Item $_).Length
+              if ($len -gt 52428800) { "${_} ($len bytes)" }
+            }
+          }
+          if ($big) {
+            throw "Tracked files exceed 50 MiB:`n$($big -join "`n")"
+          }
+
+      - name: Check workspace with clippy (-D warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run hardware-independent crate tests (math, narration, nav, xr)
+        run: cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_xr
+
+      - name: Run topology invariant tests (cosmos_spatial)
+        run: cargo test -p cosmos_spatial topology
+
+      - name: Run catalog schema, solver & CRC32 tests (cosmos_manifest, excluding 1.05 GiB audio pack test)
+        run: |
+          cargo test -p cosmos_manifest --test manifest_tests real_catalog_matches_v1_json_metadata_and_crc32
+          cargo test -p cosmos_manifest --test manifest_tests app_01_rgb_color_solver_hits_lexicon_over_full_rgb_cube
+          cargo test -p cosmos_manifest --test manifest_tests app_02_music_synth_solver_and_lexicon
+          cargo test -p cosmos_manifest --test manifest_tests app_04_sun_fix_macro_facts_and_evidence_class_rules
+          cargo test -p cosmos_manifest --test manifest_tests corrupted_or_truncated_buffers_return_typed_errors_without_panicking
+          cargo test -p cosmos_manifest --test manifest_tests zone_at_progress_and_feature_at_cover_all_experiences
+
+      # Note: GPU render tests (`cosmos_render`, `cosmos_app` headless DX12 suite), proprietary font coverage tests,
+      # and full 18,898-MP3 mmap verification (`cosmos_audio`, `real_mmap_catalog_and_audio_pack_verify_all_18898_assets`)
+      # require a Discrete DX12 GPU, local OS/custom fonts, and the optional 1.05 GiB Release audio pack.
+      # They run locally via: cargo test --workspace -- --test-threads=1
+

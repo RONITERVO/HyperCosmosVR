@@ -1,0 +1,20 @@
+[package]
+name = "cosmos_audio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Real-time 48 kHz HRTF narration player (Symphonia + WSOLA + Rubato), FunDSP procedural synth, WASAPI output, and audio-reactive GPU uniform bus for HyperCosmosVR"
+
+[dependencies]
+cosmos_manifest = { path = "../cosmos_manifest" }
+bytemuck = { workspace = true }
+cpal = { workspace = true }
+crossbeam-channel = { workspace = true }
+fundsp = { workspace = true }
+glam = { workspace = true }
+hrtf = { workspace = true }
+rayon = { workspace = true }
+rubato = { workspace = true }
+symphonia = { workspace = true }
+thiserror = { workspace = true }
+wsola = { workspace = true }

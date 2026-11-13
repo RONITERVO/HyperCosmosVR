@@ -1,0 +1,23 @@
+[package]
+name = "cosmos_render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "RTX 5070 DX12 Multiview HDR OLED renderer for HyperCosmosVR"
+
+[dependencies]
+cosmos_math = { path = "../cosmos_math" }
+cosmos_spatial = { path = "../cosmos_spatial" }
+
+wgpu = { workspace = true }
+wgpu-hal = { workspace = true }
+windows = { workspace = true }
+windows-core = { workspace = true }
+
+glam = { workspace = true }
+bytemuck = { workspace = true }
+image = { workspace = true }
+pollster = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+

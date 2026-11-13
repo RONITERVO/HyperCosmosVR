@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report a crash, rendering glitch, OpenXR issue, audio/SyncVoice bug, or build failure.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please check existing issues first and include your GPU, Windows version, and OpenXR runtime details.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of what you saw vs. what you expected.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Launch Mode
+      options:
+        - OpenXR VR Headset
+        - Desktop Window (--desktop)
+        - Headless Render (--headless-render)
+        - Build / cargo test
+        - Asset Staging / Baker (stage_runtime_deps.ps1 / bake_universe.py)
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Hardware & Software Environment
+      placeholder: |
+        - OS: Windows 11 24H2
+        - GPU + Driver: e.g. NVIDIA RTX 5070 (Driver xxx.xx)
+        - OpenXR Runtime (if VR): SteamVR / Meta Quest Link / VirtualDesktopXR
+        - Audio Pack Present: Yes (universe_audio.hcvp) / No (visual + synth mode)
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction Steps & Console Output
+      description: Exact command run, experience ID (01..25) or scale coordinate u, and stderr/panic trace.
+      render: shell
+    validations:
+      required: true
+

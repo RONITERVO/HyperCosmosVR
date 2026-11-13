@@ -1,0 +1,14 @@
+[package]
+name = "cosmos_nav"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Scale-invariant 6DoF VR/Desktop locomotion and diegetic 3D spatial controls for HyperCosmosVR."
+
+[dependencies]
+cosmos_math = { path = "../cosmos_math" }
+cosmos_spatial = { path = "../cosmos_spatial" }
+cosmos_manifest = { path = "../cosmos_manifest" }
+glam = { workspace = true, features = ["bytemuck", "serde"] }
+serde = { workspace = true }
+thiserror = { workspace = true }
