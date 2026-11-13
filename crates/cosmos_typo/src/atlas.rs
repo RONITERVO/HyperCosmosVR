@@ -1497,7 +1497,10 @@ fn build_atlas_from_sections(
         cap_height_em: 0.72,
         x_height_em: 0.52,
     }; 2];
-    for chunk in fm_slice.chunks_exact(std::mem::size_of::<FontLineMetricsPod>()) {
+    for chunk in fm_slice
+        .as_chunks::<{ std::mem::size_of::<FontLineMetricsPod>() }>()
+        .0
+    {
         let rec: FontLineMetricsPod = bytemuck::pod_read_unaligned(chunk);
         if let Some(role) = FontRole::from_u8(rec.role as u8) {
             font_metrics[role as usize] = FontLineMetrics {
@@ -1512,7 +1515,10 @@ fn build_atlas_from_sections(
     }
 
     let mut glyphs = HashMap::with_capacity(header.glyph_count as usize);
-    for chunk in gl_slice.chunks_exact(std::mem::size_of::<CachedGlyphPod>()) {
+    for chunk in gl_slice
+        .as_chunks::<{ std::mem::size_of::<CachedGlyphPod>() }>()
+        .0
+    {
         let rec: CachedGlyphPod = bytemuck::pod_read_unaligned(chunk);
         let ch = char::from_u32(rec.codepoint).ok_or_else(|| TypoError::InvalidCache {
             reason: format!("invalid codepoint {:#x}", rec.codepoint),
@@ -1541,7 +1547,10 @@ fn build_atlas_from_sections(
     }
 
     let mut kerns = Vec::with_capacity(header.kern_count as usize);
-    for chunk in kn_slice.chunks_exact(std::mem::size_of::<CachedKernPod>()) {
+    for chunk in kn_slice
+        .as_chunks::<{ std::mem::size_of::<CachedKernPod>() }>()
+        .0
+    {
         let rec: CachedKernPod = bytemuck::pod_read_unaligned(chunk);
         if let (Some(l), Some(r), Some(role)) = (
             char::from_u32(rec.left),

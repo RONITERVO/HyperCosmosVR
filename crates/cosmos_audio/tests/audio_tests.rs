@@ -101,10 +101,10 @@ fn hrtf_spatial_and_zone_synth_ducking_and_sync_clock_headless() {
     scratch.fill(0.0);
     binaural.mix_block(&tone, right_dir, 1.0, &mut scratch);
     binaural.mix_block(&tone, right_dir, 1.0, &mut right_out);
-    let l_left_e: f32 = left_out.chunks_exact(2).map(|f| f[0] * f[0]).sum();
-    let r_left_e: f32 = left_out.chunks_exact(2).map(|f| f[1] * f[1]).sum();
-    let l_right_e: f32 = right_out.chunks_exact(2).map(|f| f[0] * f[0]).sum();
-    let r_right_e: f32 = right_out.chunks_exact(2).map(|f| f[1] * f[1]).sum();
+    let l_left_e: f32 = left_out.as_chunks::<2>().0.iter().map(|f| f[0] * f[0]).sum();
+    let r_left_e: f32 = left_out.as_chunks::<2>().0.iter().map(|f| f[1] * f[1]).sum();
+    let l_right_e: f32 = right_out.as_chunks::<2>().0.iter().map(|f| f[0] * f[0]).sum();
+    let r_right_e: f32 = right_out.as_chunks::<2>().0.iter().map(|f| f[1] * f[1]).sum();
     assert!(
         l_left_e > r_left_e * 1.25 && r_right_e > l_right_e * 1.25,
         "HRTF should match OpenXR ears (-X -> L, +X -> R): left=({l_left_e},{r_left_e}) right=({l_right_e},{r_right_e})"

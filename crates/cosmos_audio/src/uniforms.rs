@@ -109,7 +109,7 @@ impl OutputAnalyzer {
         let mut e_high = 0.0_f32;
         let mut zero_crossings = 0_u32;
 
-        for frame in stereo_interleaved.chunks_exact(2) {
+        for frame in stereo_interleaved.as_chunks::<2>().0 {
             let mono = 0.5 * (frame[0] + frame[1]);
             self.lp_bass_state += self.bass_alpha * (mono - self.lp_bass_state);
             self.lp_mid_state += self.mid_alpha * (mono - self.lp_mid_state);

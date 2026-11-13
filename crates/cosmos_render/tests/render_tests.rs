@@ -457,7 +457,9 @@ fn phase7_documentary_stages_01_through_25_oled_and_telemetry_hold() {
             .expect("phase7 documentary render");
         let (void_px, lit_px) = count_void_and_lit(&px, 28);
         let blown_px = px
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
             .count();
         assert!(
@@ -998,7 +1000,7 @@ fn readback_layer(
 fn count_void_and_lit(rgba: &[u8], lit_thresh: u8) -> (usize, usize) {
     let mut void_px = 0usize;
     let mut lit_px = 0usize;
-    for px in rgba.chunks_exact(4) {
+    for px in rgba.as_chunks::<4>().0 {
         if px[0] == 0 && px[1] == 0 && px[2] == 0 {
             void_px += 1;
         } else if px[0].max(px[1]).max(px[2]) >= lit_thresh {

@@ -867,7 +867,7 @@ pub fn run_headless_render(
 
         let mut pure_black = 0usize;
         let mut non_black = 0usize;
-        for px in pixels.chunks_exact(4) {
+        for px in pixels.as_chunks::<4>().0 {
             if px[0] == 0 && px[1] == 0 && px[2] == 0 {
                 pure_black += 1;
             } else {
