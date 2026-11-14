@@ -1,0 +1,2647 @@
+{
+  "schema_version": 1,
+  "id": "cosmic_highlights_tour",
+  "title": {
+    "es": "Lo Mejor del Hipercosmos",
+    "en": "HyperCosmos Highlights Tour",
+    "fi": "HyperCosmos-kohokohdat"
+  },
+  "subtitle": {
+    "es": "Recorrido ágil de 5 actos desde la Aurora terrestre hasta la escala de Planck y el Horizonte Final.",
+    "en": "Crisp 5-act showcase gliding from Earth Aurora through Galaxies, Planck foam, Mind, Colors, Music, and the Final Lotus.",
+    "fi": "Tiivis 5-näytöksinen esittely Maan revontulista Planckin vaahtoon ja lopulliseen horisonttiin."
+  },
+  "author": "HyperCosmosVR",
+  "loop_journey": true,
+  "chapters": [
+    {
+      "id": "highlights_exp_03",
+      "act_index": 1,
+      "title": {
+        "es": "03 · Espectro de la Tierra",
+        "en": "03 · Espectro de la Tierra",
+        "fi": "03 · Espectro de la Tierra"
+      },
+      "beats": [
+        {
+          "beat_id": "exp03_z000_space",
+          "pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.22,
+              0.73,
+              1.01
+            ],
+            "scale_exp": 6.6,
+            "orient_xyzw": [
+              -0.30088299111932804,
+              0.10201187650286724,
+              0.03238969379147045,
+              0.9476359588172797
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 3,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp03_z000_f000",
+          "pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 6.6499999999999995,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 3,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp03_z006_surface",
+          "pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 6.6499999999999995,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 3,
+            "zone_index": 6,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp03_z006_f000",
+          "pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 6.6499999999999995,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 3,
+            "zone_index": 6,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp03_z013_inner-core",
+          "pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 6.6499999999999995,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 3,
+            "zone_index": 13,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp03_z013_f000",
+          "pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 6.6499999999999995,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EARTH_ORBIT",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 3,
+            "zone_index": 13,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_04",
+      "act_index": 1,
+      "title": {
+        "es": "04 · Espectro del Sistema Solar · Del Sol a Plutón",
+        "en": "04 · Espectro del Sistema Solar · Del Sol a Plutón",
+        "fi": "04 · Espectro del Sistema Solar · Del Sol a Plutón"
+      },
+      "beats": [
+        {
+          "beat_id": "exp04_z000_sun",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 11.049999999999999,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp04_z000_f000",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 11.049999999999999,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp04_z004_mars",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 11.049999999999999,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 4,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp04_z004_f000",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 11.049999999999999,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 4,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp04_z007_saturn",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 11.049999999999999,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 7,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp04_z007_f000",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 11.049999999999999,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 7,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_05",
+      "act_index": 1,
+      "title": {
+        "es": "05 · Espectro de la Vía Láctea · Del sistema solar al borde galáctico",
+        "en": "05 · Espectro de la Vía Láctea · Del sistema solar al borde galáctico",
+        "fi": "05 · Espectro de la Vía Láctea · Del sistema solar al borde galáctico"
+      },
+      "beats": [
+        {
+          "beat_id": "exp05_z000_frontier",
+          "pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 20.35,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 20.5,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 5,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp05_z000_f000",
+          "pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 20.35,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 20.5,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 5,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp05_z001_heliosphere",
+          "pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 20.35,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 20.5,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 5,
+            "zone_index": 1,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp05_z001_f000",
+          "pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 20.35,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_05",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 20.5,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 5,
+            "zone_index": 1,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_21",
+      "act_index": 1,
+      "title": {
+        "es": "21 · Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre",
+        "en": "21 · Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre",
+        "fi": "21 · Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre"
+      },
+      "beats": [
+        {
+          "beat_id": "exp21_z000_unknown-horizon",
+          "pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              0.2630880551362793,
+              0.8017305336397498,
+              2.3722278831640438
+            ],
+            "scale_exp": 17.85,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              -0.35,
+              0.0,
+              0.25
+            ],
+            "scale_exp": 18.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 21,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp21_z000_f000",
+          "pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              0.0282883744457893,
+              0.494684797352186,
+              1.5594597576969629
+            ],
+            "scale_exp": 17.85,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              -0.35,
+              0.0,
+              0.25
+            ],
+            "scale_exp": 18.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 21,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_22",
+      "act_index": 1,
+      "title": {
+        "es": "22 · Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones",
+        "en": "22 · Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones",
+        "fi": "22 · Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones"
+      },
+      "beats": [
+        {
+          "beat_id": "exp22_z000_unexplained-signal",
+          "pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              1.0130880551362793,
+              0.8517305336397498,
+              1.8222278831640437
+            ],
+            "scale_exp": 18.450000000000003,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              0.4,
+              0.05,
+              -0.3
+            ],
+            "scale_exp": 18.6,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 22,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp22_z000_f000",
+          "pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              0.7782883744457894,
+              0.544684797352186,
+              1.0094597576969628
+            ],
+            "scale_exp": 18.450000000000003,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.138035017029287,
+              0.024274320858744137,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_21",
+            "local_pos": [
+              0.4,
+              0.05,
+              -0.3
+            ],
+            "scale_exp": 18.6,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 22,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_07",
+      "act_index": 1,
+      "title": {
+        "es": "07 · Espectro de Laniakea: del Grupo Local al Gran Atractor",
+        "en": "07 · Espectro de Laniakea: del Grupo Local al Gran Atractor",
+        "fi": "07 · Espectro de Laniakea: del Grupo Local al Gran Atractor"
+      },
+      "beats": [
+        {
+          "beat_id": "exp07_z000_local-group-limit",
+          "pose": {
+            "sector": "EXP_07",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 23.650000000000002,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_07",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 23.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 7,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp07_z000_f000",
+          "pose": {
+            "sector": "EXP_07",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 23.650000000000002,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_07",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 23.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 7,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_09",
+      "act_index": 1,
+      "title": {
+        "es": "09 · Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico",
+        "en": "09 · Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico",
+        "fi": "09 · Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico"
+      },
+      "beats": [
+        {
+          "beat_id": "exp09_z000_large-scale-structure",
+          "pose": {
+            "sector": "EXP_09",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 26.25,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_09",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 26.4,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 9,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp09_z000_f000",
+          "pose": {
+            "sector": "EXP_09",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 26.25,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_09",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 26.4,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 9,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_13",
+      "act_index": 1,
+      "title": {
+        "es": "13 · Espectro de la Materia y la Energía: de los Átomos a los Campos Cuánticos",
+        "en": "13 · Espectro de la Materia y la Energía: de los Átomos a los Campos Cuánticos",
+        "fi": "13 · Espectro de la Materia y la Energía: de los Átomos a los Campos Cuánticos"
+      },
+      "beats": [
+        {
+          "beat_id": "exp13_z000_residual",
+          "pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": -11.15,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -11.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 13,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "ScaleDiveCruise",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "LogScaleHyperDive",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp13_z000_f000",
+          "pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": -11.15,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -11.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 13,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp13_z003_atoms",
+          "pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": -11.15,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -11.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 13,
+            "zone_index": 3,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp13_z003_f000",
+          "pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": -11.15,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_13",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -11.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 13,
+            "zone_index": 3,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_14",
+      "act_index": 1,
+      "title": {
+        "es": "14 · Espectro del Espacio-Tiempo: de la Relatividad a la Gravedad Cuántica",
+        "en": "14 · Espectro del Espacio-Tiempo: de la Relatividad a la Gravedad Cuántica",
+        "fi": "14 · Espectro del Espacio-Tiempo: de la Relatividad a la Gravedad Cuántica"
+      },
+      "beats": [
+        {
+          "beat_id": "exp14_z000_frontier",
+          "pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": -30.15,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -30.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 14,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "ScaleDiveCruise",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "LogScaleHyperDive",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp14_z000_f000",
+          "pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": -30.15,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -30.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 14,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp14_z004_spacetime",
+          "pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": -30.15,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -30.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 14,
+            "zone_index": 4,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp14_z004_f000",
+          "pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": -30.15,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_14",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -30.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 14,
+            "zone_index": 4,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_16",
+      "act_index": 1,
+      "title": {
+        "es": "16 · Espectro de la Vida: de la Primera Célula a la Conciencia",
+        "en": "16 · Espectro de la Vida: de la Primera Célula a la Conciencia",
+        "fi": "16 · Espectro de la Vida: de la Primera Célula a la Conciencia"
+      },
+      "beats": [
+        {
+          "beat_id": "exp16_z000_threshold",
+          "pose": {
+            "sector": "EXP_16",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": -1.15,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_16",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -1.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 16,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "ScaleDiveCruise",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "LogScaleHyperDive",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp16_z000_f000",
+          "pose": {
+            "sector": "EXP_16",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": -1.15,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_16",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": -1.0,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 16,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_17",
+      "act_index": 1,
+      "title": {
+        "es": "17 · Espectro de la Mente: de la Percepción al Pensamiento",
+        "en": "17 · Espectro de la Mente: de la Percepción al Pensamiento",
+        "fi": "17 · Espectro de la Mente: de la Percepción al Pensamiento"
+      },
+      "beats": [
+        {
+          "beat_id": "exp17_z000_consciousness",
+          "pose": {
+            "sector": "EXP_17",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 2.65,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_17",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 2.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 17,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "ScaleDiveCruise",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "LogScaleHyperDive",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp17_z000_f000",
+          "pose": {
+            "sector": "EXP_17",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 2.65,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_17",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 2.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 17,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_18",
+      "act_index": 1,
+      "title": {
+        "es": "18 · Espectro de la Cultura: del Conocimiento Compartido a la Civilización",
+        "en": "18 · Espectro de la Cultura: del Conocimiento Compartido a la Civilización",
+        "fi": "18 · Espectro de la Cultura: del Conocimiento Compartido a la Civilización"
+      },
+      "beats": [
+        {
+          "beat_id": "exp18_z000_shared-knowledge",
+          "pose": {
+            "sector": "EXP_18",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 6.05,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_18",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 18,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "ScaleDiveCruise",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "LogScaleHyperDive",
+            "duration_sec": 1.9,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp18_z000_f000",
+          "pose": {
+            "sector": "EXP_18",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 6.05,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_18",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 6.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 18,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_20",
+      "act_index": 1,
+      "title": {
+        "es": "20 · Espectro de los Futuros: de la Civilización Planetaria al Destino Cósmico",
+        "en": "20 · Espectro de los Futuros: de la Civilización Planetaria al Destino Cósmico",
+        "fi": "20 · Espectro de los Futuros: de la Civilización Planetaria al Destino Cósmico"
+      },
+      "beats": [
+        {
+          "beat_id": "exp20_z000_technological-futures",
+          "pose": {
+            "sector": "EXP_20",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 11.65,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_20",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 20,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp20_z000_f000",
+          "pose": {
+            "sector": "EXP_20",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 11.65,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "EXP_20",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 11.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 20,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_exp_25",
+      "act_index": 1,
+      "title": {
+        "es": "25 · Espectro del Horizonte Final: del Propósito Cósmico a los Límites de la Existencia",
+        "en": "25 · Espectro del Horizonte Final: del Propósito Cósmico a los Límites de la Existencia",
+        "fi": "25 · Espectro del Horizonte Final: del Propósito Cósmico a los Límites de la Existencia"
+      },
+      "beats": [
+        {
+          "beat_id": "exp25_z000_incomplete-history",
+          "pose": {
+            "sector": "HYPER_LOTUS_25_HORIZON",
+            "local_pos": [
+              0.6130880551362793,
+              0.8017305336397498,
+              2.1222278831640438
+            ],
+            "scale_exp": 28.05,
+            "orient_xyzw": [
+              -0.17148902761405196,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "HYPER_LOTUS_25_HORIZON",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 28.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 25,
+            "zone_index": 0,
+            "feature_index": null,
+            "is_macro_zoomed_out": true
+          },
+          "motion": {
+            "kind": "HelicalAscent",
+            "yaw_deg_per_sec": 5.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.08,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.4,
+            "max_dwell_sec": 16.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 2.8,
+            "narration_lead_sec": 0.35
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp25_z000_f000",
+          "pose": {
+            "sector": "HYPER_LOTUS_25_HORIZON",
+            "local_pos": [
+              0.3782883744457893,
+              0.494684797352186,
+              1.3094597576969629
+            ],
+            "scale_exp": 28.05,
+            "orient_xyzw": [
+              -0.171489027614052,
+              0.13803501702928694,
+              0.02427432085874413,
+              0.9751659370735619
+            ]
+          },
+          "look_at_pose": {
+            "sector": "HYPER_LOTUS_25_HORIZON",
+            "local_pos": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "scale_exp": 28.2,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 25,
+            "zone_index": 0,
+            "feature_index": 0,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 6.2,
+            "pitch_wave_deg": 2.1,
+            "scale_breathing_du": 0.06,
+            "orbit_radius_factor": 0.38,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 2.0,
+            "max_dwell_sec": 12.0
+          },
+          "transition_in": {
+            "kind": "CatmullRomScaleSpline",
+            "duration_sec": 1.45,
+            "narration_lead_sec": 0.3
+          },
+          "caption_hint": null
+        }
+      ]
+    },
+    {
+      "id": "highlights_color_music",
+      "act_index": 4,
+      "title": {
+        "es": "01–02 · Prisma Cromático y Arpa Armónica",
+        "en": "01–02 · Chromatic Prism & Harmonic Harp",
+        "fi": "01–02 · Väriprisma ja Harmoninen Harppu"
+      },
+      "beats": [
+        {
+          "beat_id": "exp01_color_key_000",
+          "pose": {
+            "sector": "COLORS_PRISM",
+            "local_pos": [
+              0.8670974017355029,
+              -1.6254780762720347,
+              0.38605663620914565
+            ],
+            "scale_exp": -0.4,
+            "orient_xyzw": [
+              0.3311854227127791,
+              0.5003745714792331,
+              -0.21507432826600603,
+              0.7705092714046068
+            ]
+          },
+          "look_at_pose": {
+            "sector": "COLORS_PRISM",
+            "local_pos": [
+              0.14417574412515527,
+              -0.7910400000000001,
+              0.06419117701022278
+            ],
+            "scale_exp": -0.4,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "ChromaticKey",
+            "key_index": 0,
+            "rgb": [
+              255,
+              72,
+              48
+            ]
+          },
+          "motion": {
+            "kind": "OrbitalParallax",
+            "yaw_deg_per_sec": 7.0,
+            "pitch_wave_deg": 2.0,
+            "scale_breathing_du": 0.04,
+            "orbit_radius_factor": 0.4,
+            "max_sentences_per_vantage": 1,
+            "min_dwell_sec": 1.5,
+            "max_dwell_sec": 6.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 0.95,
+            "narration_lead_sec": 0.25
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "exp02_midi_69_t2",
+          "pose": {
+            "sector": "MUSIC_HARP",
+            "local_pos": [
+              -0.3576345725932386,
+              0.57,
+              1.2975483453111676
+            ],
+            "scale_exp": 0.1,
+            "orient_xyzw": [
+              -0.15957108974012996,
+              0.11066428360205531,
+              0.018004528566730946,
+              0.9807988175997568
+            ]
+          },
+          "look_at_pose": {
+            "sector": "MUSIC_HARP",
+            "local_pos": [
+              -0.5976345725932386,
+              0.21,
+              0.2475483453111675
+            ],
+            "scale_exp": 0.1,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "MusicFilament",
+            "midi": 69,
+            "timbre_idx": 2
+          },
+          "motion": {
+            "kind": "FigureEightShowcase",
+            "yaw_deg_per_sec": 6.5,
+            "pitch_wave_deg": 1.8,
+            "scale_breathing_du": 0.04,
+            "orbit_radius_factor": 0.35,
+            "max_sentences_per_vantage": 1,
+            "min_dwell_sec": 1.7,
+            "max_dwell_sec": 7.0
+          },
+          "transition_in": {
+            "kind": "ContinuousOrbitBridge",
+            "duration_sec": 0.9,
+            "narration_lead_sec": 0.2
+          },
+          "caption_hint": null
+        }
+      ]
+    }
+  ]
+}
