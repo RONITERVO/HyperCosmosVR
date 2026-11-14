@@ -15,9 +15,10 @@
 
 | If you are evaluating or working on... | Jump directly to... |
 | :--- | :--- |
-| **Product / Education / Content (Non-Technical)** | [Verified Facts at a Glance](#verified-facts-at-a-glance) · [Quick Start (2 Minutes)](#quick-start-windows-x64) · [Controls](#controls-desktop--vr) · [Guided Tours & Recording](docs/JOURNEY_PLUGINS.md) · [Adaptation Guide](docs/CUSTOMIZATION.md) |
-| **Visual Design & UX** | [Visual Gallery (OLED Verified)](#visual-gallery-verified-headless-rtx-5070-renders) · [Zero-2D-UI Design](docs/universe_architecture.md) · [Font Swapping](assets/fonts/README.md) |
-| **Engineering (Graphics, VR, Audio, Data)** | [11-Crate Architecture](#11-crate-workspace-architecture) · [Journey Plugin Contract](docs/JOURNEY_PLUGINS.md) · [Shader Contracts](shaders/SHADER_CONTRACTS.md) · [Platform Spec](docs/platform_spec.md) · [Catalog Spec](docs/catalog_spec.md) |
+| **Product / Education / Execs (Non-Technical)** | [Verified Facts (Verify Without AI)](#verified-facts-at-a-glance) · [Quick Start (2 Minutes)](#quick-start-windows-x64) · [Fast Adaptation Matrix](#adapting--customizing-hypercosmosvr) · [What Ships vs. Planned](CONTRIBUTING.md#4-visual-expansion-roadmap--claimable-work-packages) |
+| **Visual Design & UX** | [Visual Gallery (OLED Verified)](#visual-gallery-verified-headless-rtx-5070-renders) · [Visual Expansion Roadmap](docs/CONTRIBUTOR_VISUAL_ROADMAP.md) · [Zero-2D-UI Design](docs/universe_architecture.md) · [Font Swapping](assets/fonts/README.md) |
+| **Engineering (Graphics, VR, Audio, Data)** | [11-Crate Architecture](#11-crate-workspace-architecture) · [Visual Roadmap & 88 Packages](docs/CONTRIBUTOR_VISUAL_ROADMAP.md) · [Journey Plugin Contract](docs/JOURNEY_PLUGINS.md) · [Shader Contracts](shaders/SHADER_CONTRACTS.md) · [Platform Spec](docs/platform_spec.md) · [Catalog Spec](docs/catalog_spec.md) |
+| **Contributors (Code & Non-Code Tracks)** | [Visual Expansion Roadmap](docs/CONTRIBUTOR_VISUAL_ROADMAP.md) · [Claimable Work Packages](#visual-expansion-roadmap--claimable-work-packages) · [Contributing Guide](CONTRIBUTING.md) |
 | **Corporate Legal / Security / Supply Chain** | [License & Compliance](#license-supply-chain--attribution) · [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) · [`SECURITY.md`](SECURITY.md) |
 
 ---
@@ -40,6 +41,21 @@ Everything in this table reflects directly measured outputs, file sizes, compile
 | **Verified Platform Scope** | Built & verified on **Windows 11 x64 (`x86_64-pc-windows-msvc`), AMD Ryzen 9 7950X, NVIDIA RTX 5070 (DX12 `DynamicDxc`), OpenXR static loader (`SteamVR` / `Oculus` / `VirtualDesktopXR`)** | `docs/platform_spec.md` |
 
 > **Scope Honesty Note:** Linux/macOS targets, non-DX12 GPUs, and live optical tests inside physical HMDs beyond the OpenXR runtime & DX12 stereo swapchain pipeline are **not** verified in CI. GitHub Actions CI runs `cargo clippy --workspace --all-targets -- -D warnings` plus hardware-independent unit and `.hcvb` schema tests on `windows-latest`, while GPU rendering and 18,898-MP3 verification run locally on Discrete DX12 hardware.
+
+<details>
+<summary><b>How to Fact-Check Any Claim Yourself in 10 Seconds (No AI Required)</b></summary>
+
+Every metric in the table above maps directly to an inspectable file or one-line command:
+1. **Verify `25` experiences, `376` zones, `2,456` features & `18,898` audio assets** directly from `assets/baked/universe_catalog.v1.json`:
+   ```powershell
+   python -c "import json; d=json.load(open('assets/baked/universe_catalog.v1.json',encoding='utf-8')); z=[z for e in d['experiences'] for z in e['zones']]; f=[ft for x in z for ft in x['features']]; print('experiences=',len(d['experiences']),'zones=',len(z),'features=',len(f),'audio=',len(d['audio_assets']))"
+   ```
+2. **Verify RTX 5070 frame timings (`min 0.852 ms`, `mean 1.927 ms`, `518.9 FPS`)**: inspect [`artifacts/verification_renders/benchmark_sweep.txt`](artifacts/verification_renders/benchmark_sweep.txt) or re-run `Start-HyperCosmosVR.cmd --headless-render .\artifacts\check_renders --benchmark-sweep`.
+3. **Verify visual OLED black coverage (`43` PNGs, no external tooling needed)**: browse [`artifacts/verification_renders/`](artifacts/verification_renders/) right on GitHub.
+4. **Verify all `88` claimable visual roadmap cards (`3` Core P0 + `85` content)**: run `(Select-String -Path docs/CONTRIBUTOR_VISUAL_ROADMAP.md, docs/roadmap/ACT_*.md -Pattern '<a id="pkg-[^"]+">').Count`.
+5. **Verify third-party licensing (`MIT OR Apache-2.0` workspace, `MPL-2.0` `symphonia`) & zero committed `.ttf`/`.otf` fonts**: check [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and `git ls-files *.ttf *.otf` (empty).
+
+</details>
 
 ---
 
@@ -162,14 +178,15 @@ cosmos_app.exe [OPTIONS]
 
 ## Adapting & Customizing HyperCosmosVR
 
-Need to brand fonts, author guided museum tours without writing code, adjust narration timings, deploy to a kiosk without internet access, or rebuild the universe catalog from your own content fork?
+Need to use the app fast in a classroom, museum kiosk, or executive demo — or adapt narration, branding, routes, and camera feel without reading `11` Rust crates? Use **[docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md)** and **[docs/JOURNEY_PLUGINS.md](docs/JOURNEY_PLUGINS.md)**:
 
-See **[docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md)** and **[docs/JOURNEY_PLUGINS.md](docs/JOURNEY_PLUGINS.md)** for step-by-step recipes:
-- Author, share, or drop in custom tours via [`assets/journeys/cosmic_highlights_tour.hcj.json`](assets/journeys/cosmic_highlights_tour.hcj.json), in-game 3D recording, or `--journey <id|path|uri> --autoplay-journey`.
-- Swap display & UI fonts cleanly ([`assets/fonts/README.md`](assets/fonts/README.md)) without editing shaders or code.
-- Point the binary at an external asset folder via `HYPERCOSMOS_ROOT`.
-- Tune Rest-to-Learn dwell thresholds (`FsmConfig`), cold-start pose (`COLD_START_SCALE_EXP`), or per-experience HDR accents (`experience_accent_linear`).
-- Re-bake `.hcvb`, `.hcvp`, and `.v1.json` from custom upstream directories via `tools/bake_universe.py --sqa-root ... --sqaa-root ...`.
+| What you want to adapt | Requires recompile? | Exact lever / file |
+| :--- | :--- | :--- |
+| **Caption language (`EN`/`FI`), speed (`1.0×–3.0×`), or desktop/kiosk launch** | **No** (Runtime / CLI) | Press `L`, `[` / `]` (`-`/`=`), or use `--desktop --hdr-surface --journey <id\|path\|uri> --autoplay-journey` |
+| **Record, edit, or share a custom 3D tour (`user_journeys/`)** | **No** (In-app + JSON) | `R` (`+WPT`) / `Shift+R` (`TRACE`) -> `Ctrl+S`/`F9` (`SHARE`), or drop/edit [`assets/journeys/cosmic_highlights_tour.hcj.json`](assets/journeys/cosmic_highlights_tour.hcj.json) |
+| **Brand typography, offline deployment, or visual-only mode** | **No** (Assets / Env) | Replace 5 `.ttf`s in [`assets/fonts/`](assets/fonts/README.md) (clear `assets/baked/msdf_cache/`), set `$env:HYPERCOSMOS_ROOT`, or omit `universe_audio.hcvp` |
+| **Custom script text, translations, or MP3 recordings** | **No Rust** (Python baker) | `python tools/bake_universe.py --sqa-root <path> --sqaa-root <path>` + `cargo test -p cosmos_manifest` |
+| **Starting Earth altitude, narration dwell time, or HDR glow** | **Yes** (`1`-constant edit) | `COLD_START_SCALE_EXP` (`flight.rs`), `FsmConfig` (`fsm.rs`), `ElasticOverrideConfig` (`elastic.rs`), `experience_accent_linear` (`universe_scene.rs`) |
 
 ---
 
@@ -218,6 +235,26 @@ cargo test --workspace -- --test-threads=1
 ```
 
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for full setup, PR review standards, and shader guidelines.
+
+---
+
+## Visual Expansion Roadmap & Claimable Work Packages
+
+**What works today vs. why we have a Visual Expansion Roadmap:** All **25 experiences**, **376 zones**, **2,456 features**, interactive sensory labs (`01_colors`, `02_music`), `18,898` bilingual audio assets, Desktop HDR, OpenXR VR, and the automated 5-act `grand_cosmic_odyssey` tour **already build, launch, and render in 3D today** (`RTX 5070` `1600×900` baseline: `mean = 1.927 ms / 518.9 FPS`). However, our north-star educational bar is **1:1 muted / language-free comprehension** (a viewer with audio off understands every spoken sentence directly from bespoke 3D animation). Under that strict bar, current runtime visuals sit at **`0` Tier-A / `106` Tier-B / `142` Tier-C / `128` Tier-D zones** (`0 / 396 / 865 / 1,195` features) because many neighboring topics still share domain shaders, cycle modulo (`sc % N`) variants, or lack per-sentence (`doc_feat`) choreography.
+
+To let both **engineering contributors** (Rust/WGSL) and **non-technical domain contributors** (curators, educators, visual designers) collaborate without merge conflicts, we pre-split all visual upgrades into **`88` self-contained 1-PR packages** (`3` Core Pipeline P0 packages + `85` zone packages of `3–5` zones each) in **[`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md)**, following runtime **`ODYSSEY_ACTS`** order (`crates/cosmos_journey/src/odyssey.rs`):
+
+| Scope | Experiences (`ODYSSEY_ACTS`) | Zones | Features | Packages | Gap Map |
+|---|---|---:|---:|---:|---|
+| **Core P0** | Pipeline ID dispatch (`1100..=3869`), `cue_tags`/`doc_feat`/`field_grid_tex`, catalog & CI gate | — | — | `3` | [`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md#core-pipeline-p0-packages) |
+| **Act I** | `03_deep_earth` -> `04_solar_system` | `26` | `130` | `6` | [`docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md`](docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) |
+| **Act II** | `05` -> `21` -> `22` -> `06` -> `07` -> `08` -> `09` -> `10` | `116` | `684` | `26` | [`docs/roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md`](docs/roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) |
+| **Act III** | `13_matter_energy` -> `14_spacetime` | `27` | `187` | `7` | [`docs/roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md`](docs/roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md) |
+| **Act IV** | `15_complexity` -> `16_life` -> `17_mind` -> `01_colors` -> `02_music` | `53` *(+01, 02)* | `417` | `14` | [`docs/roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md`](docs/roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md) |
+| **Act V** | `18` -> `19` -> `20` -> `11` -> `12` -> `23` -> `24` -> `25` | `154` | `1,038` | `32` | [`docs/roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md`](docs/roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) |
+| **TOTAL** | **`01..25` (`5` Odyssey Acts + Core P0)** | **`376`** | **`2,456`** | **`88`** | **[Master 88-Package Index](docs/CONTRIBUTOR_VISUAL_ROADMAP.md#complete-88-package-master-index)** |
+
+Each Pick-Up Card includes current `doc_stages.rs` / WGSL state, bilingual transcripts for every feature, reserved shader IDs (`1100..=3599` + companions `3600..=3869`), 3D procedural visual blueprints, and a collapsible AI Sub-Prompt enforcing the PR acceptance gates (**`>= 50.91%` `#000000`** OLED void up from the `50.9004%` checked-in baseline floor, **`0.0000%` blowout**, and **`<= 28` raymarch steps**). See **[`CONTRIBUTING.md`](CONTRIBUTING.md#4-visual-expansion-roadmap--claimable-work-packages)** for the conflict-free claiming flow for both corporate teams and solo contributors.
 
 ---
 
