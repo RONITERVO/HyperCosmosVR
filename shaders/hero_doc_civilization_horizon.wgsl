@@ -18,6 +18,9 @@ fn ch_parabolic_dish_sdf(p: vec3<f32>, radius: f32, depth: f32) -> f32 {
 }
 
 fn ch_exp_and_sub(vid: u32) -> vec2<u32> {
+    if (doc_is_canonical_zone_vid(vid)) {
+        return vec2<u32>(doc_vid_exp(vid), doc_vid_zone(vid));
+    }
     if (vid >= 100u) {
         return vec2<u32>(vid / 10u, vid % 10u);
     }

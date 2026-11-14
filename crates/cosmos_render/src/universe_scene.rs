@@ -22,6 +22,9 @@ pub struct DocumentaryFocusState {
     pub narration_active_weight: f32, // [0..1] active narration glow
     pub zone_accent_rgb: [f32; 3],    // linear HDR active zone accent
     pub telemetry: [f32; 4],          // domain params (01: [H,S,L,mat]; 02: [midi,timbre,freq,amp]; 03..25: [range0,range1,phys0,phys1])
+    pub cue_tags_mask: u8,            // 6-bit semantic narration cue mask packed into base_flags[2..8]
+    pub submode_override: u8,         // optional narration submode override (used when caller passes submode == 0)
+    pub emphasis_boost: f32,          // [0..1] spotlight weight modulation from SegmentVisualHint
 }
 
 impl Default for DocumentaryFocusState {
@@ -34,6 +37,9 @@ impl Default for DocumentaryFocusState {
             narration_active_weight: 0.0,
             zone_accent_rgb: [0.0; 3],
             telemetry: [0.0; 4],
+            cue_tags_mask: 0,
+            submode_override: 0,
+            emphasis_boost: 1.0,
         }
     }
 }

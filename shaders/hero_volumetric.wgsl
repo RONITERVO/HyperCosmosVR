@@ -86,7 +86,8 @@ fn fs_hero_surface(in: HeroVsOut) -> SurfaceFsOut {
         let core_hit = intersect_sphere(ro, rd, 0.26);
         let p_core = ro + rd * max(core_hit.x, 0.0);
         if (core_hit.y > 0.0 && core_hit.x > 0.0) {
-            let z_idx = doc_zone(inst);
+            let raw_vid = inst.kind_tags.y;
+            let z_idx = select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid));
             let inner_hi = select(1.0, 1.5, z_idx == 13u);
             let cryst = fbm3(p_core * 14.0 + vec3<f32>(time * 0.18), 3);
             col = blackbody_rgb(5400.0 + cryst * 600.0) * (1.85 + u_audio.levels_a.z * 0.65) * inner_hi;
