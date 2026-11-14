@@ -1,5 +1,5 @@
 use cosmos_manifest::{
-    Locale, MetricMode, PhraseTriple, UnitKind, UniverseCatalog, ZoneRecord,
+    rgb_to_hsl, Locale, MetricMode, PhraseTriple, UnitKind, UniverseCatalog, ZoneRecord,
 };
 use cosmos_spatial::{hsl_to_prism_local, prism_local_to_hsl, EntityKind, VisibleEntity};
 use glam::DVec3;
@@ -346,6 +346,16 @@ pub enum TargetFocus {
         cross_norm: f32,
         is_macro_zoomed_out: bool,
     },
+    /// App `01` exact catalog color lexicon entry with representative sRGB tint.
+    ChromaticKey {
+        key_index: u16,
+        rgb: [u8; 3],
+    },
+    /// Any experience (`01..=25`) exact lexicon entry by `app_key_entries(experience_id)` index.
+    LexiconKey {
+        experience_id: u8,
+        key_index: u16,
+    },
 }
 
 impl TargetFocus {
@@ -404,6 +414,8 @@ impl TargetFocus {
 pub enum ResolverError {
     #[error("experience {0} does not have zone index {1}")]
     MissingZone(u8, u16),
+    #[error("experience {0} does not have lexicon key index {1}")]
+    MissingKeyEntry(u8, u16),
     #[error("experience {0} has no catalog zones")]
     EmptyExperienceZones(u8),
     #[error("unknown experience id {0} (expected 1..=25)")]
@@ -477,27 +489,79 @@ impl TargetResolver {
                 };
                 Ok(self.resolve_zone(catalog, zone, feat_idx, *is_macro_zoomed_out))
             }
+            TargetFocus::ChromaticKey { key_index, rgb } => {
+                self.resolve_chromatic_key(catalog, *key_index, *rgb)
+            }
+            TargetFocus::LexiconKey {
+                experience_id,
+                key_index,
+            } => self.resolve_lexicon_key(catalog, *experience_id, *key_index),
         }
     }
 
     fn resolve_color(&self, catalog: &UniverseCatalog, rgb: [u8; 3]) -> NarrationPlan {
         let solved = catalog.solve_color(rgb[0], rgb[1], rgb[2]);
+        self.build_chromatic_plan(
+            catalog,
+            &solved.name,
+            solved.hsl.h,
+            solved.hsl.s,
+            solved.hsl.l,
+            rgb,
+            solved.triple,
+        )
+    }
+
+    fn resolve_chromatic_key(
+        &self,
+        catalog: &UniverseCatalog,
+        key_index: u16,
+        rgb: [u8; 3],
+    ) -> Result<NarrationPlan, ResolverError> {
+        let entry = catalog
+            .app_key_entries(1)
+            .get(key_index as usize)
+            .ok_or(ResolverError::MissingKeyEntry(1, key_index))?;
+        let key_name = catalog.str_slice(entry.key).to_owned();
+        let hsl = rgb_to_hsl(rgb[0], rgb[1], rgb[2]);
+        Ok(self.build_chromatic_plan(
+            catalog,
+            &key_name,
+            hsl.h,
+            hsl.s,
+            hsl.l,
+            rgb,
+            entry.triple,
+        ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn build_chromatic_plan(
+        &self,
+        catalog: &UniverseCatalog,
+        display_name: &str,
+        h_deg: f64,
+        s: f64,
+        l: f64,
+        rgb: [u8; 3],
+        triple: PhraseTriple,
+    ) -> NarrationPlan {
         let mut seg = segment_from_triple(
             catalog,
             "color-name",
             SegmentRole::Item,
-            Some(&solved.name),
-            solved.triple,
+            Some(display_name),
+            triple,
         );
         if seg.display_text.is_empty() {
-            seg.display_text = solved.name.clone();
+            seg.display_text = display_name.to_owned();
         }
-        let mat_class = classify_chromatic_material(solved.hsl.h, solved.hsl.s, solved.hsl.l);
+        let mat_class = classify_chromatic_material(h_deg, s, l);
         let chromatic = ChromaticVisualHint {
             rgb,
-            hue_deg: solved.hsl.h as f32,
-            saturation: solved.hsl.s as f32,
-            lightness: solved.hsl.l as f32,
+            hue_deg: h_deg as f32,
+            saturation: s as f32,
+            lightness: l as f32,
             material_class: mat_class,
         };
         let telemetry = [
@@ -531,6 +595,58 @@ impl TargetResolver {
             &[],
         );
         plan
+    }
+
+    fn resolve_lexicon_key(
+        &self,
+        catalog: &UniverseCatalog,
+        experience_id: u8,
+        key_index: u16,
+    ) -> Result<NarrationPlan, ResolverError> {
+        let exp = catalog
+            .experience(experience_id)
+            .ok_or(ResolverError::UnknownExperience(experience_id))?;
+        let entry = catalog
+            .app_key_entries(experience_id)
+            .get(key_index as usize)
+            .ok_or(ResolverError::MissingKeyEntry(experience_id, key_index))?;
+        let key_str = catalog.str_slice(entry.key);
+        let seg = segment_from_triple(
+            catalog,
+            "lexicon-item",
+            SegmentRole::Item,
+            Some(key_str),
+            entry.triple,
+        );
+        let zone_accent = catalog
+            .zones(experience_id)
+            .first()
+            .map_or([160, 210, 255], |z| z.color_rgb);
+        let exp_title = catalog.str_slice(exp.title);
+        let footer = if exp_title.is_empty() {
+            None
+        } else {
+            Some(format!("{experience_id:02} · {exp_title}"))
+        };
+        let mut plan = NarrationPlan {
+            experience_id,
+            zone_index: u16::MAX,
+            feature_index: None,
+            scene_index: catalog
+                .zones(experience_id)
+                .first()
+                .map_or(-1, |z| z.scene_index),
+            region_id: format!("{experience_id:02}:lexicon:{key_index}"),
+            accent_rgb: zone_accent,
+            zone_accent_linear_rgb: srgb_to_linear_hdr(zone_accent),
+            telemetry: [experience_id as f32, key_index as f32, 0.0, 0.0],
+            is_macro_overview: false,
+            footer_banner: footer,
+            music_trigger: None,
+            segments: vec![seg],
+        };
+        populate_segment_visual_hints(&mut plan, Some(key_str), None, None, None, None, &[]);
+        Ok(plan)
     }
 
     fn resolve_music(
@@ -1547,5 +1663,42 @@ mod tests {
             assert!(s.active_zone_index < u16::MAX);
             assert!(!s.cue_tags.is_empty());
         }
+    }
+
+    #[test]
+    fn chromatic_key_and_lexicon_key_cover_all_entries() {
+        let catalog = load_real_catalog();
+        let resolver = TargetResolver::default();
+        let color_entries = catalog.app_key_entries(1);
+        assert_eq!(color_entries.len(), 130);
+        for idx in 0..color_entries.len() {
+            let plan = resolver
+                .resolve(
+                    &catalog,
+                    &TargetFocus::ChromaticKey {
+                        key_index: idx as u16,
+                        rgb: [200, 120, 80],
+                    },
+                )
+                .unwrap();
+            assert_eq!(plan.experience_id, 1);
+            assert_eq!(plan.segments.len(), 1);
+            assert!(plan.segments[0].assets.es.is_some());
+            assert!(plan.segments[0].assets.en.is_some());
+            assert!(plan.segments[0].assets.fi.is_some());
+        }
+
+        let lex_plan = resolver
+            .resolve(
+                &catalog,
+                &TargetFocus::LexiconKey {
+                    experience_id: 4,
+                    key_index: 0,
+                },
+            )
+            .unwrap();
+        assert_eq!(lex_plan.experience_id, 4);
+        assert_eq!(lex_plan.segments.len(), 1);
+        assert!(lex_plan.segments[0].assets.es.is_some());
     }
 }

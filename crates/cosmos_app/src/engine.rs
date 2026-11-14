@@ -1,7 +1,13 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
 use cosmos_audio::{AudioEngine, AudioOutputMode};
+use cosmos_journey::{
+    BeatTargetSelector, ExportedJourneyPaths, JourneyDirector, JourneyPlayState, JourneyRecorder,
+    JourneyRegistry, LocalizedTitle, ManualOverrideInput, PeripheralChoice,
+    PeripheralPromptVisual,
+};
 use cosmos_manifest::{AudioAssetRecord, Locale, UniverseCatalog};
 use cosmos_math::{smoothstep, SectorId};
 use cosmos_narration::{
@@ -55,6 +61,25 @@ struct ActiveNarrationSession {
     active_music_note_id: Option<u64>,
 }
 
+/// CLI / launcher options controlling Story-Journey selection and autoplay at startup.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LaunchJourneyConfig {
+    pub journey_id_or_path: Option<String>,
+    pub autoplay: bool,
+}
+
+impl LaunchJourneyConfig {
+    pub fn apply(&self, runtime: &mut UniverseRuntime) -> Result<()> {
+        if let Some(ref target) = self.journey_id_or_path {
+            runtime.activate_journey(target, self.autoplay)?;
+        } else if self.autoplay {
+            let def = runtime.journey_registry.default_id().to_owned();
+            runtime.activate_journey(&def, true)?;
+        }
+        Ok(())
+    }
+}
+
 /// Optional deterministic override used by `--headless-render` to freeze mid-narration
 /// SyncVoice live-ink cursor & diegetic wrist ring for crisp automated visual inspection.
 #[derive(Clone, Debug, Default)]
@@ -95,12 +120,18 @@ pub struct UniverseRuntime {
     pub audio: AudioEngine,
     pub typo_layout: TypoLayoutEngine,
     pub scene_builder: UniverseSceneBuilder,
+    pub journey_registry: JourneyRegistry,
+    pub journey_director: Option<JourneyDirector>,
+    pub journey_recorder: JourneyRecorder,
+    pub user_journeys_dir: PathBuf,
+    pub last_recorded_export: Option<ExportedJourneyPaths>,
     pub locale: Locale,
     pub time_sec: f32,
     active_session: Option<ActiveNarrationSession>,
     last_zone_sound_key: Option<(u8, u16)>,
     prev_fsm_kind: FsmStateKind,
     prev_hovered_bead: Option<u32>,
+    active_peripheral_prompt: Option<PeripheralPromptVisual>,
 }
 
 fn signature_zone_slug(experience_id: u8) -> Option<&'static str> {
@@ -156,6 +187,19 @@ impl UniverseRuntime {
             ..Default::default()
         };
 
+        let mut journey_registry = JourneyRegistry::with_builtins();
+        let assets_journeys_dir = assets.root.join("assets").join("journeys");
+        let user_journeys_dir = assets.root.join("user_journeys");
+        let _ = journey_registry.discover_in_directory(&assets_journeys_dir);
+        let _ = journey_registry.discover_in_directory(&user_journeys_dir);
+
+        let default_journey_id = journey_registry.default_id().to_owned();
+        let initial_pose = FlightCamera::earth_low_orbit().pose;
+        let journey_director = journey_registry
+            .resolve(&default_journey_id, &assets.catalog, &assets.spatial)
+            .ok()
+            .and_then(|manifest| JourneyDirector::from_manifest(manifest, initial_pose).ok());
+
         Ok(Self {
             catalog: assets.catalog,
             spatial: assets.spatial,
@@ -169,13 +213,319 @@ impl UniverseRuntime {
             audio,
             typo_layout: TypoLayoutEngine::default(),
             scene_builder: UniverseSceneBuilder::new(),
+            journey_registry,
+            journey_director,
+            journey_recorder: JourneyRecorder::new(),
+            user_journeys_dir,
+            last_recorded_export: None,
             locale: Locale::EnUs,
             time_sec: 0.0,
             active_session: None,
             last_zone_sound_key: None,
             prev_fsm_kind: FsmStateKind::Moving,
             prev_hovered_bead: None,
+            active_peripheral_prompt: None,
         })
+    }
+
+    /// Loads (or replaces) the active Story-Journey by id, `.hcj.json` path, or `hypercosmos://` URI.
+    pub fn activate_journey(&mut self, id_or_path_or_uri: &str, autoplay: bool) -> Result<()> {
+        let manifest =
+            self.journey_registry
+                .resolve(id_or_path_or_uri, &self.catalog, &self.spatial)?;
+        let mut director = JourneyDirector::from_manifest(manifest, self.flight.pose)?;
+        if autoplay {
+            director.start(&self.spatial.tree, &self.flight.pose, 0);
+        }
+        self.wrist_ring.journey_active = director.is_active();
+        self.journey_director = Some(director);
+        Ok(())
+    }
+
+    pub fn is_journey_active(&self) -> bool {
+        self.journey_director
+            .as_ref()
+            .is_some_and(|d| d.is_active())
+    }
+
+    pub fn is_journey_paused_by_leash(&self) -> bool {
+        self.journey_director
+            .as_ref()
+            .is_some_and(|d| d.play_state() == JourneyPlayState::PausedByLeash)
+    }
+
+    pub fn active_peripheral_prompt(&self) -> Option<&PeripheralPromptVisual> {
+        self.active_peripheral_prompt.as_ref()
+    }
+
+    pub fn toggle_journey_play_pause(&mut self) {
+        if let Some(ref mut dir) = self.journey_director {
+            dir.toggle_play_pause(&self.spatial.tree, &self.flight.pose);
+            self.wrist_ring.journey_active = dir.is_active();
+            if !dir.is_active() {
+                self.active_peripheral_prompt = None;
+            }
+        }
+    }
+
+    pub fn journey_next_beat(&mut self) {
+        if let Some(ref mut dir) = self.journey_director {
+            dir.next_beat(&self.spatial.tree, &self.flight.pose);
+            self.wrist_ring.journey_active = dir.is_active();
+        }
+    }
+
+    pub fn journey_prev_beat(&mut self) {
+        if let Some(ref mut dir) = self.journey_director {
+            dir.prev_beat(&self.spatial.tree, &self.flight.pose);
+            self.wrist_ring.journey_active = dir.is_active();
+        }
+    }
+
+    pub fn journey_next_chapter(&mut self) {
+        if let Some(ref mut dir) = self.journey_director {
+            dir.next_chapter(&self.spatial.tree, &self.flight.pose);
+            self.wrist_ring.journey_active = dir.is_active();
+        }
+    }
+
+    pub fn journey_prev_chapter(&mut self) {
+        if let Some(ref mut dir) = self.journey_director {
+            dir.prev_chapter(&self.spatial.tree, &self.flight.pose);
+            self.wrist_ring.journey_active = dir.is_active();
+        }
+    }
+
+    pub fn journey_confirm_follow(&mut self) {
+        if let Some(ref mut dir) = self.journey_director {
+            dir.follow_ghost_back();
+            self.wrist_ring.journey_active = dir.is_active();
+        }
+    }
+
+    pub fn journey_confirm_exit(&mut self) {
+        if let Some(ref mut dir) = self.journey_director
+            && dir.is_active()
+        {
+            let detached = dir.exit_to_free_flight(&self.spatial.tree);
+            self.flight.pose = detached;
+            self.wrist_ring.journey_active = false;
+            self.active_peripheral_prompt = None;
+        }
+    }
+
+    /// Records the current 6DoF camera+scale pose and focused target as a Story-Journey waypoint.
+    pub fn record_manual_waypoint(&mut self) -> usize {
+        let selector = self.current_focus_selector();
+        let count = self
+            .journey_recorder
+            .record_manual_waypoint(&self.flight.pose, selector, None);
+        self.wrist_ring.recorded_waypoint_count = count.min(u16::MAX as usize) as u16;
+        count
+    }
+
+    /// Toggles continuous live flight trace capture (runs 4D log-scale RDP simplification on finish).
+    pub fn toggle_live_trace_recording(&mut self) -> bool {
+        let active = self.journey_recorder.toggle_live_trace(&self.spatial.tree);
+        self.wrist_ring.live_trace_active = active;
+        self.wrist_ring.recorded_waypoint_count =
+            self.journey_recorder.waypoint_count().min(u16::MAX as usize) as u16;
+        active
+    }
+
+    /// Exports recorded waypoints into `user_journeys/<id>.hcj.json` + `.share.txt`, registers it,
+    /// and best-effort copies the `hypercosmos://` URI to the system clipboard for interactive calls.
+    pub fn export_recorded_journey_interactive(&mut self) -> Result<ExportedJourneyPaths> {
+        let exported = self.export_recorded_journey()?;
+        if !cfg!(test) && std::env::var_os("HYPERCOSMOS_NO_CLIPBOARD").is_none() {
+            try_copy_to_clipboard_best_effort(&exported.share_uri);
+        }
+        Ok(exported)
+    }
+
+    /// Deterministically forces the active journey into `PausedByLeash` with peripheral pearls populated.
+    pub fn force_verification_leash_prompt(&mut self, cam_rot: glam::Quat) -> Option<PeripheralPromptVisual> {
+        let dir = self.journey_director.as_mut()?;
+        if !dir.is_active() {
+            dir.start(&self.spatial.tree, &self.flight.pose, 0);
+        }
+        let ovr = ManualOverrideInput {
+            move_local: Vec3::new(0.95, 0.0, 0.0),
+            scale_delta_du: 0.75,
+            ..Default::default()
+        };
+        let mut last_prompt = None;
+        for _ in 0..20 {
+            let out = dir.step(
+                &self.spatial.tree,
+                0.08,
+                &ovr,
+                Vec3::ZERO,
+                cam_rot,
+                None,
+                None,
+                false,
+            );
+            if out.peripheral_prompt.is_some() {
+                last_prompt = out.peripheral_prompt;
+            }
+        }
+        self.active_peripheral_prompt = last_prompt.clone();
+        self.wrist_ring.journey_active = dir.is_active();
+        last_prompt
+    }
+
+    /// Exports recorded waypoints into `user_journeys/<id>.hcj.json` + `.share.txt` and registers it.
+    pub fn export_recorded_journey(&mut self) -> Result<ExportedJourneyPaths> {
+        let seq = self.time_sec.round() as u32;
+        let id = format!("user_journey_{seq:05}");
+        let exported = self.journey_recorder.export_to_directory(
+            &self.spatial.tree,
+            &self.user_journeys_dir,
+            &id,
+            LocalizedTitle::new(
+                format!("Mi Ruta Cósmica #{seq}"),
+                format!("My Cosmic Route #{seq}"),
+                format!("Oma Kosminen Reitti #{seq}"),
+            ),
+            "HyperCosmosVR User",
+        )?;
+        let _ = self.journey_registry.register_file(&exported.json_path);
+        eprintln!(
+            "[HyperCosmosVR] Exported {} beats to '{}' (Share URI saved in '{}')",
+            exported.beat_count,
+            exported.json_path.display(),
+            exported.share_uri_path.display()
+        );
+        self.wrist_ring.live_trace_active = false;
+        self.wrist_ring.recorded_waypoint_count =
+            self.journey_recorder.waypoint_count().min(u16::MAX as usize) as u16;
+        self.last_recorded_export = Some(exported.clone());
+        Ok(exported)
+    }
+
+    fn current_focus_selector(&self) -> BeatTargetSelector {
+        if let Some(ref sess) = self.active_session {
+            return selector_from_plan(&sess.plan);
+        }
+        BeatTargetSelector::None
+    }
+
+    fn step_journey_director_and_recorder(
+        &mut self,
+        override_input: &ManualOverrideInput,
+        cam_rot: glam::Quat,
+        pointer_origin: Option<Vec3>,
+        pointer_dir: Option<Vec3>,
+        pointer_triggered: bool,
+        dt_sec: f32,
+    ) -> Option<BeatTargetSelector> {
+        let selector_now = self.current_focus_selector();
+        self.journey_recorder
+            .step_live_trace(dt_sec, &self.flight.pose, selector_now);
+        self.wrist_ring.live_trace_active = self.journey_recorder.live_trace_active();
+        self.wrist_ring.recorded_waypoint_count =
+            self.journey_recorder.waypoint_count().min(u16::MAX as usize) as u16;
+
+        let mut pending_target = None;
+        if let Some(ref mut dir) = self.journey_director {
+            if dir.is_active() {
+                let prev_scale = self.flight.pose.scale_exp;
+                let step_out = dir.step(
+                    &self.spatial.tree,
+                    dt_sec,
+                    override_input,
+                    Vec3::ZERO,
+                    cam_rot,
+                    pointer_origin,
+                    pointer_dir,
+                    pointer_triggered,
+                );
+                if let Some(detached) = step_out.exited_to_free_flight_pose {
+                    self.flight.pose = detached;
+                    self.active_peripheral_prompt = None;
+                } else if let Some(desired) = step_out.desired_camera_pose {
+                    self.flight.pose = desired;
+                    self.flight.scale_vel =
+                        (self.flight.pose.scale_exp - prev_scale) / dt_sec.max(1e-4) as f64;
+                    self.active_peripheral_prompt = step_out.peripheral_prompt;
+                } else {
+                    self.active_peripheral_prompt = None;
+                }
+                pending_target = step_out.trigger_target;
+            } else {
+                self.active_peripheral_prompt = None;
+            }
+            self.wrist_ring.journey_active = dir.is_active();
+        }
+        pending_target
+    }
+
+    fn trigger_journey_narration_selector(
+        &mut self,
+        selector: &BeatTargetSelector,
+        visible: &[VisibleEntity],
+    ) {
+        let Some(focus) = selector.to_target_focus() else {
+            return;
+        };
+        let target_id = match *selector {
+            BeatTargetSelector::CatalogZone {
+                experience_id,
+                zone_index,
+                feature_index,
+                ..
+            } => TargetIdentity {
+                entity_id: ((experience_id as u64) << 40)
+                    | ((zone_index as u64) << 16)
+                    | (feature_index.unwrap_or(u16::MAX) as u64),
+                experience_id,
+                zone_index,
+                feature_index: feature_index.unwrap_or(u16::MAX),
+            },
+            BeatTargetSelector::ChromaticKey { key_index, .. } => TargetIdentity {
+                entity_id: (1u64 << 40) | (key_index as u64),
+                experience_id: 1,
+                zone_index: u16::MAX,
+                feature_index: key_index,
+            },
+            BeatTargetSelector::ChromaticRgb { rgb } => TargetIdentity {
+                entity_id: (1u64 << 40)
+                    | ((rgb[0] as u64) << 16)
+                    | ((rgb[1] as u64) << 8)
+                    | (rgb[2] as u64),
+                experience_id: 1,
+                zone_index: u16::MAX,
+                feature_index: u16::MAX,
+            },
+            BeatTargetSelector::MusicFilament { midi, timbre_idx } => TargetIdentity {
+                entity_id: (2u64 << 40) | ((midi as u64) << 8) | (timbre_idx as u64),
+                experience_id: 2,
+                zone_index: u16::MAX,
+                feature_index: midi as u16,
+            },
+            BeatTargetSelector::LexiconKey {
+                experience_id,
+                key_index,
+            } => TargetIdentity {
+                entity_id: ((experience_id as u64) << 40) | 0x8000_0000 | (key_index as u64),
+                experience_id,
+                zone_index: u16::MAX,
+                feature_index: key_index,
+            },
+            BeatTargetSelector::None => return,
+        };
+
+        let anchor_pos_cam = visible
+            .iter()
+            .find(|v| {
+                v.experience_id == target_id.experience_id
+                    && (target_id.zone_index == u16::MAX || v.zone_index == target_id.zone_index)
+            })
+            .map(|v| v.pose.pos)
+            .unwrap_or(Vec3::new(0.0, 0.0, -2.5));
+        let surface_dist_m = Some(anchor_pos_cam.length().max(0.5));
+        self.start_narration_from_focus(target_id, focus, anchor_pos_cam, surface_dist_m);
     }
 
     /// Toggles spoken translation locale cleanly between English (`en-US`) and Finnish (`fi-FI`).
@@ -237,11 +587,44 @@ impl UniverseRuntime {
             })
             .or_else(|| Some(FocusTarget::from_ray(hover_ray_cam.as_dvec3(), 3.0, None)));
 
-        let _ = self.flight.step_desktop(
-            &self.spatial,
-            desktop_input,
-            focus_target.as_ref(),
-            dt_sec as f64,
+        let journey_active = self.is_journey_active();
+        if !journey_active {
+            let _ = self.flight.step_desktop(
+                &self.spatial,
+                desktop_input,
+                focus_target.as_ref(),
+                dt_sec as f64,
+            );
+        }
+
+        let orient_pre = self.flight.pose.orient.as_quat();
+        let cam_ray_pre = orient_pre * hover_ray_cam.normalize_or(Vec3::NEG_Z);
+        let manual_override = ManualOverrideInput {
+            move_local: Vec3::new(
+                desktop_input.move_axes.x as f32,
+                desktop_input.move_axes.y as f32,
+                -desktop_input.move_axes.z as f32,
+            ),
+            yaw_delta_rad: if desktop_input.left_drag_active || desktop_input.free_flight_held {
+                -desktop_input.mouse_delta_rad.x
+            } else {
+                0.0
+            },
+            pitch_delta_rad: if desktop_input.left_drag_active || desktop_input.free_flight_held {
+                -desktop_input.mouse_delta_rad.y
+            } else {
+                0.0
+            },
+            scale_delta_du: -desktop_input.scroll_delta * 0.28,
+        };
+        let prompt_click_allowed = self.wrist_ring.hovered_bead_id.is_none();
+        let pending_journey_target = self.step_journey_director_and_recorder(
+            &manual_override,
+            orient_pre,
+            Some(Vec3::ZERO),
+            Some(cam_ray_pre),
+            click_just_pressed && prompt_click_allowed,
+            dt_sec,
         );
 
         let orient = self.flight.pose.orient.as_quat();
@@ -267,7 +650,7 @@ impl UniverseRuntime {
             camera_for_pick.near_plane,
         );
 
-        self.step_common(
+        let pkt = self.step_common(
             &next_camera,
             &wrist_input,
             hover_ray_cam,
@@ -277,7 +660,21 @@ impl UniverseRuntime {
             width,
             height,
             None,
-        )
+        );
+        if let Some(sel) = pending_journey_target {
+            let visible_post = self
+                .spatial
+                .query_visible(
+                    &self.flight.pose,
+                    next_camera.eyes[0].view_proj,
+                    0.05_f32.to_radians(),
+                    Some(256),
+                )
+                .map(|q| q.visible)
+                .unwrap_or_default();
+            self.trigger_journey_narration_selector(&sel, &visible_post);
+        }
+        pkt
     }
 
     /// Advances OpenXR VR stereo frame using exact tracked HMD pose, controller/hand joints, and haptics.
@@ -314,11 +711,40 @@ impl UniverseRuntime {
             })
             .or_else(|| Some(FocusTarget::from_ray(aim_ray_cam.as_dvec3(), 2.5, None)));
 
-        let _ = self
-            .flight
-            .step_vr(&self.spatial, vr_input, focus_target.as_ref(), dt_sec as f64);
+        let journey_active = self.is_journey_active();
+        if !journey_active {
+            let _ = self
+                .flight
+                .step_vr(&self.spatial, vr_input, focus_target.as_ref(), dt_sec as f64);
+        }
 
-        self.step_common(
+        // Intentional thumbstick/vertical buttons ONLY; HMD head rotation and 6DoF roomscale translation
+        // are NEVER fed into ManualOverrideInput, preserving unrestricted head-turn freedom.
+        let manual_override = ManualOverrideInput {
+            move_local: Vec3::new(
+                vr_input.left_stick.x as f32,
+                vr_input.vertical_axis as f32,
+                -vr_input.left_stick.y as f32,
+            ),
+            yaw_delta_rad: -vr_input.right_stick.x * (dt_sec as f64) * 1.65,
+            pitch_delta_rad: vr_input.pitch_axis * (dt_sec as f64) * 1.25,
+            scale_delta_du: vr_input.right_stick.y * (dt_sec as f64) * 1.35,
+        };
+        let prompt_click_allowed = self.wrist_ring.hovered_bead_id.is_none();
+        let pending_journey_target = self.step_journey_director_and_recorder(
+            &manual_override,
+            if vr_camera.cam_forward.length_squared() > 0.0 {
+                self.flight.pose.orient.as_quat()
+            } else {
+                cam_orient_pre
+            },
+            wrist_input.pointer_origin,
+            wrist_input.pointer_dir,
+            wrist_input.select_triggered && prompt_click_allowed,
+            dt_sec,
+        );
+
+        let pkt = self.step_common(
             vr_camera,
             wrist_input,
             aim_ray_cam,
@@ -328,7 +754,11 @@ impl UniverseRuntime {
             width,
             height,
             None,
-        )
+        );
+        if let Some(sel) = pending_journey_target {
+            self.trigger_journey_narration_selector(&sel, &visible_pre);
+        }
+        pkt
     }
 
     /// Deterministic frame build used by `--headless-render` after teleporting camera to a showcase scale.
@@ -546,8 +976,31 @@ impl UniverseRuntime {
                     haptic_pulse = Some((0.55, 30_000_000, 180.0));
                 }
                 DiegeticAction::TriggerEarthHome => {
+                    if self.is_journey_active() {
+                        self.journey_confirm_exit();
+                    }
                     self.trigger_home();
                     haptic_pulse = Some((0.7, 45_000_000, 140.0));
+                }
+                DiegeticAction::ToggleJourneyPlayPause => {
+                    self.toggle_journey_play_pause();
+                    haptic_pulse = Some((0.55, 28_000_000, 210.0));
+                }
+                DiegeticAction::NextJourneyBeat => {
+                    self.journey_next_beat();
+                    haptic_pulse = Some((0.45, 20_000_000, 240.0));
+                }
+                DiegeticAction::RecordJourneyWaypoint => {
+                    let _ = self.record_manual_waypoint();
+                    haptic_pulse = Some((0.60, 30_000_000, 260.0));
+                }
+                DiegeticAction::ToggleJourneyLiveTrace => {
+                    let _ = self.toggle_live_trace_recording();
+                    haptic_pulse = Some((0.65, 35_000_000, 195.0));
+                }
+                DiegeticAction::ExportRecordedJourney => {
+                    let _ = self.export_recorded_journey_interactive();
+                    haptic_pulse = Some((0.75, 45_000_000, 175.0));
                 }
             }
         }
@@ -612,7 +1065,12 @@ impl UniverseRuntime {
         }
         self.prev_fsm_kind = now_kind;
 
-        if fsm_out.should_cancel_audio && verification_override.is_none() {
+        let journey_playing_rail = self
+            .journey_director
+            .as_ref()
+            .is_some_and(|d| d.play_state() == JourneyPlayState::Playing);
+
+        if fsm_out.should_cancel_audio && verification_override.is_none() && !journey_playing_rail {
             self.audio.stop_narration();
             self.memory.invalidate_pending();
             if let Some(sess) = &self.active_session
@@ -625,6 +1083,7 @@ impl UniverseRuntime {
 
         if let Some(target_id) = fsm_out.start_narration_for
             && verification_override.is_none()
+            && !journey_playing_rail
         {
             let point_hint = Some(fsm_out.smoothed_ray_dir_cam.as_dvec3() * 2.5);
             self.start_narration_for_target(target_id, &visible, point_hint);
@@ -693,13 +1152,27 @@ impl UniverseRuntime {
             horizon_up: Vec3::Y,
         };
 
-        let blockers = collect_external_blockers(
+        let mut blockers = collect_external_blockers(
             &self.wrist_ring,
             &visible,
             active_experience_id,
             focused_id,
             camera,
         );
+        if let Some(ref prompt) = self.active_peripheral_prompt
+            && prompt.alpha > 0.05
+        {
+            for pos in [prompt.follow_world, prompt.exit_world] {
+                if let Some((az, el)) = project_world_to_angular(pos, camera) {
+                    blockers.push(AngularRect {
+                        az_center: az,
+                        el_center: el,
+                        half_az: 0.085,
+                        half_el: 0.048,
+                    });
+                }
+            }
+        }
         let mut typo = self.typo_layout.build_frame_with_blockers(
             &self.atlas,
             &cam_basis,
@@ -709,6 +1182,15 @@ impl UniverseRuntime {
             dt,
         );
         append_wrist_ring_tethers_and_labels(&self.wrist_ring, &self.atlas, camera, &mut typo);
+        append_journey_tethers_and_labels(
+            self.active_peripheral_prompt.as_ref(),
+            &self.journey_recorder,
+            &self.spatial.tree,
+            &self.flight.pose,
+            &self.atlas,
+            camera,
+            &mut typo,
+        );
 
         // 5) Build RenderSceneFrame (compute, far shell, volumetric heroes, diegetic pearls).
         let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
@@ -767,6 +1249,10 @@ impl UniverseRuntime {
         append_diegetic_sprites(
             &self.wrist_ring,
             &self.scale_meridian,
+            self.active_peripheral_prompt.as_ref(),
+            &self.journey_recorder,
+            &self.spatial.tree,
+            &self.flight.pose,
             camera,
             self.time_sec,
             &mut scene.sprites,
@@ -795,6 +1281,13 @@ impl UniverseRuntime {
         self.flight.home_spline = None;
         self.wrist_ring = WristResonanceRing::default();
         self.scale_meridian = ScaleMeridianArc::default();
+        self.active_peripheral_prompt = None;
+        self.journey_recorder.clear();
+        if let Some(ref mut dir) = self.journey_director
+            && dir.is_active()
+        {
+            let _ = dir.exit_to_free_flight(&self.spatial.tree);
+        }
         let max_ambient_labels = self.typo_layout.max_ambient_labels;
         let max_vertical_nudge_rad = self.typo_layout.max_vertical_nudge_rad;
         let fade_tau_sec = self.typo_layout.fade_tau_sec;
@@ -889,6 +1382,27 @@ impl UniverseRuntime {
         let Ok(plan) = self.resolver.resolve(&self.catalog, &focus) else {
             return;
         };
+        let _ = plan;
+        self.start_narration_from_focus(target, focus, anchor_pos_cam, surface_dist_m);
+    }
+
+    fn start_narration_from_focus(
+        &mut self,
+        target: TargetIdentity,
+        focus: TargetFocus,
+        anchor_pos_cam: Vec3,
+        surface_dist_m: Option<f32>,
+    ) {
+        let Ok(plan) = self.resolver.resolve(&self.catalog, &focus) else {
+            return;
+        };
+        self.audio.stop_narration();
+        if let Some(ref prev) = self.active_session
+            && let Some(nid) = prev.active_music_note_id
+        {
+            self.audio.music_note_off(nid);
+        }
+
         let memory_state = plan.begin_memory(&mut self.memory, self.locale);
 
         let mut active_music_note_id = None;
@@ -939,6 +1453,9 @@ impl UniverseRuntime {
             sess.phase = SegmentPhase::Completed;
             if let Some(last) = sess.plan.segments.last() {
                 sess.last_es_text = last.spoken_text(Locale::EsEs).to_owned();
+            }
+            if let Some(ref mut dir) = self.journey_director {
+                dir.notify_beat_narration_finished();
             }
         } else {
             self.start_current_segment_phase(&mut sess);
@@ -1044,6 +1561,11 @@ impl UniverseRuntime {
                     SegmentPhase::Spanish => {
                         sess.phase = SegmentPhase::Translation;
                         self.start_current_segment_phase(&mut sess);
+                        if sess.phase == SegmentPhase::Completed
+                            && let Some(ref mut dir) = self.journey_director
+                        {
+                            dir.notify_beat_narration_finished();
+                        }
                     }
                     SegmentPhase::Translation => {
                         let _ = self.memory.mark_pair_completed(
@@ -1055,6 +1577,15 @@ impl UniverseRuntime {
                         sess.seg_idx += 1;
                         sess.phase = SegmentPhase::Spanish;
                         self.start_current_segment_phase(&mut sess);
+                        if let Some(ref mut dir) = self.journey_director {
+                            if sess.phase == SegmentPhase::Completed
+                                || sess.seg_idx >= sess.plan.segments.len()
+                            {
+                                dir.notify_beat_narration_finished();
+                            } else {
+                                dir.notify_translation_sentence_finished(&self.spatial.tree);
+                            }
+                        }
                     }
                     SegmentPhase::Completed => {}
                 }
@@ -1442,6 +1973,26 @@ pub fn to_render_audio_uniforms(a: cosmos_audio::AudioReactiveUniforms) -> Rende
     }
 }
 
+#[cfg(windows)]
+fn try_copy_to_clipboard_best_effort(text: &str) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    if let Ok(mut child) = Command::new("clip")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = stdin.write_all(text.as_bytes());
+        }
+        let _ = child.wait();
+    }
+}
+
+#[cfg(not(windows))]
+fn try_copy_to_clipboard_best_effort(_text: &str) {}
+
 fn non_empty_es(seg: &NarrationSegment) -> String {
     let spoken = seg.spoken_text(Locale::EsEs).trim();
     if spoken.is_empty() {
@@ -1727,6 +2278,113 @@ fn collect_external_blockers(
     blockers
 }
 
+fn selector_from_plan(plan: &NarrationPlan) -> BeatTargetSelector {
+    match plan.experience_id {
+        1 => BeatTargetSelector::ChromaticRgb {
+            rgb: plan.accent_rgb,
+        },
+        2 => {
+            if let Some(ref mt) = plan.music_trigger {
+                BeatTargetSelector::MusicFilament {
+                    midi: mt.midi,
+                    timbre_idx: mt.timbre_index,
+                }
+            } else {
+                BeatTargetSelector::MusicFilament {
+                    midi: 69,
+                    timbre_idx: 0,
+                }
+            }
+        }
+        exp if (3..=25).contains(&exp) && plan.zone_index != u16::MAX => {
+            BeatTargetSelector::CatalogZone {
+                experience_id: exp,
+                zone_index: plan.zone_index,
+                feature_index: plan.feature_index,
+                is_macro_zoomed_out: plan.is_macro_overview,
+            }
+        }
+        _ => BeatTargetSelector::None,
+    }
+}
+
+struct PearlLabelStyle {
+    color_hdr_rgb: [f32; 3],
+    is_active: bool,
+    alpha: f32,
+}
+
+fn push_world_pearl_label(
+    atlas: &MsdfAtlas,
+    camera: &RenderCamera,
+    world_pos: Vec3,
+    label: &str,
+    radial_offset: Vec3,
+    style: PearlLabelStyle,
+    typo: &mut TypoFrameOutput,
+) {
+    let shaped = atlas.shape_text(FontRole::UiSans, label, None);
+    if shaped.glyphs.is_empty() {
+        return;
+    }
+    let right = camera.cam_right.normalize_or(Vec3::X);
+    let up = camera.cam_up.normalize_or(Vec3::Y);
+    let to_eye = -camera.cam_forward.normalize_or(Vec3::NEG_Z);
+    let anchor = world_pos + radial_offset + to_eye * 0.004;
+
+    let dist = anchor.length().max(0.2);
+    let em_h = dist * (if style.is_active { 0.58_f32 } else { 0.42_f32 }).to_radians();
+    let baseline_y_m = -0.35 * shaped.ascent_em * em_h;
+    let color_hdr = if style.is_active {
+        [
+            (style.color_hdr_rgb[0] * 1.15).max(0.85),
+            (style.color_hdr_rgb[1] * 1.15).max(0.85),
+            (style.color_hdr_rgb[2] * 1.15).max(0.75),
+            0.96 * style.alpha,
+        ]
+    } else {
+        [0.64, 0.76, 0.90, 0.62 * style.alpha]
+    };
+    let halo_color = [
+        0.002,
+        0.003,
+        0.006,
+        if style.is_active { 0.85 } else { 0.60 } * style.alpha,
+    ];
+    let mode = if style.is_active {
+        GlyphInkMode::DwellFocusedHeading as u8 as f32
+    } else {
+        GlyphInkMode::SpatialAnchor as u8 as f32
+    };
+
+    for sg in &shaped.glyphs {
+        if !sg.metrics.has_outline {
+            continue;
+        }
+        let line_w_em = shaped.lines[sg.line_index].width_em;
+        let cx_world = ((sg.x_em - 0.5 * line_w_em)
+            + 0.5 * (sg.metrics.plane_bounds[0] + sg.metrics.plane_bounds[2]))
+            * em_h;
+        let cy_world = baseline_y_m
+            + (sg.y_em + 0.5 * (sg.metrics.plane_bounds[1] + sg.metrics.plane_bounds[3])) * em_h;
+        let hw = 0.5 * (sg.metrics.plane_bounds[2] - sg.metrics.plane_bounds[0]) * em_h;
+        let hh = 0.5 * (sg.metrics.plane_bounds[3] - sg.metrics.plane_bounds[1]) * em_h;
+        if hw <= 1e-6 || hh <= 1e-6 {
+            continue;
+        }
+        let pos = anchor + right * cx_world + up * cy_world;
+        typo.glyphs.push(GlyphInstance {
+            pos_center: [pos.x, pos.y, pos.z, 0.005],
+            right_vec: [right.x * hw, right.y * hw, right.z * hw, sg.metrics.px_range],
+            up_vec: [up.x * hh, up.y * hh, up.z * hh, 0.12],
+            uv_rect: sg.metrics.uv_rect,
+            color_hdr,
+            halo_color,
+            ink_params: [0.0, 1.0, 2.0, mode],
+        });
+    }
+}
+
 fn append_wrist_ring_tethers_and_labels(
     wrist_ring: &WristResonanceRing,
     atlas: &MsdfAtlas,
@@ -1759,20 +2417,26 @@ fn append_wrist_ring_tethers_and_labels(
             color_hdr: [0.16, 0.52, 0.88, 0.15],
         });
     }
+    // Outer lower Story-Journey & Recording arc tethers (`12..17`).
+    if wrist_ring.beads.len() >= 17 {
+        for &(a, b) in &[(3usize, 13usize), (13, 12), (11, 14), (14, 15), (15, 16)] {
+            let p0 = wrist_ring.beads[a].world_pos;
+            let p1 = wrist_ring.beads[b].world_pos;
+            typo.tethers.push(TetherInstance {
+                p0_width: [p0.x, p0.y, p0.z, 0.0011],
+                p1_alpha: [p1.x, p1.y, p1.z, 0.42 * alpha],
+                color_hdr: [0.25, 0.82, 1.10, 0.14],
+            });
+        }
+    }
 
-    // Subtle zero-overlap radial micro-labels for all 12 beads, kept clear of ambient label budget.
+    // Subtle zero-overlap radial micro-labels for all beads, kept clear of ambient label budget.
     let center = wrist_ring.beads[0].world_pos;
     let right = camera.cam_right.normalize_or(Vec3::X);
     let up = camera.cam_up.normalize_or(Vec3::Y);
-    let to_eye = -camera.cam_forward.normalize_or(Vec3::NEG_Z);
 
     for bead in &wrist_ring.beads {
         let is_active = bead.selected || bead.highlighted;
-        let shaped = atlas.shape_text(FontRole::UiSans, &bead.label, None);
-        if shaped.glyphs.is_empty() {
-            continue;
-        }
-
         let radial_2d = if bead.id == 0 {
             -up
         } else {
@@ -1788,50 +2452,99 @@ fn append_wrist_ring_tethers_and_labels(
         };
         let label_offset = radial_2d * if bead.id == 0 { 0.015 } else { 0.0165 }
             + right * (radial_2d.dot(right) * 0.006);
-        let anchor = bead.world_pos + label_offset + to_eye * 0.004;
+        push_world_pearl_label(
+            atlas,
+            camera,
+            bead.world_pos,
+            &bead.label,
+            label_offset,
+            PearlLabelStyle {
+                color_hdr_rgb: bead.color_hdr,
+                is_active,
+                alpha,
+            },
+            typo,
+        );
+    }
+}
 
-        let dist = anchor.length().max(0.2);
-        let em_h = dist * (if is_active { 0.58_f32 } else { 0.42_f32 }).to_radians();
-        let baseline_y_m = -0.35 * shaped.ascent_em * em_h;
-        let color_hdr = if is_active {
-            [
-                (bead.color_hdr[0] * 1.15).max(0.85),
-                (bead.color_hdr[1] * 1.15).max(0.85),
-                (bead.color_hdr[2] * 1.15).max(0.75),
-                0.96 * alpha,
-            ]
-        } else {
-            [0.64, 0.76, 0.90, 0.62 * alpha]
-        };
-        let halo_color = [0.002, 0.003, 0.006, if is_active { 0.85 } else { 0.60 } * alpha];
-        let mode = if is_active {
-            GlyphInkMode::DwellFocusedHeading as u8 as f32
-        } else {
-            GlyphInkMode::SpatialAnchor as u8 as f32
-        };
-
-        for sg in &shaped.glyphs {
-            if !sg.metrics.has_outline {
-                continue;
-            }
-            let line_w_em = shaped.lines[sg.line_index].width_em;
-            let cx_world = ((sg.x_em - 0.5 * line_w_em) + 0.5 * (sg.metrics.plane_bounds[0] + sg.metrics.plane_bounds[2])) * em_h;
-            let cy_world = baseline_y_m + (sg.y_em + 0.5 * (sg.metrics.plane_bounds[1] + sg.metrics.plane_bounds[3])) * em_h;
-            let hw = 0.5 * (sg.metrics.plane_bounds[2] - sg.metrics.plane_bounds[0]) * em_h;
-            let hh = 0.5 * (sg.metrics.plane_bounds[3] - sg.metrics.plane_bounds[1]) * em_h;
-            if hw <= 1e-6 || hh <= 1e-6 {
-                continue;
-            }
-            let pos = anchor + right * cx_world + up * cy_world;
-            typo.glyphs.push(GlyphInstance {
-                pos_center: [pos.x, pos.y, pos.z, 0.005],
-                right_vec: [right.x * hw, right.y * hw, right.z * hw, sg.metrics.px_range],
-                up_vec: [up.x * hh, up.y * hh, up.z * hh, 0.12],
-                uv_rect: sg.metrics.uv_rect,
-                color_hdr,
-                halo_color,
-                ink_params: [0.0, 1.0, 2.0, mode],
+fn append_journey_tethers_and_labels(
+    prompt: Option<&PeripheralPromptVisual>,
+    recorder: &JourneyRecorder,
+    tree: &cosmos_math::SectorTree,
+    cam_pose: &cosmos_math::ScalePose64,
+    atlas: &MsdfAtlas,
+    camera: &RenderCamera,
+    typo: &mut TypoFrameOutput,
+) {
+    if let Some(p) = prompt
+        && p.alpha > 0.05
+    {
+        // Guide tether linking FOLLOW <-> EXIT and ghost rail checkpoint when visible in front of eye.
+        typo.tethers.push(TetherInstance {
+            p0_width: [p.follow_world.x, p.follow_world.y, p.follow_world.z, 0.0018],
+            p1_alpha: [p.exit_world.x, p.exit_world.y, p.exit_world.z, 0.55 * p.alpha],
+            color_hdr: [0.35, 1.05, 1.35, 0.25],
+        });
+        if p.ghost_world.z < -0.15 && p.ghost_world.length() < 40.0 {
+            typo.tethers.push(TetherInstance {
+                p0_width: [p.follow_world.x, p.follow_world.y, p.follow_world.z, 0.0016],
+                p1_alpha: [
+                    p.ghost_world.x,
+                    p.ghost_world.y,
+                    p.ghost_world.z,
+                    0.42 * p.alpha,
+                ],
+                color_hdr: [0.40, 1.35, 1.15, 0.22],
             });
+        }
+        let up = camera.cam_up.normalize_or(Vec3::Y);
+        let right = camera.cam_right.normalize_or(Vec3::X);
+        push_world_pearl_label(
+            atlas,
+            camera,
+            p.follow_world,
+            "FOLLOW",
+            up * 0.042 - right * 0.015,
+            PearlLabelStyle {
+                color_hdr_rgb: [0.45, 1.85, 1.45],
+                is_active: p.hovered == Some(PeripheralChoice::Follow),
+                alpha: p.alpha,
+            },
+            typo,
+        );
+        push_world_pearl_label(
+            atlas,
+            camera,
+            p.exit_world,
+            "EXIT",
+            -up * 0.042 + right * 0.015,
+            PearlLabelStyle {
+                color_hdr_rgb: [1.95, 0.85, 0.55],
+                is_active: p.hovered == Some(PeripheralChoice::Exit),
+                alpha: p.alpha,
+            },
+            typo,
+        );
+    }
+
+    // Project recorded waypoint trail tethers cleanly into camera space.
+    if recorder.waypoint_count() >= 2 {
+        let mut prev_pos: Option<Vec3> = None;
+        for wp in recorder.waypoints() {
+            if let Ok(rel) = wp.pose.project_entity(tree, cam_pose, 0.1) {
+                let p = rel.pos;
+                if p.is_finite() && p.length() < 200.0 {
+                    if let Some(prev) = prev_pos {
+                        typo.tethers.push(TetherInstance {
+                            p0_width: [prev.x, prev.y, prev.z, 0.0022],
+                            p1_alpha: [p.x, p.y, p.z, 0.48],
+                            color_hdr: [1.35, 0.95, 1.85, 0.20],
+                        });
+                    }
+                    prev_pos = Some(p);
+                }
+            }
         }
     }
 }
@@ -1895,15 +2608,21 @@ fn build_focus_candidates_filtered(
     build(None)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn append_diegetic_sprites(
     wrist_ring: &WristResonanceRing,
     scale_meridian: &ScaleMeridianArc,
+    peripheral_prompt: Option<&PeripheralPromptVisual>,
+    recorder: &JourneyRecorder,
+    tree: &cosmos_math::SectorTree,
+    cam_pose: &cosmos_math::ScalePose64,
     camera: &RenderCamera,
     _time_sec: f32,
     sprites: &mut Vec<SpriteInstance>,
 ) {
     if wrist_ring.summon_mode != SummonMode::Hidden || wrist_ring.open_alpha > 0.02 {
         let alpha = wrist_ring.open_alpha.clamp(0.0, 1.0);
+        let denom = wrist_ring.beads.len().max(1) as f32;
         for (i, bead) in wrist_ring.beads.iter().enumerate() {
             let gain = if bead.selected || bead.highlighted {
                 1.45
@@ -1929,7 +2648,86 @@ fn append_diegetic_sprites(
                     bead.color_hdr[2] * gain,
                     0.96 * alpha,
                 ],
-                tags_f: [4.0, (i as f32) / 12.0, sub_param, 0.0],
+                tags_f: [4.0, (i as f32) / denom, sub_param, 0.0],
+            });
+        }
+    }
+
+    if let Some(p) = peripheral_prompt
+        && p.alpha > 0.02
+    {
+        let follow_gain = if p.hovered == Some(PeripheralChoice::Follow) {
+            1.45
+        } else {
+            0.95
+        };
+        let exit_gain = if p.hovered == Some(PeripheralChoice::Exit) {
+            1.45
+        } else {
+            0.95
+        };
+        sprites.push(SpriteInstance {
+            pos_size: [
+                p.follow_world.x,
+                p.follow_world.y,
+                p.follow_world.z,
+                (p.radius_m * 0.46).max(0.011),
+            ],
+            axis_aspect: [0.0, 1.0, 0.0, 1.0],
+            color_alpha: [
+                0.45 * follow_gain,
+                1.85 * follow_gain,
+                1.45 * follow_gain,
+                0.96 * p.alpha,
+            ],
+            tags_f: [
+                4.0,
+                0.25,
+                if p.hovered == Some(PeripheralChoice::Follow) {
+                    1.0
+                } else {
+                    0.0
+                },
+                0.0,
+            ],
+        });
+        sprites.push(SpriteInstance {
+            pos_size: [
+                p.exit_world.x,
+                p.exit_world.y,
+                p.exit_world.z,
+                (p.radius_m * 0.46).max(0.011),
+            ],
+            axis_aspect: [0.0, 1.0, 0.0, 1.0],
+            color_alpha: [
+                1.95 * exit_gain,
+                0.85 * exit_gain,
+                0.55 * exit_gain,
+                0.96 * p.alpha,
+            ],
+            tags_f: [
+                4.0,
+                0.85,
+                if p.hovered == Some(PeripheralChoice::Exit) {
+                    1.0
+                } else {
+                    0.0
+                },
+                0.0,
+            ],
+        });
+    }
+
+    for wp in recorder.waypoints() {
+        if let Ok(rel) = wp.pose.project_entity(tree, cam_pose, 0.1)
+            && rel.pos.is_finite()
+            && rel.pos.length() < 120.0
+        {
+            sprites.push(SpriteInstance {
+                pos_size: [rel.pos.x, rel.pos.y, rel.pos.z, 0.018],
+                axis_aspect: [0.0, 1.0, 0.0, 1.0],
+                color_alpha: [1.45, 0.95, 2.05, 0.88],
+                tags_f: [4.0, 0.65, 0.0, 0.0],
             });
         }
     }
@@ -2372,5 +3170,107 @@ mod tests {
             "expected wide Saturn Cassini ring blocker (planet ang={:.3}, blockers={blockers:?})",
             saturn.pose.angular_rad
         );
+    }
+
+    #[test]
+    fn runtime_journey_preserves_head_turn_spawns_exit_pearls_and_exports_waypoints() {
+        let mut rt = test_runtime();
+        rt.activate_journey("cosmic_highlights_tour", true)
+            .expect("activate highlights");
+        assert!(rt.is_journey_active());
+
+        let cam_vr_a = RenderCamera::mono(
+            glam::Quat::IDENTITY,
+            90.0_f32.to_radians(),
+            1.1,
+            DEFAULT_DESKTOP_NEAR_RENDER_UNITS,
+        );
+        let cam_vr_rotated = RenderCamera::mono(
+            glam::Quat::from_rotation_y(85.0_f32.to_radians()),
+            90.0_f32.to_radians(),
+            1.1,
+            DEFAULT_DESKTOP_NEAR_RENDER_UNITS,
+        );
+        let wrist_idle = WristSummonInput::default();
+        let vr_idle = VrFlightInput::default();
+
+        // Step several frames while turning the HMD head by 85 degrees: journey remains active,
+        // manual override stays zero, and navigation pose only tracks the journey rail.
+        let _ = rt.step_vr_frame(
+            &vr_idle,
+            &wrist_idle,
+            &cam_vr_a,
+            Vec3::NEG_Z,
+            0.0,
+            0.05,
+            800,
+            800,
+        );
+        let _ = rt.step_vr_frame(
+            &vr_idle,
+            &wrist_idle,
+            &cam_vr_rotated,
+            Vec3::NEG_Z,
+            0.0,
+            0.05,
+            800,
+            800,
+        );
+        assert!(rt.is_journey_active());
+        assert!(!rt.is_journey_paused_by_leash());
+        assert!(
+            rt.journey_director
+                .as_ref()
+                .unwrap()
+                .override_state()
+                .is_zero()
+        );
+
+        // Sustained left thumbstick push triggers PausedByLeash and renders FOLLOW/EXIT outside fovea.
+        let vr_stick = VrFlightInput {
+            left_stick: glam::DVec2::new(1.0, 0.0),
+            ..Default::default()
+        };
+        let mut last_pkt = None;
+        for _ in 0..24 {
+            last_pkt = Some(rt.step_vr_frame(
+                &vr_stick,
+                &wrist_idle,
+                &cam_vr_a,
+                Vec3::NEG_Z,
+                0.0,
+                0.08,
+                800,
+                800,
+            ));
+        }
+        assert!(rt.is_journey_paused_by_leash());
+        let pkt = last_pkt.unwrap();
+        assert!(
+            pkt.scene.sprites.len() >= 2,
+            "expected FOLLOW and EXIT 3D pearls"
+        );
+        assert!(pkt.typo.tethers.iter().any(|t| t.p1_alpha[3] > 0.1));
+
+        // Confirm Exit detaches cleanly without pop and saves bookmark.
+        rt.journey_confirm_exit();
+        assert!(!rt.is_journey_active());
+        assert!(rt.journey_director.as_ref().unwrap().bookmark().is_some());
+
+        // Record manual waypoints & trace and export to temporary dir.
+        let tmp_dir = std::env::temp_dir().join(format!(
+            "hypercosmos_journey_test_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+        rt.user_journeys_dir = tmp_dir.clone();
+        assert_eq!(rt.record_manual_waypoint(), 1);
+        assert!(rt.toggle_live_trace_recording());
+        let _ = rt.toggle_live_trace_recording();
+        let exported = rt.export_recorded_journey().expect("export user journey");
+        assert!(exported.json_path.is_file());
+        assert!(exported.share_uri_path.is_file());
+        assert!(exported.share_uri.starts_with(cosmos_journey::SHARE_URI_PREFIX));
+        let _ = std::fs::remove_dir_all(&tmp_dir);
     }
 }

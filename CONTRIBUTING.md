@@ -47,7 +47,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
   ```
 - Hardware-independent unit & catalog checks (matches `.github/workflows/ci.yml`):
   ```powershell
-  cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav
+  cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_journey
   cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
   cargo test -p cosmos_spatial topology
   cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets

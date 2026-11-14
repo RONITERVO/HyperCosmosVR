@@ -15,6 +15,7 @@ cosmos_nav = { path = "../cosmos_nav" }
 cosmos_narration = { path = "../cosmos_narration" }
 cosmos_xr = { path = "../cosmos_xr" }
 cosmos_render = { path = "../cosmos_render" }
+cosmos_journey = { path = "../cosmos_journey" }
 
 winit = { workspace = true }
 wgpu = { workspace = true }

@@ -10,15 +10,21 @@ use cosmos_xr::{XrAvailability, XrHand, XrSessionBridge, XrSessionConfig};
 use glam::{DVec2, Quat, Vec3};
 
 use crate::assets::UniverseAssets;
-use crate::engine::UniverseRuntime;
+use crate::engine::{LaunchJourneyConfig, UniverseRuntime};
 
 /// Attempts to initialize and run the native OpenXR D3D12 stereo multiview loop (`90/120 Hz`)
 /// pinned strictly to the OpenXR HMD DXGI `adapter_luid`.
 ///
 /// Returns `Ok(true)` if a VR session ran and exited cleanly, or `Ok(false)` when no HMD is active
 /// so the caller seamlessly falls back to the Desktop HDR window.
-pub fn try_run_openxr_session(
+pub fn try_run_openxr_session(availability: XrAvailability) -> Result<bool> {
+    try_run_openxr_session_with_journey(availability, LaunchJourneyConfig::default())
+}
+
+/// Native OpenXR D3D12 stereo loop with optional Story-Journey launch configuration.
+pub fn try_run_openxr_session_with_journey(
     availability: XrAvailability,
+    journey_cfg: LaunchJourneyConfig,
 ) -> Result<bool> {
     let XrAvailability::Available {
         entry: _entry,
@@ -55,6 +61,7 @@ pub fn try_run_openxr_session(
     let assets = UniverseAssets::load()?;
     let shaders_dir = assets.shaders_dir.clone();
     let mut runtime = UniverseRuntime::new(assets, AudioOutputMode::Auto)?;
+    journey_cfg.apply(&mut runtime)?;
 
     let mut text_renderer = MsdfTextRenderer::from_shaders_dir(
         renderer.device(),
@@ -80,6 +87,7 @@ pub fn try_run_openxr_session(
 
     let mut last_tick = Instant::now();
     let mut prev_menu_click = false;
+    let mut prev_secondary_click = false;
 
     loop {
         let lifecycle = session.poll_events()?;
@@ -145,6 +153,12 @@ pub fn try_run_openxr_session(
         let menu_click = input.left.menu_click || input.right.menu_click;
         let home_pressed = menu_click && !prev_menu_click;
         prev_menu_click = menu_click;
+
+        let secondary_edge = input.right.secondary_click && !prev_secondary_click;
+        prev_secondary_click = input.right.secondary_click;
+        if secondary_edge && runtime.is_journey_paused_by_leash() {
+            runtime.journey_confirm_exit();
+        }
 
         let vr_flight = VrFlightInput {
             left_grip,

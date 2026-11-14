@@ -17,7 +17,7 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 use crate::assets::UniverseAssets;
-use crate::engine::UniverseRuntime;
+use crate::engine::{LaunchJourneyConfig, UniverseRuntime};
 
 struct GpuSurfaceState {
     window: Arc<Window>,
@@ -44,10 +44,11 @@ struct DesktopApp {
 }
 
 impl DesktopApp {
-    fn new(prefer_hdr_swapchain: bool) -> Result<Self> {
+    fn new(prefer_hdr_swapchain: bool, journey_cfg: &LaunchJourneyConfig) -> Result<Self> {
         let assets = UniverseAssets::load()?;
         let shaders_dir = assets.shaders_dir.clone();
-        let runtime = UniverseRuntime::new(assets, AudioOutputMode::Auto)?;
+        let mut runtime = UniverseRuntime::new(assets, AudioOutputMode::Auto)?;
+        journey_cfg.apply(&mut runtime)?;
         Ok(Self {
             assets_shaders_dir: shaders_dir,
             runtime,
@@ -80,10 +81,23 @@ impl DesktopApp {
         let fov_y_rad = 72.0_f32.to_radians();
 
         let key = |k: KeyCode| self.pressed_keys.contains(&k);
-        let x_move = (key(KeyCode::KeyD) as i32 - key(KeyCode::KeyA) as i32) as f64;
-        let y_move = (key(KeyCode::KeyE) as i32 - key(KeyCode::KeyQ) as i32) as f64;
+        let ctrl_held = key(KeyCode::ControlLeft) || key(KeyCode::ControlRight);
+        let x_move = if ctrl_held {
+            0.0
+        } else {
+            (key(KeyCode::KeyD) as i32 - key(KeyCode::KeyA) as i32) as f64
+        };
+        let y_move = if ctrl_held {
+            0.0
+        } else {
+            (key(KeyCode::KeyE) as i32 - key(KeyCode::KeyQ) as i32) as f64
+        };
         // `+move_axes.z` pushes camera forward along `-Z` inside FlightCamera::step_desktop.
-        let z_move = (key(KeyCode::KeyW) as i32 - key(KeyCode::KeyS) as i32) as f64;
+        let z_move = if ctrl_held {
+            0.0
+        } else {
+            (key(KeyCode::KeyW) as i32 - key(KeyCode::KeyS) as i32) as f64
+        };
         let roll = (key(KeyCode::KeyZ) as i32 - key(KeyCode::KeyC) as i32) as f64;
 
         let desktop_input = DesktopFlightInput {
@@ -355,8 +369,18 @@ impl ApplicationHandler for DesktopApp {
                     let pressed = event.state == ElementState::Pressed;
                     if pressed {
                         if !self.pressed_keys.contains(&code) {
+                            let shift_held = self.pressed_keys.contains(&KeyCode::ShiftLeft)
+                                || self.pressed_keys.contains(&KeyCode::ShiftRight);
+                            let ctrl_held = self.pressed_keys.contains(&KeyCode::ControlLeft)
+                                || self.pressed_keys.contains(&KeyCode::ControlRight);
                             match code {
-                                KeyCode::Escape => event_loop.exit(),
+                                KeyCode::Escape => {
+                                    if self.runtime.is_journey_active() {
+                                        self.runtime.journey_confirm_exit();
+                                    } else {
+                                        event_loop.exit();
+                                    }
+                                }
                                 KeyCode::Tab => self.tab_just_pressed = true,
                                 KeyCode::KeyL => self.runtime.toggle_locale(),
                                 KeyCode::BracketRight | KeyCode::Equal => {
@@ -365,7 +389,40 @@ impl ApplicationHandler for DesktopApp {
                                 KeyCode::BracketLeft | KeyCode::Minus => {
                                     self.runtime.step_playback_rate(-1);
                                 }
-                                KeyCode::Home => self.runtime.trigger_home(),
+                                KeyCode::Home => {
+                                    self.runtime.journey_confirm_exit();
+                                    self.runtime.trigger_home();
+                                }
+                                KeyCode::KeyJ => self.runtime.toggle_journey_play_pause(),
+                                KeyCode::KeyN | KeyCode::PageDown => {
+                                    if shift_held {
+                                        self.runtime.journey_next_chapter();
+                                    } else {
+                                        self.runtime.journey_next_beat();
+                                    }
+                                }
+                                KeyCode::KeyP | KeyCode::PageUp => {
+                                    if shift_held {
+                                        self.runtime.journey_prev_chapter();
+                                    } else {
+                                        self.runtime.journey_prev_beat();
+                                    }
+                                }
+                                KeyCode::KeyR => {
+                                    if shift_held {
+                                        let _ = self.runtime.toggle_live_trace_recording();
+                                    } else {
+                                        let _ = self.runtime.record_manual_waypoint();
+                                    }
+                                }
+                                KeyCode::KeyS if ctrl_held => {
+                                    let _ = self.runtime.export_recorded_journey_interactive();
+                                }
+                                KeyCode::F9 => {
+                                    let _ = self.runtime.export_recorded_journey_interactive();
+                                }
+                                KeyCode::Enter => self.runtime.journey_confirm_follow(),
+                                KeyCode::Backspace => self.runtime.journey_confirm_exit(),
                                 _ => {}
                             }
                         }
@@ -405,9 +462,17 @@ impl ApplicationHandler for DesktopApp {
 
 /// Launches the interactive Desktop HDR 6DoF window directly into Earth Low Orbit (`u=+6.6`).
 pub fn run_desktop_loop(prefer_hdr_swapchain: bool) -> Result<()> {
+    run_desktop_loop_with_journey(prefer_hdr_swapchain, LaunchJourneyConfig::default())
+}
+
+/// Launches the interactive Desktop HDR 6DoF window with optional Story-Journey CLI configuration.
+pub fn run_desktop_loop_with_journey(
+    prefer_hdr_swapchain: bool,
+    journey_cfg: LaunchJourneyConfig,
+) -> Result<()> {
     let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = DesktopApp::new(prefer_hdr_swapchain)?;
+    let mut app = DesktopApp::new(prefer_hdr_swapchain, &journey_cfg)?;
     event_loop.run_app(&mut app)?;
     Ok(())
 }

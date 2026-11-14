@@ -58,8 +58,8 @@ jobs:
       - name: Check workspace with clippy (-D warnings)
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run hardware-independent crate tests (math, narration, nav)
-        run: cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav
+      - name: Run hardware-independent crate tests (math, narration, nav, journey)
+        run: cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_journey
 
       - name: Run OpenXR stereo, hand, refresh & format unit tests (excluding registry runtime probe)
         run: cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
@@ -74,5 +74,5 @@ jobs:
       # proprietary font coverage tests, and full 18,898-MP3 mmap verification (`cosmos_audio`,
       # `real_mmap_catalog_and_audio_pack_verify_all_18898_assets`) require a Discrete DX12 GPU, an OpenXR runtime,
       # local OS/custom fonts, and the optional 1.05 GiB Release audio pack.
-      # Run all 88 tests locally via: cargo test --workspace -- --test-threads=1
+      # Run all 96 tests locally via: cargo test --workspace -- --test-threads=1
 

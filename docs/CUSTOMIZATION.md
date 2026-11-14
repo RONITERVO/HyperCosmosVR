@@ -63,12 +63,23 @@ python tools\bake_universe.py `
 ```
 Or via `HYPERCOSMOS_SQA_ROOT` / `HYPERCOSMOS_SQAA_ROOT`. Remember to re-run `cargo test -p cosmos_manifest` afterwards to verify CRC32 integrity and table invariants.
 
+### 6. Create, Edit, or Auto-Play Guided Tours (`assets/journeys/*.hcj.json`)
+Non-technical educators, curators, or museum operators can customize automated flights with zero code changes:
+- **Record Inside the Simulation:** Launch normally and press `R` (`+WPT` bead) to capture keyframe viewpoints, or `Shift+R` (`TRACE` bead) to record continuous flight and scale dives (`u`), then press `Ctrl+S` / `F9` (`SHARE` bead) to export `user_journeys/<id>.hcj.json` + `.share.txt` (and copy the `hypercosmos://` URI to the Windows clipboard).
+- **Drop-In File Sharing:** Place any `.hcj.json` file under `assets/journeys/` or `user_journeys/`; `UniverseRuntime::new` discovers it automatically at launch. See [assets/journeys/cosmic_highlights_tour.hcj.json](../assets/journeys/cosmic_highlights_tour.hcj.json) and [docs/JOURNEY_PLUGINS.md](JOURNEY_PLUGINS.md) for the full `schema_version = 1` format.
+- **Kiosk / Exhibit Autoplay:** Launch straight into an automated tour with `--journey <id|path|uri> --autoplay-journey`:
+  ```powershell
+  .\Start-HyperCosmosVR.cmd --desktop --journey cosmic_highlights_tour --autoplay-journey
+  ```
+
 ---
 
 ## Part 2 — Engineer Customizations (Rust & WGSL)
 
 | Goal | File / Symbol | What to Adjust |
 | :--- | :--- | :--- |
+| **Add or customize Rust Story-Journey plugins** | [crates/cosmos_journey/src/plugin.rs](../crates/cosmos_journey/src/plugin.rs), [odyssey.rs](../crates/cosmos_journey/src/odyssey.rs) (`StoryJourneyPlugin`, `GrandCosmicOdysseyPlugin`) | Implement `StoryJourneyPlugin` and register it in `JourneyRegistry::with_builtins()`. |
+| **Tune elastic override leash & magnetic spring pull** | [crates/cosmos_journey/src/elastic.rs](../crates/cosmos_journey/src/elastic.rs) (`ElasticOverrideConfig::default()`) | `rejoin_tau_sec` (`0.42`), `active_pull_tau_sec` (`3.6`), `leash_dist_ru` (`1.25`), `leash_angle_rad` (`36 deg`), `leash_scale_du` (`0.75`), `leash_hold_sec` (`1.15`). |
 | **Change Rest-to-Learn dwell timing or gaze tolerance** | [crates/cosmos_narration/src/fsm.rs](../crates/cosmos_narration/src/fsm.rs) (`FsmConfig::default()`) | `settling_end_ms` (`200.0`), `lock_dwell_ms` (`900.0`), `cancel_fade_ms` (`120.0`), `entry_cone_deg` (`2.4`), `exit_cone_multiplier` (`1.35`), linear/scale/angular motion thresholds. |
 | **Change starting scale or Earth orbit position** | [crates/cosmos_nav/src/flight.rs](../crates/cosmos_nav/src/flight.rs) | `COLD_START_SCALE_EXP` (`6.6`), `EARTH_ORBIT_HOME_LOCAL_POS` (`(0.0, 0.0, 3.0)`), `DEFAULT_INERTIAL_TAU_SEC` (`0.18`), `MIN_SCALE_EXP` (`-36.0`), `MAX_SCALE_EXP` (`30.0`). |
 | **Edit per-experience HDR accent colors** | [crates/cosmos_render/src/universe_scene.rs](../crates/cosmos_render/src/universe_scene.rs) (`experience_accent_linear`) | Returns linear RGB HDR values per experience (`1..=25`) driving halo tint, beacon glow, and bloom energy. |

@@ -15,9 +15,9 @@
 
 | If you are evaluating or working on... | Jump directly to... |
 | :--- | :--- |
-| **Product / Education / Content (Non-Technical)** | [Verified Facts at a Glance](#verified-facts-at-a-glance) · [Quick Start (2 Minutes)](#quick-start-windows-x64) · [Controls](#controls-desktop--vr) · [Adaptation Guide](docs/CUSTOMIZATION.md) |
+| **Product / Education / Content (Non-Technical)** | [Verified Facts at a Glance](#verified-facts-at-a-glance) · [Quick Start (2 Minutes)](#quick-start-windows-x64) · [Controls](#controls-desktop--vr) · [Guided Tours & Recording](docs/JOURNEY_PLUGINS.md) · [Adaptation Guide](docs/CUSTOMIZATION.md) |
 | **Visual Design & UX** | [Visual Gallery (OLED Verified)](#visual-gallery-verified-headless-rtx-5070-renders) · [Zero-2D-UI Design](docs/universe_architecture.md) · [Font Swapping](assets/fonts/README.md) |
-| **Engineering (Graphics, VR, Audio, Data)** | [10-Crate Architecture](#10-crate-workspace-architecture) · [Shader Contracts](shaders/SHADER_CONTRACTS.md) · [Platform Spec](docs/platform_spec.md) · [Catalog Spec](docs/catalog_spec.md) |
+| **Engineering (Graphics, VR, Audio, Data)** | [11-Crate Architecture](#11-crate-workspace-architecture) · [Journey Plugin Contract](docs/JOURNEY_PLUGINS.md) · [Shader Contracts](shaders/SHADER_CONTRACTS.md) · [Platform Spec](docs/platform_spec.md) · [Catalog Spec](docs/catalog_spec.md) |
 | **Corporate Legal / Security / Supply Chain** | [License & Compliance](#license-supply-chain--attribution) · [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) · [`SECURITY.md`](SECURITY.md) |
 
 ---
@@ -34,7 +34,8 @@ Everything in this table reflects directly measured outputs, file sizes, compile
 | **Rest-to-Learn FSM** | `Moving -> Settling (0..200 ms) -> Locked (200..900 ms) -> Narrating -> Complete`, with `region-heading` & `shared-context` skip memory | `crates/cosmos_narration/src/fsm.rs`, `memory.rs` |
 | **Pitch-Preserving Speed** | `9` discrete rates **`1.0×` to `3.0×`** (`0.25×` steps) via `wsola 0.3.0` + `rubato 5.1.0` + IRCAM HRTF (`irc_1040_c.bin`) at `48 kHz` WASAPI | `crates/cosmos_audio/`, `assets/hrir/irc_1040_c.bin` |
 | **Measured GPU Performance** | **RTX 5070 DX12 (`1600×900`, `120`-frame sweep across `u=[-35..+28.5]`): `min = 0.852 ms`, `mean = 1.927 ms (518.9 FPS)`, `p99 = 4.873 ms`, `max = 5.467 ms`** | `artifacts/verification_renders/benchmark_sweep.txt` |
-| **OLED Void & Highlight Check** | **`42` headless verification PNGs**: `>= 50.91%` genuine `#000000` black pixels (`min` in `06_cmb_and_inflation.png`) and **`0.0000%` highlight blowout** (`R/G/B == 255`) | `artifacts/verification_renders/*.png` |
+| **Story-Journey Autopilot & Recording** | `2` built-in plugins (**`grand_cosmic_odyssey`** covering **`100%` (`18,898 / 18,898`)** catalog audio assets across `5` continuous acts + **`cosmic_highlights_tour`** `44`-beat tour), drop-in `assets/journeys/*.hcj.json` & `user_journeys/*.hcj.json`, `max_sentences_per_vantage <= 2`, HMD-free elastic override (`FOLLOW`/`EXIT` `> 24°` off-axis), 4D log-scale RDP trace recording & CRC32 `hypercosmos://` share URIs | `crates/cosmos_journey/`, `docs/JOURNEY_PLUGINS.md`, `grand_odyssey_covers_100_percent_of_catalog_audio_assets_and_validates` |
+| **OLED Void & Highlight Check** | **`43` headless verification PNGs**: `>= 50.90%` genuine `#000000` black pixels (`06_cmb_and_inflation.png`; `76.77%` in `25_journey_peripheral_exit_prompt.png`) and **`0.0000%` highlight blowout** (`R/G/B == 255`) | `artifacts/verification_renders/*.png` |
 | **Graceful Audio Fallback** | If the optional **`1.05 GiB`** `universe_audio.hcvp` release pack is not downloaded, the app automatically boots in **visual + spatial synth mode** | `crates/cosmos_app/src/assets.rs` |
 | **Verified Platform Scope** | Built & verified on **Windows 11 x64 (`x86_64-pc-windows-msvc`), AMD Ryzen 9 7950X, NVIDIA RTX 5070 (DX12 `DynamicDxc`), OpenXR static loader (`SteamVR` / `Oculus` / `VirtualDesktopXR`)** | `docs/platform_spec.md` |
 
@@ -44,7 +45,7 @@ Everything in this table reflects directly measured outputs, file sizes, compile
 
 ## Visual Gallery (Verified Headless RTX 5070 Renders)
 
-All 42 full-resolution PNG screenshots are checked into [`artifacts/verification_renders/`](artifacts/verification_renders/) for fast visual review:
+All 43 full-resolution PNG screenshots are checked into [`artifacts/verification_renders/`](artifacts/verification_renders/) for fast visual review:
 
 <table>
   <tr>
@@ -87,6 +88,16 @@ All 42 full-resolution PNG screenshots are checked into [`artifacts/verification
       <sub><b>App 22 · Cosmic Contact</b> — Deep-Space SETI Dish & Interstellar Signal Cones</sub>
     </td>
   </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="artifacts/verification_renders/11_final_horizon_lotus.png" alt="App 25 Final Horizon Lotus" /><br/>
+      <sub><b>App 25 · Final Horizon Lotus (`u = +28.6`)</b> — Outer Hyper-Horizon Crown</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="artifacts/verification_renders/25_journey_peripheral_exit_prompt.png" alt="Story-Journey Peripheral FOLLOW/EXIT Prompt & 17-Bead Wrist Ring" /><br/>
+      <sub><b>Story-Journey + Elastic Override (`76.77%` OLED `#000000`)</b> — Lower-left 17-bead Wrist Ring (`STORY`, `NEXT`, `+WPT`, `TRACE`, `SHARE`), upper-right waypoint trail, and outer peripheral `FOLLOW` / `EXIT` pearls (`> 24°` off-axis)</sub>
+    </td>
+  </tr>
 </table>
 
 ---
@@ -103,6 +114,9 @@ All 42 full-resolution PNG screenshots are checked into [`artifacts/verification
 git clone https://github.com/RONITERVO/HyperCosmosVR.git
 cd HyperCosmosVR
 .\Start-HyperCosmosVR.cmd --desktop
+
+# Or auto-start directly into a guided Story-Journey tour:
+.\Start-HyperCosmosVR.cmd --desktop --journey cosmic_highlights_tour --autoplay-journey
 ```
 `Start-HyperCosmosVR.cmd` automatically:
 1. Locates Visual Studio's CMake if not on `PATH`.
@@ -121,6 +135,8 @@ Then run `.\Start-HyperCosmosVR.cmd` normally.
 cosmos_app.exe [OPTIONS]
   --desktop                    Force Desktop HDR window even when OpenXR is active
   --hdr-surface                Prefer Rgba16Float HDR desktop swapchain when supported
+  --journey <id|path|uri>      Select a Story-Journey plugin id, `.hcj.json` path, or `hypercosmos://` URI
+  --autoplay-journey           Start Story-Journey playback immediately at launch
   --headless-render <out_dir>  Render verification viewpoints headlessly into <out_dir>
   --benchmark-sweep            Run the 120-frame multi-scale performance sweep
   --width <px> --height <px>   Override headless output resolution (default 1600x900)
@@ -137,16 +153,19 @@ cosmos_app.exe [OPTIONS]
 | **Logarithmic Scale Dive** | Mouse `Scroll` (zooms continuously toward cursor ray) | Two-hand span gesture or grip-pull along focus ray |
 | **Trigger Narration** | Come to rest on any cosmic feature (`900 ms` dwell) | Gaze or hand ray dwell (`900 ms`) |
 | **3D Wrist Resonance Ring** | Hold `Right Mouse` or press `Tab` (`[`/`]` or `-`/`=` speed, `L` EN/FI) | Turn non-dominant palm upward (`r = 7.5 cm` spatial ring) |
+| **Story-Journey Autopilot** | `J` play/pause/resume · `N`/`P` (`PageDown`/`PageUp`) next/prev beat · `Shift+N`/`Shift+P` chapter · `Enter` follow rail · `Backspace`/`Escape` exit to free-flight | Touch outer `STORY` / `NEXT` wrist beads · turn head freely `360°` · push thumbstick to explore (magnetic spring pull + peripheral `FOLLOW`/`EXIT` pearls; `B` button exits) |
+| **Record & Share 3D Tours** | `R` snapshot waypoint · `Shift+R` toggle live trace recording · `Ctrl+S` / `F9` export `.hcj.json` + `.share.txt` + clipboard URI | Touch outer `+WPT`, `TRACE`, and `SHARE` beads on Wrist Resonance Ring |
 | **Return to Earth Orbit** | `Home` (continuous spline fly-back) | Touch central Earth pearl on Wrist Ring |
-| **Exit** | `Escape` | Exit via OpenXR system menu |
+| **Exit** | `Escape` (exits active Story-Journey first, then closes window) | Exit via OpenXR system menu |
 
 ---
 
 ## Adapting & Customizing HyperCosmosVR
 
-Need to brand fonts, adjust narration timings, deploy to a kiosk without internet access, or rebuild the universe catalog from your own content fork?
+Need to brand fonts, author guided museum tours without writing code, adjust narration timings, deploy to a kiosk without internet access, or rebuild the universe catalog from your own content fork?
 
-See **[docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md)** for step-by-step recipes:
+See **[docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md)** and **[docs/JOURNEY_PLUGINS.md](docs/JOURNEY_PLUGINS.md)** for step-by-step recipes:
+- Author, share, or drop in custom tours via [`assets/journeys/cosmic_highlights_tour.hcj.json`](assets/journeys/cosmic_highlights_tour.hcj.json), in-game 3D recording, or `--journey <id|path|uri> --autoplay-journey`.
 - Swap display & UI fonts cleanly ([`assets/fonts/README.md`](assets/fonts/README.md)) without editing shaders or code.
 - Point the binary at an external asset folder via `HYPERCOSMOS_ROOT`.
 - Tune Rest-to-Learn dwell thresholds (`FsmConfig`), cold-start pose (`COLD_START_SCALE_EXP`), or per-experience HDR accents (`experience_accent_linear`).
@@ -154,7 +173,7 @@ See **[docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md)** for step-by-step recipes:
 
 ---
 
-## 10-Crate Workspace Architecture
+## 11-Crate Workspace Architecture
 
 ```
 crates/
@@ -162,7 +181,8 @@ crates/
 ├── cosmos_manifest   # Zero-copy mmap loader + CRC32 validation for universe_catalog.hcvb & .v1.json
 ├── cosmos_spatial    # Continuous 25-experience manifold topology, octree culling & scale shells
 ├── cosmos_narration  # Rest-to-Learn FSM, region-heading/shared-context skip memory, SyncVoice cues
-├── cosmos_nav        # 6DoF damped flight physics, magnetic approach throttling, Home spline
+├── cosmos_nav        # 6DoF damped flight physics, magnetic approach throttling, Home spline, Wrist Ring
+├── cosmos_journey    # StoryJourneyPlugin trait, .hcj.json & share URIs, Odyssey, elastic leash, 3D recorder
 ├── cosmos_typo       # fdsm MSDF glyph atlas baker + world-space live-ink layout engine
 ├── cosmos_audio      # symphonia MP3 -> wsola (1x–3x) -> rubato 48kHz -> IRCAM HRTF + fundsp synth
 ├── cosmos_render     # wgpu 30 DX12 DynamicDxc renderer: compute, far shell, 6-module hero SDF, AgX
@@ -184,16 +204,16 @@ All passes share camera-relative coordinates (`(0,0,0)` at head midpoint) and a 
 ## Development, Testing & CI
 
 ```powershell
-# Lint & static checks across all 10 crates + targets (enforced in CI)
+# Lint & static checks across all 11 crates + targets (enforced in CI)
 cargo clippy --workspace --all-targets -- -D warnings
 
 # Hardware-independent unit & catalog checks (runs in GitHub Actions CI without GPU/OpenXR/audio pack)
-cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav
+cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_journey
 cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
 cargo test -p cosmos_spatial topology
 cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
 
-# Full local verification suite (requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
+# Full local verification suite (96 tests; requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
 cargo test --workspace -- --test-threads=1
 ```
 

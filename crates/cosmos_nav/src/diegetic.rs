@@ -21,6 +21,11 @@ pub enum BeadKind {
     PlaybackRate { index: u8, rate_hundredths: u16 },
     LocaleToggle { locale: Locale },
     HomeAnchor,
+    JourneyPlayPause,
+    JourneyNextBeat,
+    RecordWaypoint,
+    ToggleLiveTrace,
+    SaveShareJourney,
 }
 
 impl BeadKind {
@@ -73,6 +78,11 @@ pub enum DiegeticAction {
     SetPlaybackRate(f32),
     SetLocale(Locale),
     TriggerEarthHome,
+    ToggleJourneyPlayPause,
+    NextJourneyBeat,
+    RecordJourneyWaypoint,
+    ToggleJourneyLiveTrace,
+    ExportRecordedJourney,
 }
 
 /// Summon trigger mode for the diegetic 3D Orbital / Wrist Resonance Ring.
@@ -158,6 +168,9 @@ pub struct WristResonanceRing {
     pub anchor_rot: Quat,
     pub selected_rate_index: u8,
     pub selected_locale: Locale,
+    pub journey_active: bool,
+    pub live_trace_active: bool,
+    pub recorded_waypoint_count: u16,
     pub hovered_bead_id: Option<u32>,
     pub beads: Vec<Bead>,
 }
@@ -172,8 +185,11 @@ impl Default for WristResonanceRing {
             anchor_rot: Quat::IDENTITY,
             selected_rate_index: 0,
             selected_locale: Locale::EnUs,
+            journey_active: false,
+            live_trace_active: false,
+            recorded_waypoint_count: 0,
             hovered_bead_id: None,
-            beads: Vec::with_capacity(12),
+            beads: Vec::with_capacity(17),
         };
         ring.rebuild_beads(0.0);
         ring
@@ -338,6 +354,90 @@ impl WristResonanceRing {
                 dt_sec,
             );
         }
+
+        // 12..=16: Outer lower arc Story-Journey & Waypoint Recording controls (`24°..30°` separation).
+        struct JourneyBeadEntry {
+            id: u32,
+            kind: BeadKind,
+            theta: f32,
+            selected: bool,
+            color_hdr: [f32; 3],
+            label: &'static str,
+        }
+        let journey_specs = [
+            JourneyBeadEntry {
+                id: 20,
+                kind: BeadKind::JourneyPlayPause,
+                theta: -156.0_f32.to_radians(),
+                selected: self.journey_active,
+                color_hdr: if self.journey_active {
+                    [2.25, 1.85, 0.55]
+                } else {
+                    [0.55, 1.55, 1.95]
+                },
+                label: "STORY",
+            },
+            JourneyBeadEntry {
+                id: 21,
+                kind: BeadKind::JourneyNextBeat,
+                theta: -128.0_f32.to_radians(),
+                selected: false,
+                color_hdr: [0.75, 1.65, 2.05],
+                label: "NEXT",
+            },
+            JourneyBeadEntry {
+                id: 22,
+                kind: BeadKind::RecordWaypoint,
+                theta: 126.0_f32.to_radians(),
+                selected: false,
+                color_hdr: [1.95, 0.85, 0.70],
+                label: "+WPT",
+            },
+            JourneyBeadEntry {
+                id: 23,
+                kind: BeadKind::ToggleLiveTrace,
+                theta: 150.0_f32.to_radians(),
+                selected: self.live_trace_active,
+                color_hdr: if self.live_trace_active {
+                    [2.30, 0.55, 0.50]
+                } else {
+                    [1.55, 0.90, 0.95]
+                },
+                label: "TRACE",
+            },
+            JourneyBeadEntry {
+                id: 24,
+                kind: BeadKind::SaveShareJourney,
+                theta: 174.0_f32.to_radians(),
+                selected: self.recorded_waypoint_count > 0,
+                color_hdr: if self.recorded_waypoint_count > 0 {
+                    [0.65, 2.05, 1.25]
+                } else {
+                    [0.80, 1.05, 1.20]
+                },
+                label: "SHARE",
+            },
+        ];
+        for entry in journey_specs {
+            let local_pos = Vec3::new(
+                entry.theta.sin() * rate_ring_r,
+                entry.theta.cos() * rate_ring_r,
+                0.0,
+            );
+            self.push_bead(
+                BeadSpec {
+                    id: entry.id,
+                    kind: entry.kind,
+                    local_pos,
+                    radius: if entry.selected { 0.0138 } else { 0.0115 } * scale,
+                    selected: entry.selected,
+                    color_hdr: entry.color_hdr,
+                    label: entry.label,
+                },
+                &prev_hover,
+                dt_sec,
+            );
+        }
     }
 
     fn push_bead(&mut self, spec: BeadSpec, prev_hover: &[(u32, f32)], dt_sec: f32) {
@@ -434,6 +534,17 @@ impl WristResonanceRing {
                 Some(DiegeticAction::SetLocale(locale))
             }
             BeadKind::HomeAnchor => Some(DiegeticAction::TriggerEarthHome),
+            BeadKind::JourneyPlayPause => {
+                self.journey_active = !self.journey_active;
+                Some(DiegeticAction::ToggleJourneyPlayPause)
+            }
+            BeadKind::JourneyNextBeat => Some(DiegeticAction::NextJourneyBeat),
+            BeadKind::RecordWaypoint => Some(DiegeticAction::RecordJourneyWaypoint),
+            BeadKind::ToggleLiveTrace => {
+                self.live_trace_active = !self.live_trace_active;
+                Some(DiegeticAction::ToggleJourneyLiveTrace)
+            }
+            BeadKind::SaveShareJourney => Some(DiegeticAction::ExportRecordedJourney),
         }
     }
 }
@@ -537,7 +648,7 @@ mod tests {
     #[test]
     fn wrist_ring_has_exact_playback_rates_locales_and_home() {
         let ring = WristResonanceRing::default();
-        assert_eq!(ring.beads.len(), 12);
+        assert_eq!(ring.beads.len(), 17);
 
         let rates: Vec<f32> = ring
             .beads
@@ -684,5 +795,57 @@ mod tests {
         assert!(!arc.visible);
         assert_eq!(arc.opacity, 0.0);
         assert!(arc.sample_ticks(Vec3::ZERO, Quat::IDENTITY, 1.0).is_empty());
+    }
+
+    #[test]
+    fn journey_and_recorder_beads_do_not_overlap_and_emit_actions() {
+        let mut ring = WristResonanceRing::default();
+        ring.step(
+            &WristSummonInput {
+                desktop_tab_just_pressed: true,
+                ..Default::default()
+            },
+            0.25,
+        );
+        // Verify non-overlapping pairwise distances at full open alpha.
+        for i in 0..ring.beads.len() {
+            for j in (i + 1)..ring.beads.len() {
+                let d = (ring.beads[i].local_pos - ring.beads[j].local_pos).length();
+                assert!(
+                    d > ring.beads[i].radius + ring.beads[j].radius + 0.008,
+                    "beads {} and {} too close: {d}",
+                    ring.beads[i].label,
+                    ring.beads[j].label
+                );
+            }
+        }
+
+        let cases = [
+            (BeadKind::JourneyPlayPause, DiegeticAction::ToggleJourneyPlayPause),
+            (BeadKind::JourneyNextBeat, DiegeticAction::NextJourneyBeat),
+            (BeadKind::RecordWaypoint, DiegeticAction::RecordJourneyWaypoint),
+            (BeadKind::ToggleLiveTrace, DiegeticAction::ToggleJourneyLiveTrace),
+            (BeadKind::SaveShareJourney, DiegeticAction::ExportRecordedJourney),
+        ];
+        for (kind, expected) in cases {
+            let pos = ring
+                .beads
+                .iter()
+                .find(|b| b.kind == kind)
+                .unwrap()
+                .world_pos;
+            let action = ring.step(
+                &WristSummonInput {
+                    pointer_origin: Some(Vec3::ZERO),
+                    pointer_dir: Some(pos.normalize()),
+                    select_triggered: true,
+                    ..Default::default()
+                },
+                0.016,
+            );
+            assert_eq!(action, Some(expected));
+        }
+        assert!(ring.journey_active);
+        assert!(ring.live_trace_active);
     }
 }

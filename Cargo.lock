@@ -431,6 +431,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "cosmos_audio",
+ "cosmos_journey",
  "cosmos_manifest",
  "cosmos_math",
  "cosmos_narration",
@@ -463,6 +464,22 @@ dependencies = [
  "symphonia 0.6.1",
  "thiserror 2.0.21",
  "wsola",
+]
+
+[[package]]
+name = "cosmos_journey"
+version = "0.1.0"
+dependencies = [
+ "cosmos_manifest",
+ "cosmos_math",
+ "cosmos_narration",
+ "cosmos_nav",
+ "cosmos_spatial",
+ "crc32fast",
+ "glam 0.34.3",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

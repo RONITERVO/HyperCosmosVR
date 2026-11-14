@@ -54,6 +54,7 @@ struct ShowcaseShot {
     reveal: f32,
     scale_vel: Option<f64>,
     warmup_frames: u32,
+    summon_journey_prompt: bool,
 }
 
 impl ShowcaseShot {
@@ -88,7 +89,13 @@ impl ShowcaseShot {
             reveal,
             scale_vel,
             warmup_frames,
+            summon_journey_prompt: false,
         }
+    }
+
+    fn with_journey_prompt(mut self) -> Self {
+        self.summon_journey_prompt = true;
+        self
     }
 
     fn with_zone(mut self, zone_index: u16) -> Self {
@@ -723,7 +730,25 @@ fn canonical_showcase_shots() -> Vec<ShowcaseShot> {
             reveal: 0.68,
             scale_vel: None,
             warmup_frames: 8,
+            summon_journey_prompt: false,
         },
+        ShowcaseShot::new(
+            "25_journey_peripheral_exit_prompt.png",
+            SectorId::EARTH_ORBIT,
+            DVec3::new(0.0, 0.16, 3.55),
+            DVec3::ZERO,
+            6.6,
+            3,
+            Locale::EnUs,
+            1.5,
+            true,
+            0.64,
+            None,
+            8,
+        )
+        .with_zone(2)
+        .with_cutaway(0.0)
+        .with_journey_prompt(),
     ]
 }
 
@@ -740,6 +765,41 @@ fn start_showcase_shot_override(
         shot.zone_index,
         shot.feature_index,
     );
+    if shot.summon_journey_prompt {
+        let _ = runtime.activate_journey("cosmic_highlights_tour", true);
+        let cam_rot = glam::Quat::from_mat3(&glam::Mat3::from_cols(
+            camera.cam_right,
+            camera.cam_up,
+            -camera.cam_forward,
+        ))
+        .normalize();
+        let cam_rot64 = glam::DQuat::from_xyzw(
+            cam_rot.x as f64,
+            cam_rot.y as f64,
+            cam_rot.z as f64,
+            cam_rot.w as f64,
+        );
+        for (idx, offset) in [
+            DVec3::new(0.55, 0.25, -1.75),
+            DVec3::new(0.78, 0.42, -1.90),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let wpt = ScalePose64::new(
+                runtime.flight.pose.sector_id,
+                runtime.flight.pose.local_pos + cam_rot64 * offset,
+                runtime.flight.pose.scale_exp,
+                runtime.flight.pose.orient,
+            );
+            runtime.journey_recorder.record_manual_waypoint(
+                &wpt,
+                cosmos_journey::BeatTargetSelector::None,
+                Some(format!("verify_{idx}")),
+            );
+        }
+        let _ = runtime.force_verification_leash_prompt(cam_rot);
+    }
     VerificationNarrationOverride {
         active_experience_id: shot.experience_id,
         phase_reveal: shot.reveal,
@@ -1076,6 +1136,21 @@ mod tests {
             }
             if shot.filename == "04_milky_way_sgr_a_star.png" {
                 assert_eq!(pkt.active_experience_id, 5);
+            }
+            if shot.summon_journey_prompt {
+                assert!(rt.is_journey_paused_by_leash());
+                let prompt = rt
+                    .active_peripheral_prompt()
+                    .expect("peripheral FOLLOW/EXIT prompt visible");
+                let fwd = cam.cam_forward.normalize();
+                let ang_follow = fwd.angle_between(prompt.follow_world.normalize()).to_degrees();
+                let ang_exit = fwd.angle_between(prompt.exit_world.normalize()).to_degrees();
+                assert!(
+                    ang_follow > 20.0 && ang_exit > 20.0,
+                    "peripheral pearls encroached on 12-deg fovea: follow={ang_follow:.1} exit={ang_exit:.1}"
+                );
+                assert!(pkt.typo.tethers.len() >= 2, "expected guide tethers for prompt and waypoints");
+                assert!(pkt.scene.sprites.len() >= 4, "expected FOLLOW/EXIT + waypoint pearls");
             }
             println!(
                 "shot={} exp={} glyphs={} tethers={}",

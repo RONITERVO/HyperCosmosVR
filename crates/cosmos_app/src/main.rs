@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use cosmos_app::desktop::run_desktop_loop;
+use cosmos_app::desktop::run_desktop_loop_with_journey;
+use cosmos_app::engine::LaunchJourneyConfig;
 use cosmos_app::headless::run_headless_render;
-use cosmos_app::vr::try_run_openxr_session;
+use cosmos_app::vr::try_run_openxr_session_with_journey;
 use cosmos_xr::{probe_openxr, XrAvailability};
 
 struct CliArgs {
@@ -13,6 +14,7 @@ struct CliArgs {
     benchmark_sweep: bool,
     width: u32,
     height: u32,
+    journey: LaunchJourneyConfig,
 }
 
 fn parse_args() -> CliArgs {
@@ -23,6 +25,7 @@ fn parse_args() -> CliArgs {
         benchmark_sweep: false,
         width: 1600,
         height: 900,
+        journey: LaunchJourneyConfig::default(),
     };
 
     let mut it = std::env::args().skip(1);
@@ -31,6 +34,12 @@ fn parse_args() -> CliArgs {
             "--desktop" => args.force_desktop = true,
             "--hdr-surface" => args.prefer_hdr_surface = true,
             "--benchmark-sweep" => args.benchmark_sweep = true,
+            "--autoplay-journey" => args.journey.autoplay = true,
+            "--journey" => {
+                if let Some(v) = it.next() {
+                    args.journey.journey_id_or_path = Some(v);
+                }
+            }
             "--headless-render" => {
                 let dir = it
                     .next()
@@ -52,10 +61,11 @@ fn parse_args() -> CliArgs {
                 println!(
                     "HyperCosmosVR (RTX 5070 DX12 + OpenXR VR + Desktop HDR)\n\
                      Usage:\n\
-                       cosmos_app [--desktop] [--hdr-surface]\n\
+                       cosmos_app [--desktop] [--hdr-surface] [--journey <id|path|uri>] [--autoplay-journey]\n\
                        cosmos_app --headless-render <out_dir> [--benchmark-sweep] [--width W] [--height H]\n\
                      Controls (Desktop): Hover scan focus, Scroll dive, Left-drag orbit, F+Mouse free-look,\n\
-                       WASD/QE 6DoF, Right-Hold/Tab Wrist Resonance Ring, [ / ] speed, L locale EN/FI, Home reset."
+                       WASD/QE 6DoF, Right-Hold/Tab Wrist Resonance Ring, [ / ] speed, L locale EN/FI, Home reset,\n\
+                       J story play/pause, N/P beat (Shift+N/P chapter), R/+WPT, Shift+R live trace, Ctrl+S/F9 export, Enter/Backspace/Esc FOLLOW/EXIT."
                 );
                 std::process::exit(0);
             }
@@ -112,7 +122,7 @@ fn main() -> Result<()> {
     if !args.force_desktop {
         match probe_openxr("HyperCosmosVR", 1) {
             avail @ XrAvailability::Available { .. } => {
-                if try_run_openxr_session(avail)? {
+                if try_run_openxr_session_with_journey(avail, args.journey.clone())? {
                     return Ok(());
                 }
             }
@@ -129,6 +139,6 @@ fn main() -> Result<()> {
         }
     }
 
-    run_desktop_loop(args.prefer_hdr_surface)
+    run_desktop_loop_with_journey(args.prefer_hdr_surface, args.journey)
 }
 

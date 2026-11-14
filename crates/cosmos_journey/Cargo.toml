@@ -1,0 +1,17 @@
+[package]
+name = "cosmos_journey"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+cosmos_math = { path = "../cosmos_math" }
+cosmos_manifest = { path = "../cosmos_manifest" }
+cosmos_spatial = { path = "../cosmos_spatial" }
+cosmos_narration = { path = "../cosmos_narration" }
+cosmos_nav = { path = "../cosmos_nav" }
+crc32fast = { workspace = true }
+glam = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
