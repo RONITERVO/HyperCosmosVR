@@ -68,7 +68,35 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
 
 ---
 
-## 4. Pull Request Process
+## 4. Visual Expansion Roadmap & Claimable Work Packages
+
+Contributors working on documentary shaders, zone disambiguation, or GPU compute choreography should claim **one self-contained 1-PR package** (`3–5` zones or `1` Core P0 prerequisite) from **[`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md)**:
+
+- **Master Roadmap & P0 Plumbing Cards:** [`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md) (`3` Core Pipeline P0 packages + `88`-package master index, `1100..=3869` pre-allocated shader ID registry, and 4-phase rollout plan).
+- **Act Gap Maps (in `ODYSSEY_ACTS` travel order):**
+  - Act I (`03, 04` — `6` pkgs): [`docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md`](docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md)
+  - Act II (`05, 21, 22, 06, 07, 08, 09, 10` — `26` pkgs): [`docs/roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md`](docs/roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md)
+  - Act III (`13, 14` — `7` pkgs): [`docs/roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md`](docs/roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md)
+  - Act IV (`15, 16, 17, 01, 02` — `14` pkgs): [`docs/roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md`](docs/roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md)
+  - Act V (`18, 19, 20, 11, 12, 23, 24, 25` — `32` pkgs): [`docs/roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md`](docs/roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md)
+
+### Two Parallel Contribution Tracks (Engineers & Non-Technical Teams)
+
+- **Corporate Multi-Team / Engineering Track (Collision-Free Claiming):**
+  1. Check open Issues and PRs for `[PKG-...]` to ensure no other team has claimed that slice, and confirm prerequisite Core `P0` packages (`#pkg-p0-dispatch-and-ids`, `#pkg-p0-feature-and-cue-plumbing`, `#pkg-p0-catalog-scene-and-ci`) have landed or are stacked cleanly.
+  2. Open a claim Issue or Draft PR titled `[PKG-ACTx-EXPyy-Zaa-bb] <short title>` on a package branch (e.g., `feat/pkg-act5-exp23-z00-04`), staying strictly inside that package's reserved `1100..=3599` / `3600..=3869` ID block.
+- **No-Code / Educational / Visual Design Track:**
+  1. Author or curate guided `.hcj.json` exhibits (`assets/journeys/` or [`docs/JOURNEY_PLUGINS.md`](docs/JOURNEY_PLUGINS.md)) and review domain accuracy of the `2,456` feature Storyboard Blueprints in `docs/roadmap/ACT_*.md` before shader coding starts.
+  2. Run visual QA captures (`Start-HyperCosmosVR.cmd --headless-render .\artifacts\check_renders`) to audit muted visual self-sufficiency, scientific accuracy, and typography legibility, or contribute script/translation refinements in the upstream content repositories (`Spanish-Quick-Apps` / `Spanish-Quick-Apps-audio`).
+
+**Shader & Pipeline Package Acceptance Requirements:**
+1. Follow the standard 4-file touch pattern (`crates/cosmos_narration/src/resolver.rs`, `crates/cosmos_render/src/doc_stages.rs`, `shaders/hero_doc_*.wgsl` + `shaders/doc_common.wgsl`, and `shaders/compute_universe.wgsl` / `shaders/instanced_sprites.wgsl` / `crates/cosmos_render/src/universe_scene.rs`) using pre-allocated IDs (`1000 + exp_id * 100 + zone_index` in `1100..=3599`; companions `3600..=3869`) and distinct `doc_feat` (`0..=7`) transitions.
+2. Preserve **OLED pure-black void** (existing `43` baseline PNGs hold `>= 50.90%` `#000000` with `50.9004%` min in `06_cmb_and_inflation.png`; newly upgraded roadmap packages must achieve **`>= 50.91%` `#000000`**, `0.0000%` highlight blowout) and **VR 90/120 Hz budget (`<= 28` raymarch steps for new hero shells; RTX 5070 baseline `mean = 1.927 ms`, `p99 = 4.873 ms`)**.
+3. Run `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`, `cargo clippy --workspace --all-targets -- -D warnings`, and the workspace / `.github/workflows/ci.yml` tests before opening your PR.
+
+---
+
+## 5. Pull Request Process
 
 1. Fork the repository and create a topic branch (`feat/...`, `fix/...`, `docs/...`).
 2. Keep changes focused and well-tested; add unit tests for math, FSM, catalog, or DSP changes.
@@ -77,7 +105,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
 
 ---
 
-## 5. Licensing
+## 6. Licensing
 
 By submitting a contribution, you agree that your code contributions will be dual-licensed under **MIT OR Apache-2.0** (`LICENSE-MIT` and `LICENSE-APACHE`), consistent with the workspace `Cargo.toml`. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for existing dependency licenses (including `MPL-2.0` for `symphonia`).
 

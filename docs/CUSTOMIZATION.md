@@ -4,6 +4,24 @@ This guide explains how to adapt **HyperCosmosVR** for your organization, museum
 
 ---
 
+## Fast "I Just Want to Change X" Lookup
+
+| What you want to change | Effort / Rebuild? | Exact Action |
+| :--- | :--- | :--- |
+| **Switch caption language (`EN` / `FI`) live** | **Zero code (Runtime)** | Press `L` on desktop or touch the `EN` / `FI` bead on the 3D Wrist Resonance Ring (`Right-Hold` / `Tab`, or palm-up in VR). |
+| **Adjust speech playback speed (`1.0×`–`3.0×`)** | **Zero code (Runtime)** | Press `[` / `]` (or `-` / `=`), or touch the 9 speed beads on the Wrist Resonance Ring (pitch-preserved via `wsola`). |
+| **Run silently / spatial synth only (skip `1.05 GiB` download)** | **Zero code (Launch)** | Skip `tools\fetch_audio_pack.ps1` (or launch without `universe_audio.hcvp`); app boots cleanly in visual + synth mode. |
+| **Force Desktop HDR even with headset attached** | **Zero code (CLI)** | `.\Start-HyperCosmosVR.cmd --desktop --hdr-surface` |
+| **Record & share a custom museum/lesson route in 2 min** | **Zero code (Runtime)** | Fly + zoom, press `R` (`+WPT`) or `Shift+R` (`TRACE`), then `Ctrl+S` / `F9` (`SHARE` exports `user_journeys/<id>.hcj.json` + `hypercosmos://` URI). |
+| **Auto-play a custom `.hcj.json` or share link (Kiosk mode)** | **Zero code (CLI + JSON)** | `.\Start-HyperCosmosVR.cmd --desktop --journey user_journeys\my_tour.hcj.json --autoplay-journey` (edit dwell sec / chapter titles right in JSON). |
+| **Use custom brand or open-source fonts** | **Zero code (Assets)** | Replace the 5 `.ttf` files in `assets/fonts/` ([manifest.json](../assets/fonts/manifest.json)), delete `assets/baked/msdf_cache/`, relaunch. |
+| **Deploy offline / shared drive (`HYPERCOSMOS_ROOT`)** | **Zero code (Env var)** | `$env:HYPERCOSMOS_ROOT = "D:\Exhibits\MuseumPackA"; .\cosmos_app.exe --desktop` |
+| **Swap scripted text, translations, or audio recordings** | **Zero Rust (Python bake)** | `python tools\bake_universe.py --sqa-root <path> --sqaa-root <path>`, then run `cargo test -p cosmos_manifest`. |
+| **Change cold-start scale, dwell timing, or HDR accent** | **1-line Rust recompile** | Edit constants in [Part 2](#part-2--engineer-customizations-rust--wgsl) (`flight.rs`, `fsm.rs`, `elastic.rs`, `universe_scene.rs`) + `cargo build --release`. |
+| **Upgrade a zone to 1:1 documentary hero graphics** | **4-file Rust/WGSL PR** | Claim a `PKG-...` package in [CONTRIBUTOR_VISUAL_ROADMAP.md](CONTRIBUTOR_VISUAL_ROADMAP.md) (`doc_stages.rs` + `hero_doc_*.wgsl`). |
+
+---
+
 ## Part 1 — Non-Code & Asset Customizations
 
 ### 1. Choose Visual-Only Mode vs. Full Narrated Audio Mode
