@@ -72,7 +72,7 @@ pub const fn canonical_companion_vid(experience_id: u8, slot: u8) -> u32 {
 /// canonical shader ID (`1100..=3599`) and `doc_feat(inst)` sub-staging.
 #[inline]
 pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool {
-    matches!((experience_id, zone_index), (3, 5..=8))
+    matches!((experience_id, zone_index), (3, 0..=13))
 }
 
 /// Dispatches canonical `vid` (`1100..=3599`) for `[TIER-A]` migrated zones while preserving
@@ -97,6 +97,7 @@ pub fn doc_stage_variant_id(experience_id: u8, doc: &DocumentaryFocusState) -> u
         None
     };
     match experience_id {
+        3 => 0,
         13 => match z {
             2 => 10, // H2O + Benzene Molecules (07c)
             3 => 11, // Hydrogen Electron Orbitals (07)
@@ -386,12 +387,18 @@ pub fn emit_celestial_or_landmark(
                         9 => ([0.78, 0.62, 0.50, 1.05], [0.94, 0.88, 0.78, 1.0]),
                         _ => ([0.72, 0.84, 0.95, 1.10], [0.22, 1.25, 1.65, 1.0]),
                     };
+                    let spin_angle = if body_idx == 2 {
+                        // Venus rotates retrograde (~243 Earth days backwards)
+                        -input.time_sec * 0.03
+                    } else {
+                        input.time_sec * 0.03
+                    };
                     heroes_surface.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b],
                         rot_quat: rot_arr,
                         color_a: ca,
                         color_b: cb,
-                        phys_a: [input.time_sec * 0.03, 0.1, 0.0, dwell],
+                        phys_a: [spin_angle, 0.1, 0.0, dwell],
                         phys_b: sun,
                         kind_tags: pack_doc_tags(1, vid, 0, 0, &input.documentary),
                     });
@@ -411,14 +418,17 @@ pub fn emit_celestial_or_landmark(
             && (vis.experience_id == input.active_experience_id
                 || matches!(input.active_experience_id, 5..=9))
         {
-            // Promote iconic landmarks (Heliopause=20, Orion/Eagle Pillars=21, Local Bubble=22, Virgo/M87)
-            let vid = match (vis.experience_id, vis.zone_index % 3) {
-                (5, 0) => 20,
-                (5, 1) => 21,
-                (5, _) => 22,
-                (6, _) => 6,
-                (7, _) => 7,
-                (8, _) => 8,
+            // Promote iconic landmarks via canonical companion IDs (Exp 05 = 3640..=3649, exact zone in submode)
+            let landmark_submode = if vis.experience_id == 5 {
+                vis.zone_index as u32
+            } else {
+                0u32
+            };
+            let vid = match vis.experience_id {
+                5 => canonical_companion_vid(5, (vis.zone_index as u8).min(9)),
+                6 => 6,
+                7 => 7,
+                8 => 8,
                 _ => vis.experience_id as u32,
             };
             let max_r = (dist * 0.40).clamp(0.05, 16.0);
@@ -430,7 +440,7 @@ pub fn emit_celestial_or_landmark(
                 color_b: [0.35, 0.95, 1.55, 0.92],
                 phys_a: [input.time_sec * 0.15, 0.0, 0.8, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(3, vid, 0, 0, &input.documentary),
+                kind_tags: pack_doc_tags(3, vid, 0, landmark_submode, &input.documentary),
             });
             return;
         }
@@ -637,16 +647,21 @@ pub fn emit_doc_stage_hero(
             } else {
                 0u32
             };
-            let earth_vid = if is_zone_migrated_tier_a(3, doc.active_zone_index) {
-                canonical_zone_vid(3, doc.active_zone_index)
-            } else {
-                0u32
-            };
+            let earth_vid = resolve_zone_shader_vid(3, doc);
             let shell_submode = if earth_vid == canonical_zone_vid(3, 5) {
                 2u32
+            } else if cutaway != 0 {
+                1u32
             } else {
-                cutaway
+                3u32
             };
+            let shell_mul = match doc.active_zone_index {
+                0 => 1.22_f32,
+                1 => 1.18_f32,
+                _ => 1.14_f32,
+            };
+            let earth_limb_in_shell = 0.84 / shell_mul;
+            let surface_submode = if cutaway != 0 { 1u32 } else { 2u32 };
             heroes_surface.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, earth_solid_r],
                 rot_quat,
@@ -654,14 +669,14 @@ pub fn emit_doc_stage_hero(
                 color_b: [0.16, 0.58, 1.45, 1.0],
                 phys_a: [input.time_sec * 0.03, 0.409, 0.0, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(0, earth_vid, cutaway, cutaway, doc),
+                kind_tags: pack_doc_tags(0, earth_vid, cutaway, surface_submode, doc),
             });
             heroes_volume.push(HeroVolumeInstance {
-                pos_radius: [pos.x, pos.y, pos.z, earth_solid_r * 1.14],
+                pos_radius: [pos.x, pos.y, pos.z, earth_solid_r * shell_mul],
                 rot_quat,
                 color_a: [0.15, 2.2, 0.9, 1.2],
                 color_b: [1.1, 0.24, 2.0, 1.0],
-                phys_a: [input.time_sec * 0.03, 0.0, 0.0, dwell],
+                phys_a: [input.time_sec * 0.03, earth_limb_in_shell, 0.0, dwell],
                 phys_b: sun,
                 kind_tags: pack_doc_tags(0, earth_vid, 0, shell_submode, doc),
             });
@@ -721,9 +736,9 @@ pub fn emit_doc_stage_hero(
         }
 
         // --------------------------------------------------------------------
-        // EXP 05 & 12: BLACK HOLES / MILKY WAY BAR / DYING DWARF
+        // EXP 05: MILKY WAY / SGR A* KERR BLACK HOLE
         // --------------------------------------------------------------------
-        5 | 12 => {
+        5 => {
             let max_r = (pos.length() * 0.46).clamp(0.04, 24.0);
             let r_bh = rel_scale.clamp(0.04, max_r);
             heroes_surface.push(HeroVolumeInstance {
@@ -744,17 +759,46 @@ pub fn emit_doc_stage_hero(
                 phys_b: sun,
                 kind_tags: pack_doc_tags(4, experience_id as u32, 2, 0, doc),
             });
-            if experience_id == 12 {
-                // Cooling Red/Black Dwarf + Future Arrow beside Hawking BH
-                let dp = pos + stage_right * (r_bh * 1.15);
+        }
+
+        // --------------------------------------------------------------------
+        // EXP 12: FUTURE OF UNIVERSE — Primary Documentary Stage (120..=124)
+        //         + Flanking Hawking BH Companion on Black-Hole Era Zones
+        // --------------------------------------------------------------------
+        12 => {
+            let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
+            let r_g = (rel_scale * 0.88).clamp(0.04, max_r);
+            let vid = resolve_zone_shader_vid(12, doc);
+            heroes_volume.push(HeroVolumeInstance {
+                pos_radius: [pos.x, pos.y, pos.z, r_g],
+                rot_quat: face_quat,
+                color_a: [accent.x, accent.y, accent.z, 1.2],
+                color_b: [zone_c.x, zone_c.y, zone_c.z, 0.95],
+                phys_a: [input.time_sec * 0.2, 0.0, 0.8, dwell],
+                phys_b: sun,
+                kind_tags: pack_doc_tags(9, vid, 0, 0, doc),
+            });
+            if matches!(doc.active_zone_index, 5..=7) {
+                let bh_p = pos + stage_right * (r_g * 0.84);
+                let r_bh = (r_g * 0.24).clamp(0.04, 4.0);
+                let bh_vid = canonical_companion_vid(12, 0);
                 heroes_surface.push(HeroVolumeInstance {
-                    pos_radius: [dp.x, dp.y, dp.z, r_bh * 0.26],
+                    pos_radius: [bh_p.x, bh_p.y, bh_p.z, r_bh],
                     rot_quat,
-                    color_a: [0.95, 0.25, 0.08, 1.1],
-                    color_b: [1.35, 0.42, 0.12, 0.9],
-                    phys_a: [input.time_sec * 0.1, 0.0, 0.0, dwell],
+                    color_a: [0.0, 0.0, 0.0, 1.0],
+                    color_b: [0.0, 0.0, 0.0, 1.0],
+                    phys_a: [0.95, 0.0, 0.95, dwell],
                     phys_b: sun,
-                    kind_tags: pack_doc_tags(1, 12, 0, 0, doc),
+                    kind_tags: pack_doc_tags(4, bh_vid, 2, doc.active_zone_index as u32, doc),
+                });
+                heroes_volume.push(HeroVolumeInstance {
+                    pos_radius: [bh_p.x, bh_p.y, bh_p.z, r_bh],
+                    rot_quat,
+                    color_a: [1.15, 0.95, 0.88, 1.15],
+                    color_b: [zone_c.x, zone_c.y, zone_c.z, 0.92],
+                    phys_a: [0.95, 0.25, 0.95, dwell],
+                    phys_b: sun,
+                    kind_tags: pack_doc_tags(4, bh_vid, 2, doc.active_zone_index as u32, doc),
                 });
             }
         }

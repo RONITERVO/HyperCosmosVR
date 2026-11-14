@@ -116,7 +116,10 @@ fn doc_is_canonical_zone_vid(vid: u32) -> bool {
 }
 
 fn doc_vid_exp(vid: u32) -> u32 {
-    return (vid / 100u) - 10u;
+    if (vid >= 1000u) {
+        return (vid - 1000u) / 100u;
+    }
+    return vid / 10u;
 }
 
 fn doc_vid_zone(vid: u32) -> u32 {

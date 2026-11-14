@@ -493,11 +493,11 @@ fn celestial_body_isolation_and_solar_mapping_are_exact() {
         let mut input = SceneBuildInput::desktop_default(pose, cam, 384, 384);
         input.active_experience_id = exp_id;
         let scene = builder.build(&index, &input);
-        let earth_surface_count = scene
-            .heroes_surface
-            .iter()
-            .filter(|h| h.kind_tags[0] == 0 && h.kind_tags[1] == 0)
-            .count();
+        let is_earth_surface = |h: &&cosmos_render::HeroVolumeInstance| {
+            h.kind_tags[0] == 0
+                && (h.kind_tags[1] == 0 || (1300..=1313).contains(&h.kind_tags[1]))
+        };
+        let earth_surface_count = scene.heroes_surface.iter().filter(is_earth_surface).count();
         let solar_planet_count = scene
             .heroes_surface
             .iter()
@@ -509,11 +509,7 @@ fn celestial_body_isolation_and_solar_mapping_are_exact() {
                 earth_surface_count, 1,
                 "Deep Earth (03) must have exactly 1 cutaway Earth surface hero, got {earth_surface_count}"
             );
-            let earth = scene
-                .heroes_surface
-                .iter()
-                .find(|h| h.kind_tags[0] == 0 && h.kind_tags[1] == 0)
-                .unwrap();
+            let earth = scene.heroes_surface.iter().find(is_earth_surface).unwrap();
             assert_eq!(earth.kind_tags[3] & 0xFF, 1, "Deep Earth (03) must keep cutaway active");
         } else {
             assert_eq!(
@@ -1005,9 +1001,98 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
     assert_eq!((tags[3] >> 2) & 0x3F, 0b01_0101, "6-bit cue_tags_mask must pack into bits 2..7");
     assert_eq!((tags[3] >> 24) & 0xFF, 7, "submode_override must populate bits 24..31 when submode==0");
 
-    // 3. Exp 03 Z05..=Z08 [TIER-A] routing + Z06 Surface premature cutaway bug fix + GPU feature differentiation
-    for z in 5u16..=8u16 {
-        assert!(is_zone_migrated_tier_a(3, z));
+    // 3. Exp 05 canonical GalacticLandmark IDs (3640..=3649) & Exp 12 un-bypassed primary stage (kind=9, vid=120..=124)
+    {
+        use cosmos_math::CameraRelativePose;
+        use cosmos_render::doc_stages::{emit_celestial_or_landmark, emit_doc_stage_hero};
+        use cosmos_spatial::{EntityKind, LodTier, VisibleEntity};
+
+        let cam = RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
+        for z in 0u16..=11u16 {
+            let mut input5 = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::MILKY_WAY, DVec3::ZERO, 20.5, DQuat::IDENTITY),
+                cam,
+                384,
+                384,
+            );
+            input5.active_experience_id = 5;
+            let vis = VisibleEntity {
+                id: 700 + z as u64,
+                experience_id: 5,
+                zone_index: z,
+                feature_index: 0,
+                kind: EntityKind::GalacticLandmark,
+                pose: CameraRelativePose {
+                    pos: Vec3::new(0.0, 0.0, -3.5),
+                    rel_scale: 1.2,
+                    orient: Quat::IDENTITY,
+                    angular_rad: 0.6,
+                    distance_render_units: 3.5,
+                    is_far_shell: false,
+                },
+                lod: LodTier::Hero,
+                salience_score: 1.0,
+            };
+            let mut hs = Vec::new();
+            let mut hv = Vec::new();
+            let mut sp = Vec::new();
+            emit_celestial_or_landmark(&vis, &input5, Vec3::Y, 0.0, &mut hs, &mut hv, &mut sp);
+            assert_eq!(hv.len(), 1, "Exp 05 zone {z} must emit 1 landmark volume hero");
+            assert_eq!(
+                hv[0].kind_tags[1],
+                canonical_companion_vid(5, (z as u8).min(9)),
+                "Exp 05 landmark must use canonical companion vid 3640..=3649"
+            );
+            assert_eq!(
+                (hv[0].kind_tags[3] >> 24) & 0xFF,
+                z as u32,
+                "Exp 05 landmark submode must preserve exact zone index {z}"
+            );
+        }
+
+        for z in 0u16..=9u16 {
+            let mut input12 = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::HYPER_LOTUS_12_FUTURE, DVec3::ZERO, 27.6, DQuat::IDENTITY),
+                cam,
+                384,
+                384,
+            );
+            input12.active_experience_id = 12;
+            input12.documentary.active_zone_index = z;
+            input12.documentary.scene_index = (z % 5) as i32;
+            let mut hs = Vec::new();
+            let mut hv = Vec::new();
+            let mut sp = Vec::new();
+            emit_doc_stage_hero(
+                12,
+                Vec3::new(0.0, 0.0, -3.2),
+                1.6,
+                [0.0, 0.0, 0.0, 1.0],
+                Vec3::Y,
+                0.5,
+                &input12,
+                &mut hs,
+                &mut hv,
+                &mut sp,
+            );
+            assert_eq!(hv[0].kind_tags[0], 9, "Exp 12 must emit un-bypassed documentary stage kind=9");
+            assert_eq!(
+                hv[0].kind_tags[1],
+                120 + (z % 5) as u32,
+                "Exp 12 zone {z} must route to variant 120..=124"
+            );
+            if matches!(z, 5..=7) {
+                assert!(
+                    hv.iter().any(|h| h.kind_tags[0] == 4 && h.kind_tags[1] == canonical_companion_vid(12, 0)),
+                    "Exp 12 black-hole era zone {z} must keep flanking BH companion 3710"
+                );
+            }
+        }
+    }
+
+    // 4. Exp 03 full 14-zone (Z00..=Z13) [TIER-A] routing + Z06 Surface solid globe + all 70/70 features GPU verified
+    for z in 0u16..=13u16 {
+        assert!(is_zone_migrated_tier_a(3, z), "Exp 03 Z{z:02} must be migrated Tier-A");
         let d = DocumentaryFocusState {
             active_zone_index: z,
             ..Default::default()
@@ -1074,10 +1159,20 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
     };
 
     let zones = [
+        (0u16, 1300u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
+        (1u16, 1301u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
+        (2u16, 1302u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
+        (3u16, 1303u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
+        (4u16, 1304u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
         (5u16, 1305u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
         (6u16, 1306u32, 0u32, 6.05f64, DVec3::new(0.0, 0.25, 3.15)),
         (7u16, 1307u32, 1u32, 5.90f64, DVec3::new(0.95, 0.45, 2.48)),
         (8u16, 1308u32, 1u32, 5.75f64, DVec3::new(0.95, 0.45, 2.48)),
+        (9u16, 1309u32, 1u32, 5.85f64, DVec3::new(0.95, 0.45, 2.48)),
+        (10u16, 1310u32, 1u32, 5.85f64, DVec3::new(0.95, 0.45, 2.48)),
+        (11u16, 1311u32, 1u32, 5.85f64, DVec3::new(0.95, 0.45, 2.48)),
+        (12u16, 1312u32, 1u32, 5.85f64, DVec3::new(0.95, 0.45, 2.48)),
+        (13u16, 1313u32, 1u32, 5.85f64, DVec3::new(0.95, 0.45, 2.48)),
     ];
     for &(zone, expected_vid, expected_cutaway, scale_u, cam_pos) in &zones {
         let mut renders = Vec::with_capacity(5);

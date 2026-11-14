@@ -8,15 +8,15 @@ Odyssey Act I corresponds to **`ODYSSEY_ACTS[0] = &[3, 4]`** in [`crates/cosmos_
 
 | Exp | Catalog Slug | Odyssey Position & Scale Band | Zones | Features | Zone `[A / B / C / D]` | Feature `[A / B / C / D]` | Reserved `vid` Block | Companion `vid` Block |
 |---:|---|---|---:|---:|:---:|:---:|---|---|
-| `03` | `03_deep_earth` (`Espectro de la Tierra`) | Act 1 · Ch `1/2` (`SectorId::EARTH_ORBIT`, `u in [0.0, 7.4]`, `focus=6.8`, `COLD_START=6.6`) | `14` | `70` | `4 / 9 / 0 / 1` | `20 / 15 / 0 / 35` | `1300..=1313` | `3620..=3629` |
+| `03` | `03_deep_earth` (`Espectro de la Tierra`) | Act 1 · Ch `1/2` (`SectorId::EARTH_ORBIT`, `u in [0.0, 7.4]`, `focus=6.8`, `COLD_START=6.6`) | `14` | `70` | `14 / 0 / 0 / 0` | `70 / 0 / 0 / 0` | `1300..=1313` | `3620..=3629` |
 | `04` | `04_solar_system` (`Espectro del Sistema Solar · Del Sol a Plutón`) | Act 1 · Ch `2/2` (`SectorId::SOLAR_SYSTEM`, `u in [6.8, 13.6]`, `focus=11.2`, `11 body_layout`) | `12` | `60` | `0 / 12 / 0 / 0` | `0 / 26 / 1 / 33` | `1400..=1411` | `3640..=3651` |
-| **ACT I** | **`03 + 04`** | **Odyssey Act I (`2` Experiences)** | **`26`** | **`130`** | **`4 / 21 / 0 / 1`** | **`20 / 41 / 1 / 68`** | **`1300..=1411`** | **`3620..=3651`** |
+| **ACT I** | **`03 + 04`** | **Odyssey Act I (`2` Experiences)** | **`26`** | **`130`** | **`14 / 12 / 0 / 0`** | **`70 / 26 / 1 / 33`** | **`1300..=1411`** | **`3620..=3651`** |
 
-> **Critical Audit & Reference Exemplar Progress:** Ground-truth inspection of [`universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json), [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs), [`hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), [`hero_volumetric.wgsl`](../../shaders/hero_volumetric.wgsl), and [`compute_universe.wgsl`](../../shaders/compute_universe.wgsl) shows **`4 / 26` Act I zones (`Z05..Z08` via `PKG-ACT1-EXP03-Z05-08`)** and **`20 / 130` features** are now **`[TIER-A]` reference implementations** (`vid = 1305..=1308`, full `doc_feat(inst)` sub-staging, premature `Z06 Surface` cutaway bug fixed, Moho discontinuity split). Remaining Act I functional gaps today:
-> 1. **Missing `Z03` Mesosphere Shader (`[TIER-D]`):** Zero branch exists for `z_idx == 3u` in [`hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl) despite comments promising meteors and ISS orbit.
-> 2. **Fixed in `PKG-ACT1-EXP03-Z05-08`:** Premature Earth cutaway on `Z06 Surface` (`rel_scale_u = 6.05`) and `Z07` crust / `Z08` lithosphere Moho conflation are now resolved in [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) and [`hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl).
-> 3. **Venus Prograde Spin Contradiction (`doc_stages.rs:338`):** Positive spin `+input.time_sec * 0.03` & `hero_doc_cosmos.wgsl:131` `+time * 0.08` rotate Venus prograde directly contradicting retrograde narration (`Z02 F2`).
-> 4. **Exp 04 Earth Isolation & Belt Placeholder Leaks:** Moon + magnetosphere are gated to `Exp 03` only (`doc_stages.rs:588-609`), `Exp 03` `z_idx == 4/5/6/7` checks leak onto `Exp 04` planets (`hero_doc_cosmos.wgsl:25,33,43`), `Z05 Asteroid Belt` reuses Mercury (`vid=3`) + Saturn Cassini gaps (`F4 [TIER-C]`), `Z06 Jupiter` never spawns existing `vid=10` Europa, and `Z10 Kuiper Belt` misuses cracked-ocean Europa (`vid=10`).
+> **Critical Audit & Reference Exemplar Progress:** Ground-truth inspection of [`universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json), [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs), [`hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), [`hero_volumetric.wgsl`](../../shaders/hero_volumetric.wgsl), and [`compute_universe.wgsl`](../../shaders/compute_universe.wgsl) shows **`14 / 26` Act I zones (`100%` of `03_deep_earth` via `PKG-ACT1-EXP03-Z00-04`, `PKG-ACT1-EXP03-Z05-08`, and `PKG-ACT1-EXP03-Z09-13`)** and **`70 / 130` features** are now **`[TIER-A]` complete implementations** (`vid = 1300..=1313`, full `doc_feat(inst)` sub-staging across all `70` features, `Z03` Mesosphere built, `Z06 Surface` premature cutaway & zone-level macro focus leak fixed, `Z02` localized limb arc, `Z07..=Z13` AgX saturated palette + Moho split). In addition, **`Exp 04` Venus retrograde spin (`-time`) and `Exp 03` `z_idx` isolation from `Exp 04` planets are now fixed**. Remaining Act I functional gaps today:
+> 1. **Solved Across `Exp 03` (`14/14` Zones `[TIER-A]`):** Missing `Z03` Mesosphere shader (`1303`), `Z06 Surface` premature cutaway (`1306`), `Z07/Z08` Moho conflation, zone-level macro focus leak (`engine.rs`), `Z02` full-disk bullseye rings, and `Z07..=Z13` AgX inner-core desaturation are all resolved and GPU-verified across `70/70` pairwise feature tests.
+> 2. **Solved in `Exp 04` P0/Physics Pass (`PKG-ACT1-EXP04-Z00-03` partial):** Venus retrograde spin (`-time` in `doc_stages.rs` & `hero_doc_cosmos.wgsl`) and `Exp 03` `z_idx == 4..7` isolation from `Exp 04` planets are now fixed on `main`.
+> 3. **Open `Exp 04` Moon/Magnetosphere & Sub-Feature Upgrades (`12/12` Zones `[TIER-B]`):** Moon + magnetosphere companions remain gated to `Exp 03` only (`doc_stages.rs`), and `Exp 04` `1400..=1411` sub-feature `doc_feat` transitions remain open across `PKG-ACT1-EXP04-Z00-03`, `04-07`, and `08-11`.
+> 4. **Open `Exp 04` Asteroid & Kuiper Belt Placeholders:** `Z05 Asteroid Belt` reuses Mercury (`vid=3`) + Saturn Cassini gaps (`F4 [TIER-C]`), `Z06 Jupiter` never spawns existing `vid=10` Europa, and `Z10 Kuiper Belt` misuses cracked-ocean Europa (`vid=10`).
 
 ## 2. Core Prerequisites & Act I Package Index (`6` Pick-Up Cards)
 
@@ -27,10 +27,10 @@ Before implementing procedural feature branches (`vid = 1300..1313` / `1400..141
 
 | Package ID (Jump Link) | Phase & Priority | Target Zones | Zone Tiers (`A/B/C/D`) | Feat Tiers (`A/B/C/D`) | Headline Bugs Fixed & Deliverables |
 |---|---|---|---:|---:|---|
-| [`PKG-ACT1-EXP03-Z00-04`](#pkg-act1-exp03-z00-04) | Phase 3 (High) | `Exp 03 Z00..Z04` (`5` zones, `25` feats) | `0/4/0/1` | `0/3/0/22` | Expand `r_vol` (`1.14 -> 2.1*R`), bow-shock dayside vs Lyman-alpha geocorona split, ISS & GEO/HEO rings, **build missing `Z03` Mesosphere meteors/NLCs/rocket**, ozone UV attenuation |
-| [`PKG-ACT1-EXP03-Z05-08`](#pkg-act1-exp03-z05-08) | Phase 1/3 (`[TIER-A]` Reference Exemplar Done) | `Exp 03 Z05..Z08` (`4` zones, `20` feats) | `4/0/0/0` | `20/0/0/0` | **Completed Reference Implementation (`1305..=1308`):** Fixed `Z06 Surface` premature cutaway, split Moho at `0.938..0.962` (`Z07` crust vs `Z08` rigid mantle + Wadati-Benioff foci), wired 20 `doc_feat` 1:1 transitions |
-| [`PKG-ACT1-EXP03-Z09-13`](#pkg-act1-exp03-z09-13) | Phase 3 (Medium) | `Exp 03 Z09..Z13` (`5` zones, `25` feats) | `0/5/0/0` | `0/12/0/13` | Add partial-melt pockets (`Z09`), `seam_410` + ringwoodite hydration (`Z10`), bridgmanite + `D''` LLSVPs (`Z11`), Taylor columns (`Z12`), anisotropic HCP crystals & 360 GPa reticle (`Z13`) |
-| [`PKG-ACT1-EXP04-Z00-03`](#pkg-act1-exp04-z00-03) | Phase 3 (Critical) | `Exp 04 Z00..Z03` (`4` zones, `20` feats) | `0/4/0/0` | `0/10/0/10` | Sun H->He cutaway & Parker solar wind, Mercury scarps/polar ice, **negate Venus prograde spin bug (`-time`) + IR/radar cutaway**, restore Exp-04 Earth Moon/magnetosphere & isolate Exp-03 `z_idx` |
+| [`PKG-ACT1-EXP03-Z00-04`](#pkg-act1-exp03-z00-04) | Phase 3 (`[COMPLETED — TIER-A]`) | `Exp 03 Z00..Z04` (`5` zones, `25` feats) | `5/0/0/0` | `25/0/0/0` | **Completed (`1300..=1304`):** Expanded `r_vol` (`2.1*R`), bow-shock dayside vs Lyman-alpha geocorona split, ISS & GEO/HEO rings, localized `Z02` limb arc, **built missing `Z03` Mesosphere meteors/NLCs/rocket**, ozone UV attenuation, `25/25` `doc_feat` transitions |
+| [`PKG-ACT1-EXP03-Z05-08`](#pkg-act1-exp03-z05-08) | Phase 1/3 (`[TIER-A]` Reference Exemplar Done) | `Exp 03 Z05..Z08` (`4` zones, `20` feats) | `4/0/0/0` | `20/0/0/0` | **Completed Reference Implementation (`1305..=1308`):** Fixed `Z06 Surface` premature cutaway & macro focus leak, split Moho at `0.938..0.962` (`Z07` crust vs `Z08` rigid mantle + Wadati-Benioff foci), calibrated AgX crust palette, wired 20 `doc_feat` 1:1 transitions |
+| [`PKG-ACT1-EXP03-Z09-13`](#pkg-act1-exp03-z09-13) | Phase 3 (`[COMPLETED — TIER-A]`) | `Exp 03 Z09..Z13` (`5` zones, `25` feats) | `5/0/0/0` | `25/0/0/0` | **Completed (`1309..=1313`):** Added partial-melt pockets (`Z09`), `seam_410` + ringwoodite hydration (`Z10`), bridgmanite + `D''` LLSVPs (`Z11`), Taylor columns (`Z12`), anisotropic HCP crystals & 360 GPa reticle (`Z13`), AgX inner-core saturation calibration, `25/25` `doc_feat` transitions |
+| [`PKG-ACT1-EXP04-Z00-03`](#pkg-act1-exp04-z00-03) | Phase 3 (Critical — Physics Fixes Landed; Features Open) | `Exp 04 Z00..Z03` (`4` zones, `20` feats) | `0/4/0/0` | `0/10/0/10` | Sun H->He cutaway & Parker solar wind, Mercury scarps/polar ice, **Venus retrograde spin (`-time`) & `Exp 03` `z_idx` isolation fixed on `main`**; Venus IR/radar cutaway & Exp-04 Earth Moon/magnetosphere + `doc_feat` transitions open |
 | [`PKG-ACT1-EXP04-Z04-07`](#pkg-act1-exp04-z04-07) | Phase 3 (High) | `Exp 04 Z04..Z07` (`4` zones, `20` feats) | `0/4/0/0` | `0/9/1/10` | Mars Olympus Mons/rover/Phobos-Deimos, **replace Saturn Cassini & Mercury reuse on Asteroid Belt w/ Vesta/Fe-Ni/Kirkwood gaps**, spawn Galilean moons + `vid=10` Europa (`Z06`), Titan & Enceladus (`Z07`) |
 | [`PKG-ACT1-EXP04-Z08-11`](#pkg-act1-exp04-z08-11) | Phase 3 (High) | `Exp 04 Z08..Z11` (`4` zones, `20` feats) | `0/4/0/0` | `0/7/0/13` | Uranus dark epsilon rings + Miranda (`Z08`), Neptune `>2000 km/h` jets + retrograde Triton/N2 geysers (`Z09`), **replace cracked Europa on Kuiper Belt** w/ Haumea/Makemake/3:2 lobes/comet (`Z10`), Pluto blue haze + Charon binary + 4 moonlets (`Z11`) |
 
@@ -39,10 +39,10 @@ Before implementing procedural feature branches (`vid = 1300..1313` / `1400..141
 ## 3. Claimable Work Packages (`6` Pick-Up Cards)
 
 <a id="pkg-act1-exp03-z00-04"></a>
-### PKG-ACT1-EXP03-Z00-04: Exp 03 Deep Earth — Outer Space, Exosphere, Thermosphere, Mesosphere & Stratosphere (`Z00..Z04`)
-- **Priority & Rollout:** Phase 3 (`Z03 Mesosphere [TIER-D]` High-Priority) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT1-EXP03-Z00-04: Exp 03 Deep Earth — Outer Space, Exosphere, Thermosphere, Mesosphere & Stratosphere (`Z00..Z04`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1300..=1304`, `Z03` Mesosphere built, `Z02` localized limb arc, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `03` (`03`) Zones `Z00..Z04` (`5` zones, `25` features)
-- **Current Card Tiers:** Zones `0A / 4B / 0C / 1D` · Features `0A / 3B / 0C / 22D`
+- **Current Card Tiers:** Zones `5A / 0B / 0C / 0D` · Features `25A / 0B / 0C / 0D`
 
 **Current State:**
 - **Primary Dispatch:** [`doc_stages.rs:567-611`](../../crates/cosmos_render/src/doc_stages.rs#L567-L611) emits `kind=0, vid=0` surface globe + shell volume (`r_vol = earth_solid_r * 1.14` at `L591`, which clips the outer magnetosphere and high exosphere) + 1 Moon billboard sprite (`tags_f=[5.0,0.25,0.48,0.0]` at `L600-610`).
@@ -157,7 +157,7 @@ Reserved Canonical Shader IDs & Wiring:
 
 Strict Rendering & Performance Budgets (Mandatory):
 - Pure-Black OLED Void Budget: preserve >= 50.91% exact #000000 background pixels and 0.0000% highlight blowout; use bounded local integration in shaders/hero_volumetric.wgsl with ZERO full-screen gray haze or background lift.
-- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.843 ms, mean = 1.863 ms / 536.7 FPS, p99 = 4.661 ms, max = 5.802 ms in artifacts/verification_renders/benchmark_sweep.txt). Keep `raymarch_doc_earth_shell` strictly `<= 28` march steps with bounded `r <= 0.96` envelope (`trans < 0.03` early-exit) so enlarged `2.1*earth_solid_r` volume box preserves zero background lift.
+- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.850 ms, mean = 1.937 ms / 516.3 FPS, p99 = 4.696 ms, max = 5.153 ms in artifacts/verification_renders/benchmark_sweep.txt). Keep `raymarch_doc_earth_shell` strictly `<= 28` march steps with bounded `r <= 0.96` envelope (`trans < 0.03` early-exit) so enlarged `2.1*earth_solid_r` volume box preserves zero background lift.
 - Architecture & Repo Hygiene (CONTRIBUTING.md): zero 2D HUD overlays (keep UI purely diegetic 3D); commit zero files > 50 MiB, zero .ttf/.otf font binaries, and zero machine-specific .cargo/config.toml.
 
 Required Verification Gates Before Opening PR:
@@ -265,7 +265,7 @@ Reserved Canonical Shader IDs & Wiring:
 
 Strict Rendering & Performance Budgets (Mandatory):
 - Pure-Black OLED Void Budget: preserve >= 50.91% exact #000000 background pixels and 0.0000% highlight blowout; use bounded local integration in shaders/hero_volumetric.wgsl with ZERO full-screen gray haze or background lift.
-- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.843 ms, mean = 1.863 ms / 536.7 FPS, p99 = 4.661 ms, max = 5.802 ms in artifacts/verification_renders/benchmark_sweep.txt). Maintain solid opaque surface intersection and single-pass cutaway wall evaluation in `shade_doc_earth_cutaway` (`<= 24` raymarch steps for atmospheric cloud/vapor layers; `>= 50.91%` exact `#000000` background pixels).
+- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.850 ms, mean = 1.937 ms / 516.3 FPS, p99 = 4.696 ms, max = 5.153 ms in artifacts/verification_renders/benchmark_sweep.txt). Maintain solid opaque surface intersection and single-pass cutaway wall evaluation in `shade_doc_earth_cutaway` (`<= 24` raymarch steps for atmospheric cloud/vapor layers; `>= 50.91%` exact `#000000` background pixels).
 - Architecture & Repo Hygiene (CONTRIBUTING.md): zero 2D HUD overlays (keep UI purely diegetic 3D); commit zero files > 50 MiB, zero .ttf/.otf font binaries, and zero machine-specific .cargo/config.toml.
 
 Required Verification Gates Before Opening PR:
@@ -280,10 +280,10 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act1-exp03-z09-13"></a>
-### PKG-ACT1-EXP03-Z09-13: Exp 03 Deep Earth — Asthenosphere, Transition Zone (`410-660 km`), Lower Mantle, Outer Geodynamo & Inner Core (`Z09..Z13`)
-- **Priority & Rollout:** Phase 3 (Upgrades 5 `[TIER-B]` Cutaway Core Layers to Full `doc_feat` Interactive Sub-Stages) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT1-EXP03-Z09-13: Exp 03 Deep Earth — Asthenosphere, Transition Zone (`410-660 km`), Lower Mantle, Outer Geodynamo & Inner Core (`Z09..Z13`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1309..=1313`, AgX saturated cutaway & inner-core palette recalibrated, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `03` (`03`) Zones `Z09..Z13` (`5` zones, `25` features)
-- **Current Card Tiers:** Zones `0A / 5B / 0C / 0D` · Features `0A / 12B / 0C / 13D`
+- **Current Card Tiers:** Zones `5A / 0B / 0C / 0D` · Features `25A / 0B / 0C / 0D`
 
 **Current State:**
 - **Primary Dispatch:** [`doc_stages.rs:567-611`](../../crates/cosmos_render/src/doc_stages.rs#L567-L611) sets `cutaway = 1` for `Z09..Z13` (`vid=0`) + external magnetosphere reactivated on `z_idx == 12u` (`L262`) + Compute Mode 11 geodynamo circulation.
@@ -397,7 +397,7 @@ Reserved Canonical Shader IDs & Wiring:
 
 Strict Rendering & Performance Budgets (Mandatory):
 - Pure-Black OLED Void Budget: preserve >= 50.91% exact #000000 background pixels and 0.0000% highlight blowout; use bounded local integration in shaders/hero_volumetric.wgsl with ZERO full-screen gray haze or background lift.
-- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.843 ms, mean = 1.863 ms / 536.7 FPS, p99 = 4.661 ms, max = 5.802 ms in artifacts/verification_renders/benchmark_sweep.txt). Interior cutaway surfaces intersect analytically in `hero_volumetric.wgsl:84-127` with zero extra raymarch steps; keep auxiliary overlay capsules <= 20 steps so total frame mean remains near `1.863 ms` (`p99 <= 4.661 ms`).
+- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.850 ms, mean = 1.937 ms / 516.3 FPS, p99 = 4.696 ms, max = 5.153 ms in artifacts/verification_renders/benchmark_sweep.txt). Interior cutaway surfaces intersect analytically in `hero_volumetric.wgsl:84-127` with zero extra raymarch steps; keep auxiliary overlay capsules <= 20 steps so total frame mean remains near `1.937 ms` (`p99 <= 4.696 ms`).
 - Architecture & Repo Hygiene (CONTRIBUTING.md): zero 2D HUD overlays (keep UI purely diegetic 3D); commit zero files > 50 MiB, zero .ttf/.otf font binaries, and zero machine-specific .cargo/config.toml.
 
 Required Verification Gates Before Opening PR:
@@ -413,7 +413,7 @@ Required Verification Gates Before Opening PR:
 
 <a id="pkg-act1-exp04-z00-03"></a>
 ### PKG-ACT1-EXP04-Z00-03: Exp 04 Solar System — Sun Fusion Core/Wind, Mercury Scarps, Venus Retrograde Fix & Earth Moon/Magnetosphere (`Z00..Z03`)
-- **Priority & Rollout:** Phase 3 (Fixes Venus Prograde Spin Contradiction `doc_stages.rs:338` + Exp-04 Earth Missing Moon/Magnetosphere & `z_idx` Bug) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+- **Priority & Rollout:** Phase 3 (Venus Retrograde Spin `-time` & `Exp 03` `z_idx` Isolation Landed on `main`; Sun Fusion Core/Wind, Mercury Scarps, Venus IR/Radar Cutaway, Exp-04 Earth Moon/Magnetosphere & `20` `doc_feat` Sub-Stages Open) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `04` (`04`) Zones `Z00..Z03` (`4` zones, `20` features)
 - **Current Card Tiers:** Zones `0A / 4B / 0C / 0D` · Features `0A / 10B / 0C / 10D`
 
@@ -513,7 +513,7 @@ Reserved Canonical Shader IDs & Wiring:
 
 Strict Rendering & Performance Budgets (Mandatory):
 - Pure-Black OLED Void Budget: preserve >= 50.91% exact #000000 background pixels and 0.0000% highlight blowout; use bounded local integration in shaders/hero_volumetric.wgsl with ZERO full-screen gray haze or background lift.
-- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.843 ms, mean = 1.863 ms / 536.7 FPS, p99 = 4.661 ms, max = 5.802 ms in artifacts/verification_renders/benchmark_sweep.txt). Bound coronal/magnetosphere shell raymarching to `<= 26` steps inside `r <= 0.96` with early exit `trans < 0.03`; maintain `>= 50.91%` `#000000` background void across inner system flythrough.
+- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.850 ms, mean = 1.937 ms / 516.3 FPS, p99 = 4.696 ms, max = 5.153 ms in artifacts/verification_renders/benchmark_sweep.txt). Bound coronal/magnetosphere shell raymarching to `<= 26` steps inside `r <= 0.96` with early exit `trans < 0.03`; maintain `>= 50.91%` `#000000` background void across inner system flythrough.
 - Architecture & Repo Hygiene (CONTRIBUTING.md): zero 2D HUD overlays (keep UI purely diegetic 3D); commit zero files > 50 MiB, zero .ttf/.otf font binaries, and zero machine-specific .cargo/config.toml.
 
 Required Verification Gates Before Opening PR:
@@ -628,7 +628,7 @@ Reserved Canonical Shader IDs & Wiring:
 
 Strict Rendering & Performance Budgets (Mandatory):
 - Pure-Black OLED Void Budget: preserve >= 50.91% exact #000000 background pixels and 0.0000% highlight blowout; use bounded local integration in shaders/hero_volumetric.wgsl with ZERO full-screen gray haze or background lift.
-- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.843 ms, mean = 1.863 ms / 536.7 FPS, p99 = 4.661 ms, max = 5.802 ms in artifacts/verification_renders/benchmark_sweep.txt). Keep secondary moon companions lightweight analytic ray-marched spheres (`1` sphere intersection per companion inside `r <= 0.96`); preserve `<= 28` volume steps on Enceladus plume/Titan haze halos and `0.0000%` highlight blowout.
+- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.850 ms, mean = 1.937 ms / 516.3 FPS, p99 = 4.696 ms, max = 5.153 ms in artifacts/verification_renders/benchmark_sweep.txt). Keep secondary moon companions lightweight analytic ray-marched spheres (`1` sphere intersection per companion inside `r <= 0.96`); preserve `<= 28` volume steps on Enceladus plume/Titan haze halos and `0.0000%` highlight blowout.
 - Architecture & Repo Hygiene (CONTRIBUTING.md): zero 2D HUD overlays (keep UI purely diegetic 3D); commit zero files > 50 MiB, zero .ttf/.otf font binaries, and zero machine-specific .cargo/config.toml.
 
 Required Verification Gates Before Opening PR:
@@ -743,7 +743,7 @@ Reserved Canonical Shader IDs & Wiring:
 
 Strict Rendering & Performance Budgets (Mandatory):
 - Pure-Black OLED Void Budget: preserve >= 50.91% exact #000000 background pixels and 0.0000% highlight blowout; use bounded local integration in shaders/hero_volumetric.wgsl with ZERO full-screen gray haze or background lift.
-- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.843 ms, mean = 1.863 ms / 536.7 FPS, p99 = 4.661 ms, max = 5.802 ms in artifacts/verification_renders/benchmark_sweep.txt). Keep comet coma/Pluto haze raymarching strictly `<= 24` steps within `r <= 0.96`; ensure dark charcoal epsilon rings (`alpha ~ 0.14`) and outer Kuiper void maintain `>= 50.91%` exact `#000000` background.
+- VR 90/120 Hz Frame-Time Budget: cap any new volumetric documentary hero shell at <= 28 raymarch steps inside bounded r <= 0.96 with early exit trans < 0.03, preserving the RTX 5070 DX12 baseline (min = 0.850 ms, mean = 1.937 ms / 516.3 FPS, p99 = 4.696 ms, max = 5.153 ms in artifacts/verification_renders/benchmark_sweep.txt). Keep comet coma/Pluto haze raymarching strictly `<= 24` steps within `r <= 0.96`; ensure dark charcoal epsilon rings (`alpha ~ 0.14`) and outer Kuiper void maintain `>= 50.91%` exact `#000000` background.
 - Architecture & Repo Hygiene (CONTRIBUTING.md): zero 2D HUD overlays (keep UI purely diegetic 3D); commit zero files > 50 MiB, zero .ttf/.otf font binaries, and zero machine-specific .cargo/config.toml.
 
 Required Verification Gates Before Opening PR:

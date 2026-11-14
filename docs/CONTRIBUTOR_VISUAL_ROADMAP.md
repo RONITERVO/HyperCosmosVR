@@ -1,14 +1,14 @@
 # HyperCosmosVR Visual Expansion Contributor Roadmap (`01..25`)
 
-> **Headline Audit & Live Reference Progress:** Across all **25 experiences**, **376 documentary zones**, **2 interactive spatial laboratories** (`01_colors`, `02_music`), and **2,456 spoken features** (`18,898` baked catalog audio assets), HyperCosmosVR has completed **`2 / 3` Core Pipeline P0 packages** (+ core runtime/test pieces of `PKG-P0-CATALOG-SCENE-AND-CI`) and **`1 / 85` Content Packages** (`PKG-ACT1-EXP03-Z05-08`) as a live `[TIER-A]` reference exemplar (`4 / 376` zones, `20 / 2,456` features):
-> - **Zones (`376`):** `4` Tier-A (`1.1%`) · `102` Tier-B (`27.1%`) · `142` Tier-C (`37.8%`) · `128` Tier-D (`34.0%`)
-> - **Features (`2,456`):** `20` Tier-A (`0.8%`) · `383` Tier-B (`15.6%`) · `865` Tier-C (`35.2%`) · `1,188` Tier-D (`48.4%`)
+> **Headline Audit & Live Reference Progress:** Across all **25 experiences**, **376 documentary zones**, **2 interactive spatial laboratories** (`01_colors`, `02_music`), and **2,456 spoken features** (`18,898` baked catalog audio assets), HyperCosmosVR has completed **`2 / 3` Core Pipeline P0 packages** (`PKG-P0-DISPATCH-AND-IDS` & `PKG-P0-FEATURE-AND-CUE-PLUMBING` + core runtime/test pieces of `PKG-P0-CATALOG-SCENE-AND-CI`) and **`3 / 85` Content Packages** (`PKG-ACT1-EXP03-Z00-04`, `PKG-ACT1-EXP03-Z05-08`, and `PKG-ACT1-EXP03-Z09-13` = `100%` of `03_deep_earth` at `[TIER-A]`, covering `14 / 376` zones and `70 / 2,456` features):
+> - **Zones (`376`):** `14` Tier-A (`3.7%`) · `93` Tier-B (`24.7%`) · `142` Tier-C (`37.8%`) · `127` Tier-D (`33.8%`)
+> - **Features (`2,456`):** `70` Tier-A (`2.9%`) · `368` Tier-B (`15.0%`) · `865` Tier-C (`35.2%`) · `1,153` Tier-D (`46.9%`)
 > - **Spatial Labs (`01, 02`):** `[TIER-B]` (`01_colors`: `130` keys / `72` lattice nodes; `02_music`: `48x4` filaments / `20` keys; `field_grid_tex` Chladni coupling active)
-> - **Claimable Scope:** **`88` Total Work Packages** = **`3` Core Pipeline P0 Packages** (status below) + **`85` Content Packages** (`1` `[TIER-A]` complete exemplar + `84` open for contributors) detailed across **5 Act Gap Maps** in [`docs/roadmap/`](roadmap/).
+> - **Claimable Scope:** **`88` Total Work Packages** = **`3` Core Pipeline P0 Packages** (status below) + **`85` Content Packages** (`3` `[TIER-A]` complete = `100%` of `03_deep_earth` + `82` open for contributors) detailed across **5 Act Gap Maps** in [`docs/roadmap/`](roadmap/).
 
 ### For Non-Technical Evaluators, Team Leads & Independent Fact-Checkers (30-Second Brief)
 
-- **Important Product Context ("Does the app work today?"):** **Yes.** All `25` experiences (`376` zones, `2,456` spoken topics, `18,898` audio assets, `01_colors`, `02_music`, Desktop HDR, OpenXR VR, and the full 5-act `grand_cosmic_odyssey` tour) run and render in real time today (`RTX 5070` `1600×900` baseline: `mean = 1.863 ms / 536.7 FPS`, `p99 = 4.661 ms`). Today **`4 / 376` zones (`20 / 2,456` features via [`PKG-ACT1-EXP03-Z05-08`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z05-08))** meet our strict **`[TIER-A]` 1:1 muted / language-free comprehension** bar — where every individual spoken sentence (`doc_feat`) animates its exact bespoke 3D structure rather than relying on shared domain shaders or cycling modulo fallbacks (`sc % N`).
+- **Important Product Context ("Does the app work today?"):** **Yes.** All `25` experiences (`376` zones, `2,456` spoken topics, `18,898` audio assets, `01_colors`, `02_music`, Desktop HDR, OpenXR VR, and the full 5-act `grand_cosmic_odyssey` tour) run and render in real time today (`RTX 5070` `1600×900` baseline: `min = 0.850 ms`, `mean = 1.937 ms / 516.3 FPS`, `p99 = 4.696 ms`, `max = 5.153 ms`). Today **`14 / 376` zones (`70 / 2,456` features across all of `03_deep_earth` via [`PKG-ACT1-EXP03-Z00-04`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z00-04), [`PKG-ACT1-EXP03-Z05-08`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z05-08), and [`PKG-ACT1-EXP03-Z09-13`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z09-13))** meet our strict **`[TIER-A]` 1:1 muted / language-free comprehension** bar — where every individual spoken sentence (`doc_feat`) animates its exact bespoke 3D structure rather than relying on shared domain shaders or cycling modulo fallbacks (`sc % N`).
 - **Verify Core Numbers Yourself Without AI (10 Seconds):**
   ```powershell
   # 1. Confirm 25 experiences, 376 zones, 2,456 features, 18,898 audio assets straight from the baked catalog:
@@ -64,13 +64,13 @@ Contributors new to HyperCosmosVR often expect playback to follow numeric catalo
 
 | Odyssey Act | Experiences (`ODYSSEY_ACTS`) | Zones | Zone `[A / B / C / D]` | Feats | Feat `[A / B / C / D]` | Content Pkgs | Gap Map Deliverable |
 |---|---|---:|:---:|---:|:---:|---:|---|
-| **Act I** | `03, 04` | `26` | `4 / 21 / 0 / 1` | `130` | `20 / 41 / 1 / 68` | `6` *(1 done)* | [`ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) |
+| **Act I** | `03, 04` | `26` | `14 / 12 / 0 / 0` | `130` | `70 / 26 / 1 / 33` | `6` *(3 done)* | [`ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) |
 | **Act II** | `05, 21, 22, 06, 07, 08, 09, 10` | `116` | `0 / 33 / 40 / 43` | `684` | `0 / 86 / 190 / 408` | `26` | [`ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) |
 | **Act III** | `13, 14` | `27` | `0 / 6 / 21 / 0` | `187` | `0 / 22 / 146 / 19` | `7` | [`ACT_3_MATTER_AND_SPACETIME_MAP.md`](roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md) |
 | **Act IV** | `15, 16, 17, 01, 02` | `53` *(+01, 02)* | `0 / 20 / 19 / 14` | `417` | `0 / 138 / 125 / 154` | `14` | [`ACT_4_LIFE_MIND_AND_SENSES_MAP.md`](roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md) |
 | **Act V** | `18, 19, 20, 11, 12, 23, 24, 25` | `154` | `0 / 22 / 62 / 70` | `1,038` | `0 / 96 / 403 / 539` | `32` | [`ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) |
 | **Core P0** | Pipeline Infrastructure | — | — | — | — | `3` | Below ([Core Pipeline P0 Packages](#core-pipeline-p0-packages)) |
-| **TOTAL** | **`01..25`** (`5` Acts + P0) | **`376`** | **`4 / 102 / 142 / 128`** | **`2,456`** | **`20 / 383 / 865 / 1,188`** | **`88`** | **`3` P0 + `85` Content (`1` Tier-A exemplar live)** |
+| **TOTAL** | **`01..25`** (`5` Acts + P0) | **`376`** | **`14 / 93 / 142 / 127`** | **`2,456`** | **`70 / 368 / 865 / 1,153`** | **`88`** | **`3` P0 + `85` Content (`3` Tier-A live = `100%` of `Exp 03`)** |
 
 ### All-25 Experiences Ground-Truth Table
 
@@ -78,16 +78,16 @@ Contributors new to HyperCosmosVR often expect playback to follow numeric catalo
 |---:|---|---|---|---|---:|:---:|---:|:---:|---|---|
 | `01` | `01_colors` | Espectro de colores | Act 4 (`4/5`) | [`ACT_4`](roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md) | 0 (spatial) | `[TIER-B]` spatial (`130` keys) | 0 | — | `kind=5, vid=1/10`; `kind=1, vid=12` | `1100..=1199` (comp `3600..=3609`) |
 | `02` | `02_music` | Espectro musical | Act 4 (`5/5`) | [`ACT_4`](roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md) | 0 (spatial) | `[TIER-B]` spatial (`48x4` filaments, `20` keys) | 0 | — | `kind=6, vid=1, 11..14` + `field_grid_tex` Chladni coupling | `1200..=1299` (comp `3610..=3619`) |
-| `03` | `03_deep_earth` | Tierra profunda | Act 1 (`1/2`) | [`ACT_1`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) | 14 | `4 / 9 / 0 / 1` | 70 | `20 / 15 / 0 / 35` | `Z05..=Z08` migrated `[TIER-A]` (`1305..=1308`, cutaway bug fixed); others `kind=0, vid=0` | `1300..=1313` (comp `3620..=3629`) |
+| `03` | `03_deep_earth` | Tierra profunda | Act 1 (`1/2`) | [`ACT_1`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) | 14 | `14 / 0 / 0 / 0` | 70 | `70 / 0 / 0 / 0` | All `Z00..=Z13` migrated `[TIER-A]` (`1300..=1313`, `Z03` mesosphere & cutaway/macro fixes) | `1300..=1313` (comp `3620..=3629`) |
 | `04` | `04_solar_system` | Sistema Solar | Act 1 (`2/2`) | [`ACT_1`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) | 12 | `0 / 12 / 0 / 0` | 60 | `0 / 26 / 1 / 33` | `kind=1..3, vid=1..11, 20` | `1400..=1411` (comp `3640..=3651`) |
-| `05` | `05_milky_way` | Vía Láctea | Act 2 (`1/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 13 | `0 / 3 / 10 / 0` | 65 | `0 / 9 / 50 / 6` | `kind=4, vid=5` + landmarks `zone_index % 3 => 20..22` | `1500..=1512` (comp `3660..=3671`) |
+| `05` | `05_milky_way` | Vía Láctea | Act 2 (`1/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 13 | `0 / 3 / 10 / 0` | 65 | `0 / 9 / 50 / 6` | `kind=4, vid=5` + canonical companion landmarks `3640..=3649` (`submode=z`, `% 3` fixed) | `1500..=1512` (comp `3660..=3671`) |
 | `06` | `06_local_group` | Grupo Local | Act 2 (`4/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 9 | `0 / 3 / 0 / 6` | 45 | `0 / 9 / 0 / 36` | `kind=3, vid=6` (anchor & 9 landmarks) | `1600..=1608` (comp `3680..=3688`) |
 | `07` | `07_laniakea` | Laniakea | Act 2 (`5/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 10 | `0 / 5 / 0 / 5` | 50 | `0 / 10 / 0 / 40` | `kind=3, vid=7` (anchor & 10 landmarks) | `1700..=1709` (comp `3700..=3709`) |
 | `08` | `08_cosmic_web` | Red Cósmica | Act 2 (`6/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 11 | `0 / 6 / 3 / 2` | 55 | `0 / 19 / 6 / 30` | `kind=3, vid=8` (Mode 2) | `1800..=1810` |
 | `09` | `09_observable_universe` | Universo Observable | Act 2 (`7/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 11 | `0 / 5 / 4 / 2` | 55 | `0 / 12 / 6 / 37` | `kind=3, vid=9` (Mode 2, CMB ring visibility) | `1900..=1910` |
 | `10` | `10_early_universe` | Universo Temprano | Act 2 (`8/8`) | [`ACT_2`](roadmap/ACT_2_COSMIC_WEB_AND_ORIGINS_MAP.md) | 9 | `0 / 2 / 4 / 3` | 46 | `0 / 6 / 8 / 32` | `kind=3, vid=10` (Mode 2; Modes 3/5 unused) | `2000..=2008` |
 | `11` | `11_cosmic_evidence` | Evidencia Cósmica | Act 5 (`4/8`) | [`ACT_5`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) | 9 | `0 / 1 / 5 / 3` | 50 | `0 / 1 / 22 / 27` | `kind=9, vid=110 + (sc % 4)` | `2100..=2108` (comp `3720..=3729`) |
-| `12` | `12_future_of_universe` | Futuro del Universo | Act 5 (`5/8`) | [`ACT_5`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) | 10 | `0 / 3 / 4 / 3` | 59 | `0 / 10 / 21 / 28` | Bypassed via `5 \| 12 =>` (`vid=12`; dead `120 + (sc % 5)`) | `2200..=2209` (comp `3730..=3739`) |
+| `12` | `12_future_of_universe` | Futuro del Universo | Act 5 (`5/8`) | [`ACT_5`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) | 10 | `0 / 3 / 4 / 3` | 59 | `0 / 10 / 21 / 28` | Un-bypassed `kind=9, vid=120..=124` + Hawking BH comp `3710` on `Z05..=Z07` | `2200..=2209` (comp `3730..=3739`) |
 | `13` | `13_matter_energy` | Materia y Energía | Act 3 (`1/2`) | [`ACT_3`](roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md) | 12 | `0 / 3 / 9 / 0` | 73 | `0 / 13 / 55 / 5` | `kind=7`: `{2->10, 3->11, 6->12, _->10 + (sc % 5)}` | `2300..=2311` (comp `3740..=3749`) |
 | `14` | `14_spacetime` | Espacio-Tiempo | Act 3 (`2/2`) | [`ACT_3`](roadmap/ACT_3_MATTER_AND_SPACETIME_MAP.md) | 15 | `0 / 3 / 12 / 0` | 114 | `0 / 9 / 91 / 14` | `kind=7`: `{8->22, 11->23, _->20 + (sc % 4)}` | `2400..=2414` (comp `3750..=3759`) |
 | `15` | `15_complexity` | Complejidad | Act 4 (`1/5`) | [`ACT_4`](roadmap/ACT_4_LIFE_MIND_AND_SENSES_MAP.md) | 16 | `0 / 3 / 8 / 5` | 119 | `0 / 19 / 55 / 45` | `kind=8, vid=10 + (sc % 4)` (`field_grid_tex` unread) | `2500..=2515` (comp `3760..=3769`) |
@@ -101,7 +101,7 @@ Contributors new to HyperCosmosVR often expect playback to follow numeric catalo
 | `23` | `23_cosmic_perspectives` | Perspectivas Cósmicas | Act 5 (`6/8`) | [`ACT_5`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) | 25 | `0 / 4 / 8 / 13` | 150 | `0 / 11 / 60 / 79` | `kind=9, vid=230` (single variant) | `3300..=3324` (comp `3840..=3849`) |
 | `24` | `24_cosmic_meaning` | Significado Cósmico | Act 5 (`7/8`) | [`ACT_5`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) | 26 | `0 / 6 / 15 / 5` | 156 | `0 / 29 / 96 / 31` | `kind=9`: `{24->241, _->240}` | `3400..=3425` (comp `3850..=3859`) |
 | `25` | `25_final_horizon` | Horizonte Final | Act 5 (`8/8`) | [`ACT_5`](roadmap/ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md) | 25 | `0 / 1 / 6 / 18` | 150 | `0 / 6 / 38 / 106` | `kind=9, vid=250` (single variant) | `3500..=3524` (comp `3860..=3869`) |
-| **TOTAL** | **`01..25`** | **All 25 Experiences** | **5 Acts (`ODYSSEY_ACTS`)** | **`ACT_1..ACT_5`** | **`376`** | **`4 / 102 / 142 / 128`** | **`2,456`** | **`20 / 383 / 865 / 1,188`** | **Zones: `1.1%` A / `27.1%` B / `37.8%` C / `34.0%` D** | **`1100..=3599` + `3600..=3869`** |
+| **TOTAL** | **`01..25`** | **All 25 Experiences** | **5 Acts (`ODYSSEY_ACTS`)** | **`ACT_1..ACT_5`** | **`376`** | **`14 / 93 / 142 / 127`** | **`2,456`** | **`70 / 368 / 865 / 1,153`** | **Zones: `3.7%` A / `24.7%` B / `37.8%` C / `33.8%` D** | **`1100..=3599` + `3600..=3869`** |
 
 ---
 
@@ -194,7 +194,7 @@ Complete these `3` P0 packages first (or in a tight Phase 1 train) so all `85` z
 <a id="pkg-p0-dispatch-and-ids"></a>
 ### PKG-P0-DISPATCH-AND-IDS: Canonical `1100..=3869` Shader ID Dispatch & Legacy Bypass Removal
 
-**Status:** `[CORE INFRASTRUCTURE LANDED]` *(Canonical `1100..=3869` Rust registry + WGSL decoders active in `doc_stages.rs`, `doc_common.wgsl`, `hero_doc_*.wgsl`; legacy `05` landmark `% 3` / Exp `12` bypass refactors remain open for follow-up PRs)* · **Phase:** Phase 1 (Prerequisites) · **Priority:** Critical P0
+**Status:** `[COMPLETED]` *(Landed on `main`: canonical `1100..=3869` Rust registry + WGSL `doc_vid_exp` `u32` underflow guard in `doc_common.wgsl`, `Exp 03` `1300..=1313`, `Exp 05` canonical companion landmark IDs `3640..=3649` with `submode = zone_index`, and un-bypassed `Exp 12` primary stage `kind=9, vid=120..=124` + Hawking BH companion `3710` on `Z05..=Z07`)* · **Phase:** Phase 1 (Prerequisites) · **Priority:** Critical P0
 
 **Current State:**
 - [`crates/cosmos_render/src/doc_stages.rs#L36-L91`](../crates/cosmos_render/src/doc_stages.rs#L36-L91): `doc_stage_variant_id` collapses Exps `11, 12, 13, 14, 15, 16, 17, 18, 19, 20` onto `sc % 4 / 5 / 7` modulo buckets and collapses Exps `21, 22, 23, 24, 25` onto `1–2` hardcoded variants (`210/212`, `220/221`, `230`, `240/241`, `250`).
@@ -236,7 +236,7 @@ Implement `PKG-P0-DISPATCH-AND-IDS` in the HyperCosmosVR repository root. Read `
 
 3. **Mandatory Hard Verification Gates:**
    - **OLED Void Budget:** Preserve `>= 50.91%` exact `#000000` background pixels and `0.0000%` highlight blowout; respect `r <= 0.96` clipping (`hero_volumetric.wgsl:164`) and `oled_void_clamp` (`:201`).
-   - **VR 90/120 Hz Budget:** Keep documentary shells `<= 28` raymarch steps (`trans < 0.03` early exit), preserving RTX 5070 `1600x900` baseline (`mean = 1.863 ms`, `p99 = 4.661 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
+   - **VR 90/120 Hz Budget:** Keep documentary shells `<= 28` raymarch steps (`trans < 0.03` early exit), preserving RTX 5070 `1600x900` baseline (`mean = 1.937 ms`, `p99 = 4.696 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
    - **Verification Commands:**
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`
@@ -286,7 +286,7 @@ Implement `PKG-P0-FEATURE-AND-CUE-PLUMBING` in the HyperCosmosVR repository root
 
 2. **Mandatory Hard Verification Gates:**
    - **OLED Void Budget:** Keep `>= 50.91%` `#000000` background and `0.0000%` highlight blowout; modulate `doc_feat` emphasis smoothly within `0.72..=1.35x` HDR clamp (zero strobe, zero fog wash).
-   - **VR 90/120 Hz Budget:** Keep steps `<= 28` for documentary shells (`trans < 0.03` early exit), preserving RTX 5070 `1600x900` DX12 baseline (`mean = 1.863 ms`, `p99 = 4.661 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
+   - **VR 90/120 Hz Budget:** Keep steps `<= 28` for documentary shells (`trans < 0.03` early exit), preserving RTX 5070 `1600x900` DX12 baseline (`mean = 1.937 ms`, `p99 = 4.696 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
    - **Verification Commands:**
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`
@@ -333,7 +333,7 @@ Implement `PKG-P0-CATALOG-SCENE-AND-CI` in the HyperCosmosVR repository root. Re
 
 2. **Mandatory Hard Verification Gates:**
    - **OLED Void Budget:** Preserve `>= 50.91%` exact `#000000` background pixels (`0.0000%` blowout).
-   - **VR 90/120 Hz Budget:** Preserve RTX 5070 `1600x900` DX12 baseline (`mean = 1.863 ms`, `p99 = 4.661 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
+   - **VR 90/120 Hz Budget:** Preserve RTX 5070 `1600x900` DX12 baseline (`mean = 1.937 ms`, `p99 = 4.696 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
    - **Verification Commands:**
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`
@@ -375,7 +375,7 @@ Every visual expansion PR should claim **one canonical Work Package** (`PKG-ACT<
 | Gate | Requirement | Verified Reference Baseline / Check |
 |---|---|---|
 | **Pure-Black OLED Void** | Keep `>= 50.91%` exact `#000000` background pixels on newly added/upgraded zone PRs (`>= 50.90%` on existing `43` baseline PNGs; `50.9004%` min in `06_cmb_and_inflation.png`) and `0.0000%` highlight blowout; zero full-screen ambient haze/fog wash; bound documentary volumes to `r <= 0.96` (`hero_volumetric.wgsl#L164`) and pass outputs through `oled_void_clamp` (`#L201`). | `pure_black` / `non_black` counters in [`crates/cosmos_app/src/headless.rs`](../crates/cosmos_app/src/headless.rs) + README verified gallery (`50.90%–76.77%` `#000000`). |
-| **VR 90/120 Hz Frame Budget** | Cap new documentary hero raymarches at `<= 28` steps with `trans < 0.03` early exit; smooth `doc_cue`/`doc_weight` HDR clamping (`0.72..=1.35x`, zero strobing). | RTX 5070 DX12 `1600x900` 120-frame sweep ([`benchmark_sweep.txt`](../artifacts/verification_renders/benchmark_sweep.txt)): `min = 0.843 ms`, `mean = 1.863 ms (536.7 FPS)`, `p99 = 4.661 ms`, `max = 5.802 ms`. |
+| **VR 90/120 Hz Frame Budget** | Cap new documentary hero raymarches at `<= 28` steps with `trans < 0.03` early exit; smooth `doc_cue`/`doc_weight` HDR clamping (`0.72..=1.35x`, zero strobing). | RTX 5070 DX12 `1600x900` 120-frame sweep ([`benchmark_sweep.txt`](../artifacts/verification_renders/benchmark_sweep.txt)): `min = 0.850 ms`, `mean = 1.937 ms (516.3 FPS)`, `p99 = 4.696 ms`, `max = 5.153 ms`. |
 | **Headless Visual Capture** | Capture and inspect PNGs + sweep telemetry before opening a PR. | `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep` |
 | **Clippy & Formatting** | Zero warnings across all workspace targets; clean `rustfmt`. | `cargo clippy --workspace --all-targets -- -D warnings` & `cargo fmt --check` |
 | **CPU-Only CI Test Suite** | Must pass cleanly without GPU/OpenXR/full-audio-pack dependencies (exact [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) matrix). | `cargo test -p cosmos_math -- --test-threads=1` · `cosmos_narration` · `cosmos_nav` · `cosmos_journey` · `cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe` · `cosmos_spatial topology` · `cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets` |
@@ -402,10 +402,10 @@ See full Pick-Up Cards in [`docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md`](r
 
 | Package ID | Exp | Zones & Catalog Names | Feats | Reserved `vid` Block | Target Phase | Priority |
 |---|---|---|---:|---|---|---|
-| [`PKG-ACT1-EXP03-Z00-04`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z00-04) | `03` | `Z00` Espacio, `Z01` Exosfera, `Z02` Termosfera, `Z03` Mesosfera, `Z04` Estratosfera | 25 | `1300..=1304` | Phase 3 | Medium |
+| [`PKG-ACT1-EXP03-Z00-04`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z00-04) | `03` | `Z00` Espacio, `Z01` Exosfera, `Z02` Termosfera, `Z03` Mesosfera, `Z04` Estratosfera | 25 | `1300..=1304` | Phase 3 | **Completed (`[TIER-A]` · `1300..=1304`)** |
 | [`PKG-ACT1-EXP03-Z05-08`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z05-08) | `03` | `Z05` Troposfera, `Z06` Superficie, `Z07` Corteza, `Z08` Litosfera | 20 | `1305..=1308` | Phase 1 / Phase 3 | **Completed (`[TIER-A]` Reference Exemplar)** |
-| [`PKG-ACT1-EXP03-Z09-13`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z09-13) | `03` | `Z09` Astenosfera, `Z10` Zona de transición, `Z11` Manto inferior, `Z12` Núcleo externo, `Z13` Núcleo interno | 25 | `1309..=1313` | Phase 3 | Medium |
-| [`PKG-ACT1-EXP04-Z00-03`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp04-z00-03) | `04` | `Z00` Sol, `Z01` Mercurio, `Z02` Venus, `Z03` Tierra | 20 | `1400..=1403` | Phase 3 | Medium |
+| [`PKG-ACT1-EXP03-Z09-13`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z09-13) | `03` | `Z09` Astenosfera, `Z10` Zona de transición, `Z11` Manto inferior, `Z12` Núcleo externo, `Z13` Núcleo interno | 25 | `1309..=1313` | Phase 3 | **Completed (`[TIER-A]` · `1309..=1313`)** |
+| [`PKG-ACT1-EXP04-Z00-03`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp04-z00-03) | `04` | `Z00` Sol, `Z01` Mercurio, `Z02` Venus, `Z03` Tierra | 20 | `1400..=1403` | Phase 3 | Medium *(Venus retrograde spin & `Exp 03` `z_idx` isolation fixed; Sun/Mercury/Earth features open)* |
 | [`PKG-ACT1-EXP04-Z04-07`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp04-z04-07) | `04` | `Z04` Marte, `Z05` Cinturón de asteroides, `Z06` Júpiter, `Z07` Saturno | 20 | `1404..=1407` | Phase 3 | Medium |
 | [`PKG-ACT1-EXP04-Z08-11`](roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp04-z08-11) | `04` | `Z08` Urano, `Z09` Neptuno, `Z10` Cinturón de Kuiper, `Z11` Plutón | 20 | `1408..=1411` | Phase 3 | Medium |
 
