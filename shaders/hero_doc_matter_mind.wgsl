@@ -278,12 +278,15 @@ fn march_doc_music(
                 if (abs(plate_d) < 0.055) {
                     let cx = p.x * 1.6;
                     let cz = p.z * 1.6;
+                    let field_s = doc_sample_field_grid(vec2<f32>(p.x * 0.72 + 0.5, p.z * 0.72 + 0.5));
+                    let wave_mod = clamp(field_s.r * 0.28 + field_s.a * 0.16, -0.25, 0.35);
                     let chladni = cos(n_mode * PI * cx) * cos(m_mode * PI * cz)
-                                - cos(m_mode * PI * cx) * cos(n_mode * PI * cz);
+                                - cos(m_mode * PI * cx) * cos(n_mode * PI * cz) + wave_mod * 0.45;
                     let nodal = exp(-pow(abs(chladni) * 14.0, 2.0));
                     let plate_mask = smoothstep(0.055, 0.0, abs(p.y + 0.26)) * smoothstep(0.64, 0.56, r_xz);
                     let rim = exp(-pow(abs(r_xz - 0.62) * 58.0, 2.0)) * smoothstep(0.04, 0.0, abs(p.y + 0.26));
-                    let ch_col = mix(vec3<f32>(0.22, 0.78, 1.25), vec3<f32>(1.45, 1.02, 0.35), nodal);
+                    let ch_base = mix(vec3<f32>(0.22, 0.78, 1.25), vec3<f32>(1.45, 1.02, 0.35), nodal);
+                    let ch_col = mix(ch_base, max(field_s.rgb, ch_base), clamp(field_s.a * 0.28, 0.0, 0.32));
                     col += ch_col * (nodal * plate_mask * 1.15 + rim * 0.9);
                     dens += (nodal * plate_mask + rim) * 0.95;
                 }
@@ -339,7 +342,10 @@ fn march_doc_matter_spacetime(
     let zone = doc_zone(inst);
     let cue = doc_cue(inst);
 
-    let is_spacetime = (vid == 2u) || (vid == 14u) || (vid >= 20u && vid < 30u);
+    let is_canon = doc_is_canonical_zone_vid(vid);
+    let canon_exp = select(0u, doc_vid_exp(vid), is_canon);
+    let canon_zone = select(zone, doc_vid_zone(vid), is_canon);
+    let is_spacetime = (vid == 2u) || (vid == 14u) || (vid >= 20u && vid < 30u) || (is_canon && canon_exp == 14u);
 
     let steps: i32 = i32(clamp(42.0 * fovea_k, 24.0, 46.0));
     let dt = (t1 - t0) / f32(steps);
@@ -358,7 +364,8 @@ fn march_doc_matter_spacetime(
 
             if (!is_spacetime) {
                 // ---------------- EXP 13: MATTER & ENERGY ----------------
-                let m_mode = select(u32(max(scene, 0)), vid - 10u, vid >= 10u && vid < 20u);
+                let canon_m = select(u32(max(scene, 0)), canon_zone % 5u, scene < 0);
+                let m_mode = select(select(u32(max(scene, 0)), canon_m, is_canon), vid - 10u, vid >= 10u && vid < 20u);
                 if (m_mode == 0u) {
                     // Crisp glossy H2O bent molecule + Hexagonal Benzene C6H6 ring & aromatic pi clouds
                     let po = p - vec3<f32>(0.0, 0.25, 0.0);
@@ -465,7 +472,8 @@ fn march_doc_matter_spacetime(
                 }
             } else {
                 // ---------------- EXP 14: SPACETIME ----------------
-                let s_mode = select(u32(max(scene, 0)), vid - 20u, vid >= 20u && vid < 30u);
+                let canon_s = select(u32(max(scene, 0)), canon_zone % 4u, scene < 0);
+                let s_mode = select(select(u32(max(scene, 0)), canon_s, is_canon), vid - 20u, vid >= 20u && vid < 30u);
                 if (s_mode == 0u) {
                     // Minkowski Hourglass Light Cones + Worldline + Null Geodesic
                     let r_xz = length(p.xz);
@@ -606,10 +614,17 @@ fn march_doc_bio_mind(
     let zone = doc_zone(inst);
     let cue = doc_cue(inst);
 
-    let mode_group = select(
+    let is_canon = doc_is_canonical_zone_vid(vid);
+    let canon_exp = select(0u, doc_vid_exp(vid), is_canon);
+    let legacy_group = select(
         select(0u, 1u, vid == 2u || vid == 16u || (vid >= 20u && vid < 30u)),
         2u,
         vid == 3u || vid == 17u || (vid >= 30u && vid < 40u)
+    );
+    let mode_group = select(
+        legacy_group,
+        select(select(0u, 1u, canon_exp == 16u), 2u, canon_exp >= 17u),
+        is_canon
     );
 
     let steps: i32 = i32(clamp(42.0 * fovea_k, 24.0, 46.0));
@@ -655,7 +670,10 @@ fn march_doc_bio_mind(
                 } else if (c_mode == 1u) {
                     // Rayleigh-Benard Hexagonal Convection Cells & Reaction-Diffusion Turing Coral
                     let hex_p = vec3<f32>(p.x, p.y * 2.2, p.z) * 4.5;
-                    let rd_wave = sin(hex_p.x + cos(hex_p.z * 1.3 + time * 0.5)) + sin(hex_p.z - cos(hex_p.x * 1.2 - time * 0.4));
+                    let field_s = doc_sample_field_grid(fract(p.xz * 0.72 + vec2<f32>(0.5)));
+                    let rd_pde = (field_s.r - field_s.g) * 0.55;
+                    let rd_wave = sin(hex_p.x + cos(hex_p.z * 1.3 + time * 0.5) + rd_pde)
+                                + sin(hex_p.z - cos(hex_p.x * 1.2 - time * 0.4) - rd_pde);
                     let coral = exp(-pow(abs(rd_wave) * 6.5, 2.0)) * exp(-pow(abs(r - 0.44) * 16.0, 2.0));
                     let plate_g = exp(-pow(abs(p.y + 0.32) * 32.0, 2.0)) * smoothstep(0.65, 0.3, length(p.xz));
                     col += mix(vec3<f32>(0.22, 1.18, 0.85), vec3<f32>(1.42, 0.65, 0.22), smoothstep(-0.3, 0.3, p.y)) * coral

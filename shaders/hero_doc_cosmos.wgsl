@@ -12,32 +12,91 @@ fn shade_doc_earth_surface(
     let ndotl = max(dot(n_surf, sun_local), 0.0);
     let view_dot = max(dot(n_surf, v_dir), 0.0);
     let fresnel = pow(1.0 - view_dot, 3.6);
-    let z_idx = doc_zone(inst);
+    let raw_vid = inst.kind_tags.y;
+    let z_idx = select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid));
     let w_doc = doc_weight(inst);
 
     let spin_p = doc_rot_y(p_surf, time * 0.03 + inst.phys_a.x * 0.5);
     let cont = fbm3(spin_p * 2.4 + vec3<f32>(0.4, -0.2, 0.9), 5);
-    let mtn = pow(max(0.0, snoise3(spin_p * 11.0)), 2.0) * smoothstep(0.04, 0.25, cont);
+    let mtn_raw = pow(max(0.0, snoise3(spin_p * 11.0)), 2.0) * smoothstep(0.04, 0.25, cont);
     let coast = smoothstep(0.02, 0.08, cont);
     let polar_ice = smoothstep(0.76, 0.92, abs(p_surf.y) + cont * 0.12);
 
-    let ocean_col = mix(vec3<f32>(0.01, 0.045, 0.16), vec3<f32>(0.02, 0.14, 0.34), smoothstep(-0.32, 0.01, cont));
-    let ocean_trench = exp(-abs(cont + 0.18) * 28.0) * (1.0 - coast) * select(0.0, 0.65, z_idx == 6u || z_idx == 7u);
-    let land_base = mix(vec3<f32>(0.045, 0.18, 0.06), vec3<f32>(0.24, 0.18, 0.10), smoothstep(0.06, 0.38, cont));
-    var albedo = mix(ocean_col + vec3<f32>(0.02, 0.35, 0.55) * ocean_trench, land_base + vec3<f32>(0.18, 0.14, 0.10) * mtn, coast);
+    // Z06 Surface 1:1 feature spotlights (0=ocean, 1=coast, 2=forest, 3=mountain, 4=soil)
+    let is_surface_zone = z_idx == 6u;
+    let f_ocean = select(1.0, doc_feat_focus(inst, 0u), is_surface_zone);
+    let f_coast = select(1.0, doc_feat_focus(inst, 1u), is_surface_zone);
+    let f_forest = select(1.0, doc_feat_focus(inst, 2u), is_surface_zone);
+    let f_mtn = select(1.0, doc_feat_focus(inst, 3u), is_surface_zone);
+    let f_soil = select(1.0, doc_feat_focus(inst, 4u), is_surface_zone);
+
+    let trench_gain = select(0.0, 0.72 * f_ocean, z_idx == 6u || z_idx == 7u);
+    let ocean_col = mix(vec3<f32>(0.01, 0.045, 0.16), vec3<f32>(0.02, 0.15, 0.38), smoothstep(-0.32, 0.01, cont)) * f_ocean;
+    let ocean_trench = exp(-abs(cont + 0.18) * 28.0) * (1.0 - coast) * trench_gain;
+    let shelf_ribbon = exp(-pow((cont - 0.035) * 34.0, 2.0)) * select(0.0, 0.85 * f_coast, is_surface_zone);
+    let mtn = mtn_raw * select(1.0, 1.35 * f_mtn, is_surface_zone);
+
+    let veg_mask = smoothstep(0.06, 0.24, cont) * (1.0 - polar_ice) * (1.0 - smoothstep(0.35, 0.65, abs(p_surf.y)));
+    let soil_band = smoothstep(0.18, 0.34, cont) * (1.0 - smoothstep(0.36, 0.48, cont)) * select(0.0, 1.0, is_surface_zone);
+    var land_base = mix(vec3<f32>(0.045, 0.18, 0.06), vec3<f32>(0.24, 0.18, 0.10), smoothstep(0.06, 0.38, cont));
+    land_base = mix(land_base, vec3<f32>(0.04, 0.34, 0.10) * f_forest, veg_mask * select(0.15, 0.75, is_surface_zone));
+    land_base = mix(land_base, vec3<f32>(0.42, 0.24, 0.12) * f_soil, soil_band * 0.72);
+    let alpine_col = vec3<f32>(0.24, 0.20, 0.16) * mtn + select(vec3<f32>(0.0), vec3<f32>(0.55, 0.58, 0.64) * smoothstep(0.32, 0.65, mtn_raw) * f_mtn, is_surface_zone);
+
+    var albedo = mix(
+        ocean_col + vec3<f32>(0.02, 0.38, 0.62) * ocean_trench + vec3<f32>(0.08, 0.68, 0.72) * shelf_ribbon,
+        land_base + alpine_col,
+        coast
+    );
     albedo = mix(albedo, vec3<f32>(0.85, 0.90, 0.96), polar_ice);
 
-    // Troposphere spiral clouds + lightning flashes (zone 5 highlights storm systems!)
+    // Z05 Troposphere 1:1 feature choreography (0=cloud, 1=storm cyclone+lightning, 2=wind ribbons, 3=airplanes, 4=water vapor)
+    let is_tropo_zone = z_idx == 5u;
+    let f_cloud = select(1.0, doc_feat_focus(inst, 0u), is_tropo_zone);
+    let f_storm = select(1.0, doc_feat_focus(inst, 1u), is_tropo_zone);
+    let f_wind = select(1.0, doc_feat_focus(inst, 2u), is_tropo_zone);
+    let f_plane = select(1.0, doc_feat_focus(inst, 3u), is_tropo_zone);
+    let f_vapor = select(1.0, doc_feat_focus(inst, 4u), is_tropo_zone);
+
     let cloud_n = fbm3(spin_p * 4.4 + vec3<f32>(time * 0.016, 0.0, -time * 0.01), 4);
-    let clouds = smoothstep(0.14, 0.46, cloud_n);
-    let storm_bolt = pow(max(0.0, snoise3(spin_p * 19.0 + vec3<f32>(time * 3.5))), 14.0) * clouds * select(0.15, 1.4, z_idx == 5u);
+    var clouds = smoothstep(0.14, 0.46, cloud_n) * select(1.0, clamp(f_cloud * 0.95, 0.55, 1.15), is_tropo_zone);
+    var storm_bolt = pow(max(0.0, snoise3(spin_p * 19.0 + vec3<f32>(time * 3.5))), 14.0) * clouds * select(0.15, 1.35 * f_storm, is_tropo_zone);
+    var tropo_fx = vec3<f32>(0.0);
+
+    if (is_tropo_zone) {
+        // Rotating synoptic cyclone vortex centered over sunlit ocean hemisphere
+        let cyc_center = normalize(vec3<f32>(0.24, 0.34, 0.90));
+        let cyc_vec = spin_p - cyc_center;
+        let cyc_r = length(cyc_vec);
+        let cyc_ang = atan2(cyc_vec.y, cyc_vec.x) - cyc_r * 16.0 + time * 0.65;
+        let cyc_arms = 0.5 + 0.5 * sin(cyc_ang * 3.0);
+        let cyc_mask = smoothstep(0.32, 0.06, cyc_r) * smoothstep(0.025, 0.06, cyc_r) * (0.45 + 0.55 * cyc_arms);
+        clouds = clamp(clouds + cyc_mask * 0.68 * f_storm, 0.0, 1.0);
+        storm_bolt += cyc_mask * pow(max(0.0, snoise3(spin_p * 26.0 + vec3<f32>(time * 5.2))), 10.0) * f_storm * 1.1;
+
+        // Equatorial Hadley & mid-latitude wind streamline ribbons
+        let lon = atan2(spin_p.z, spin_p.x);
+        let wind_wave = exp(-pow(sin(spin_p.y * 12.0 + sin(lon * 3.0 - time * 0.55) * 0.45) * 4.5, 2.0));
+        let wind_flow = 0.55 + 0.45 * sin(lon * 8.0 - time * 1.6);
+        tropo_fx += vec3<f32>(0.32, 0.78, 1.15) * wind_wave * wind_flow * 0.28 * f_wind * (0.25 + 0.75 * ndotl);
+
+        // Great-circle transoceanic commercial aviation tracks + pulsing strobe aircraft
+        let arc_d = min(abs(dot(spin_p, normalize(vec3<f32>(0.2, 0.85, -0.45)))), abs(dot(spin_p, normalize(vec3<f32>(-0.35, 0.78, 0.52)))));
+        let corridor = exp(-pow(arc_d * 52.0, 2.0));
+        let strobe = pow(max(0.0, sin(lon * 10.0 - time * 2.2)), 24.0) * corridor;
+        tropo_fx += vec3<f32>(0.95, 0.72, 0.28) * (corridor * 0.18 + strobe * 0.95) * f_plane;
+
+        // Column-integrated translucent water vapor plumes along ITCZ
+        let vapor_band = exp(-pow(spin_p.y * 2.8 + cloud_n * 1.1, 2.0)) * smoothstep(-0.1, 0.35, cloud_n);
+        tropo_fx += vec3<f32>(0.10, 0.72, 0.88) * vapor_band * 0.38 * f_vapor * (0.3 + 0.7 * ndotl);
+    }
 
     let half_v = normalize(sun_local + v_dir);
-    let ocean_spec = pow(max(dot(n_surf, half_v), 0.0), 64.0) * (1.0 - coast) * (1.0 - clouds) * 1.35;
+    let ocean_spec = pow(max(dot(n_surf, half_v), 0.0), 64.0) * (1.0 - coast) * (1.0 - clouds) * 1.35 * f_ocean;
 
     let night_mask = smoothstep(0.08, -0.22, dot(n_surf, sun_local));
     let city_spark = pow(max(0.0, snoise3(spin_p * 24.0)), 6.0) * coast * (1.0 - polar_ice);
-    let city_glow = vec3<f32>(1.75, 1.05, 0.34) * city_spark * night_mask * 1.5;
+    let city_glow = vec3<f32>(1.75, 1.05, 0.34) * city_spark * night_mask * 1.5 * f_coast;
 
     // Ozone indigo glint on stratosphere zone (4), blue Rayleigh atmospheric limb
     let ozone_glow = vec3<f32>(0.38, 0.22, 1.65) * fresnel * select(0.1, 0.95, z_idx == 4u);
@@ -45,7 +104,7 @@ fn shade_doc_earth_surface(
 
     let day_lit = mix(albedo, vec3<f32>(0.90), clouds) * (ndotl + 0.025) + vec3<f32>(ocean_spec);
     let zone_rim = mix(1.0, 1.25, w_doc * fresnel);
-    return (day_lit + city_glow + rayleigh + ozone_glow + vec3<f32>(0.55, 0.85, 1.95) * storm_bolt) * inst.color_a.a * zone_rim;
+    return (day_lit + tropo_fx + city_glow + rayleigh + ozone_glow + vec3<f32>(0.55, 0.85, 1.95) * storm_bolt) * inst.color_a.a * zone_rim;
 }
 
 fn shade_doc_earth_cutaway(
@@ -55,20 +114,64 @@ fn shade_doc_earth_cutaway(
     time: f32,
 ) -> vec3<f32> {
     let wall_r = length(p_wall) / max(surf_r, 1e-4);
-    let z_idx = doc_zone(inst);
+    let raw_vid = inst.kind_tags.y;
+    let z_idx = select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid));
     let conv = fbm3(p_wall * 7.5 + vec3<f32>(0.0, time * 0.08, 0.0), 4);
-    let plume = pow(max(0.0, sin(atan2(p_wall.z, p_wall.x) * 4.0 + conv * 2.4)), 4.0);
-    let subduct = exp(-abs(wall_r - 0.93 + max(p_wall.y, 0.0) * 0.28) * 34.0) * smoothstep(0.1, 0.5, p_wall.z / max(surf_r, 1e-4));
+    let phi = atan2(p_wall.z, p_wall.x);
+    let plume = pow(max(0.0, sin(phi * 4.0 + conv * 2.4)), 4.0);
+    let subduct = exp(-abs(wall_r - 0.92 + max(p_wall.y, 0.0) * 0.30) * 34.0) * smoothstep(0.1, 0.5, p_wall.z / max(surf_r, 1e-4));
+
+    // Decoupled Moho discontinuity: thin oceanic crust (0.962..1.0) vs thicker continental crust (0.938..1.0),
+    // with rigid lithospheric upper mantle cleanly separated below Moho (0.885..moho_r).
+    let cont_region = smoothstep(0.05, 0.35, sin(phi * 3.0 + p_wall.y * 3.6 + conv * 0.6));
+    let moho_r = mix(0.962, 0.938, cont_region);
+    let litho_base_r = 0.885;
+
+    let is_crust_zone = z_idx == 7u;
+    let is_litho_zone = z_idx == 8u;
+    let c_ocean = select(1.0, doc_feat_focus(inst, 0u), is_crust_zone);
+    let c_cont = select(1.0, doc_feat_focus(inst, 1u), is_crust_zone);
+    let c_plate = select(1.0, doc_feat_focus(inst, 2u), is_crust_zone);
+    let c_fault = select(1.0, doc_feat_focus(inst, 3u), is_crust_zone);
+    let c_magma = select(1.0, doc_feat_focus(inst, 4u), is_crust_zone);
+
+    let l_plate = select(1.0, doc_feat_focus(inst, 0u), is_litho_zone);
+    let l_subduct = select(1.0, doc_feat_focus(inst, 1u), is_litho_zone);
+    let l_root = select(1.0, doc_feat_focus(inst, 2u), is_litho_zone);
+    let l_quake = select(1.0, doc_feat_focus(inst, 3u), is_litho_zone);
+    let l_mantle = select(1.0, doc_feat_focus(inst, 4u), is_litho_zone);
 
     var col = vec3<f32>(0.0);
-    if (wall_r > 0.91) {
-        // Crust & Tectonic Lithosphere Slab (zones 7, 8)
-        let hi = select(1.0, 1.65, z_idx == 7u || z_idx == 8u);
-        col = vec3<f32>(0.24, 0.19, 0.14) * (0.72 + 0.45 * conv) * hi + vec3<f32>(1.1, 0.42, 0.15) * subduct;
+    if (wall_r > moho_r) {
+        // Crust (Z07): basaltic oceanic crust vs buoyant granitic continental crust
+        let ocean_col = vec3<f32>(0.10, 0.24, 0.32) * (0.75 + 0.4 * conv) * c_ocean;
+        let cont_col = vec3<f32>(0.34, 0.23, 0.15) * (0.75 + 0.45 * conv) * c_cont;
+        let base_crust = mix(ocean_col, cont_col, cont_region) * select(1.0, 1.38, is_crust_zone) * select(1.0, l_plate, is_litho_zone);
+        // Plate sutures & brittle fault + seismic pulse rings + rising magma conduits
+        let plate_suture = exp(-pow(sin(phi * 6.0 + p_wall.y * 5.0) * 18.0, 2.0)) * 0.42 * c_plate * l_plate;
+        let fault_d = abs(wall_r - 0.968 + (phi - 0.78) * 0.08);
+        let fault_glow = exp(-pow(fault_d * 95.0, 2.0)) * 0.65 * select(0.2, c_fault, is_crust_zone);
+        let seismic_ring = (0.5 + 0.5 * sin(length(p_wall - vec3<f32>(0.55, 0.45, 0.65) * surf_r) * 32.0 - time * 4.5))
+                         * fault_glow * select(0.0, 0.85, is_crust_zone);
+        let magma_ch = exp(-pow((phi - 1.05) * 9.0, 2.0)) * smoothstep(moho_r - 0.02, 0.995, wall_r);
+        let magma_col = vec3<f32>(1.45, 0.48, 0.10) * magma_ch * select(0.25, c_magma, is_crust_zone);
+        col = base_crust + vec3<f32>(0.85, 0.55, 0.28) * (plate_suture + fault_glow + seismic_ring) + magma_col;
+    } else if (wall_r > litho_base_r) {
+        // Rigid Upper Mantle (Z08 Lithosphere below Moho discontinuity)
+        let root_keel = smoothstep(0.2, 0.8, cont_region) * smoothstep(litho_base_r, moho_r, wall_r) * l_root;
+        let mantle_rigid = mix(vec3<f32>(0.28, 0.24, 0.11), vec3<f32>(0.44, 0.30, 0.14), clamp(0.5 + conv * 0.5, 0.0, 1.0));
+        let hi_l = select(1.0, 1.38 * l_mantle * l_plate, is_litho_zone);
+        // Wadati-Benioff deep-focus rupture foci along subducting slab
+        let slab_foci = pow(max(0.0, sin(wall_r * 110.0 - phi * 18.0)), 14.0) * subduct * select(0.1, l_quake, is_litho_zone);
+        let subduct_col = mix(vec3<f32>(0.25, 0.72, 1.25), vec3<f32>(1.25, 0.46, 0.14), smoothstep(0.95, 0.89, wall_r))
+                        * subduct * select(0.85, 1.25 * l_subduct, is_litho_zone);
+        let magma_feeder = exp(-pow((phi - 1.05) * 11.0, 2.0)) * vec3<f32>(1.25, 0.36, 0.08) * select(0.15, c_magma, is_crust_zone);
+        col = mantle_rigid * hi_l + vec3<f32>(0.38, 0.26, 0.16) * root_keel * 0.45 + subduct_col + vec3<f32>(1.35, 1.15, 0.45) * slab_foci + magma_feeder;
     } else if (wall_r > 0.78) {
         // Asthenosphere (zone 9) ductile flow + partial melt
         let hi = select(1.0, 1.55, z_idx == 9u);
-        col = mix(vec3<f32>(0.55, 0.14, 0.03), vec3<f32>(1.25, 0.42, 0.08), clamp(0.55 + conv * 0.6, 0.0, 1.0)) * hi;
+        col = mix(vec3<f32>(0.55, 0.14, 0.03), vec3<f32>(1.25, 0.42, 0.08), clamp(0.55 + conv * 0.6, 0.0, 1.0)) * hi
+            + vec3<f32>(1.0, 0.40, 0.14) * subduct * select(0.45, l_subduct, is_litho_zone);
     } else if (wall_r > 0.68) {
         // Mantle Transition Zone (660 km discontinuity ruby ring, zone 10)
         let hi = select(1.0, 1.75, z_idx == 10u);
@@ -80,14 +183,15 @@ fn shade_doc_earth_cutaway(
     } else {
         // Liquid Fe-Ni Outer Core helical geodynamo shear (zone 12)
         let hi = select(1.0, 1.55, z_idx == 12u);
-        let helix = 0.5 + 0.5 * sin(p_wall.y * 28.0 + atan2(p_wall.z, p_wall.x) * 3.0 - time * 1.4);
+        let helix = 0.5 + 0.5 * sin(p_wall.y * 28.0 + phi * 3.0 - time * 1.4);
         col = blackbody_rgb(mix(3200.0, 4600.0, clamp(0.45 + helix * 0.4 + conv * 0.25, 0.0, 1.0))) * 1.25 * hi;
     }
 
     let seam_660 = exp(-pow((wall_r - 0.72) * 44.0, 2.0)) * 0.42;
     let seam_cmb = exp(-pow((wall_r - 0.46) * 44.0, 2.0)) * 0.58;
-    let seam_moho = exp(-pow((wall_r - 0.91) * 48.0, 2.0)) * 0.28;
-    col += vec3<f32>(1.45, 0.72, 0.22) * (seam_660 + seam_cmb + seam_moho);
+    let seam_moho = exp(-pow((wall_r - moho_r) * 72.0, 2.0)) * select(0.32, 0.52, is_crust_zone || is_litho_zone);
+    let seam_litho = exp(-pow((wall_r - litho_base_r) * 56.0, 2.0)) * select(0.22, 0.44, is_litho_zone);
+    col += vec3<f32>(1.45, 0.72, 0.22) * (seam_660 + seam_cmb + seam_moho + seam_litho);
     return col;
 }
 
@@ -256,11 +360,14 @@ fn raymarch_doc_earth_shell(
     // 03 Earth Magnetosphere Van Allen Flux Lines, Equatorial Exo-Satellites, Mesosphere Meteors & Anchored Auroras!
     var accum_rgb = vec3<f32>(0.0);
     var accum_a: f32 = 0.0;
-    let z_idx = doc_zone(inst);
+    let raw_vid = inst.kind_tags.y;
+    let z_idx = select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid));
     let steps: i32 = i32(mix(16.0, 28.0, fovea_k));
     let dt = (t1 - t0) / f32(steps);
     let show_magnetosphere = z_idx == 0u || z_idx == 1u || z_idx == 12u || z_idx == 65535u;
     let mag_gain = select(0.28, 0.92, z_idx == 0u || z_idx == 1u || z_idx == 12u);
+    let f_tropo_wind = select(1.0, doc_feat_focus(inst, 2u), z_idx == 5u);
+    let f_tropo_vapor = select(1.0, doc_feat_focus(inst, 4u), z_idx == 5u);
 
     for (var i: i32 = 0; i < 28; i = i + 1) {
         if (i >= steps || accum_a > 0.95) {
@@ -269,6 +376,22 @@ fn raymarch_doc_earth_shell(
         let t = t0 + (f32(i) + jitter) * dt;
         let p = ro + rd * t;
         let r = length(p);
+
+        // 0. Z05 Troposphere low-altitude atmospheric limb shell (jet stream & water vapor wisps, r in [0.74, 0.82])
+        if (z_idx == 5u && r > 0.74 && r < 0.82) {
+            let lat = p.y / r;
+            let jet = exp(-pow((abs(lat) - 0.52) * 10.0, 2.0));
+            let vapor_ring = exp(-pow(lat * 4.0, 2.0));
+            let limb_env = smoothstep(0.74, 0.76, r) * smoothstep(0.82, 0.77, r);
+            let wisp = 0.5 + 0.5 * sin(atan2(p.z, p.x) * 6.0 - time * 1.4);
+            let tropo_limb = vec3<f32>(0.24, 0.74, 1.05) * jet * f_tropo_wind * 0.42
+                           + vec3<f32>(0.10, 0.78, 0.88) * vapor_ring * f_tropo_vapor * 0.48;
+            let sample_a = limb_env * wisp * dt * 1.8;
+            if (sample_a > 0.002) {
+                accum_rgb += (1.0 - accum_a) * tropo_limb * sample_a;
+                accum_a += (1.0 - accum_a) * min(sample_a, 0.25);
+            }
+        }
 
         // 1. Anchored Polar Auroral Oval Curtains touching Earth limb at r = 0.739 .. 0.915 (03 Termosfera)
         if (r > 0.739 && r < 0.915) {

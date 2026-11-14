@@ -185,6 +185,132 @@ pub struct SegmentVisualHint {
     pub telemetry: [f32; 4],
 }
 
+/// Encodes semantic visual cue tags into a compact 6-bit mask (`0..=63`) for GPU `base_flags[2..8]`.
+///
+/// Bit mapping:
+/// - `bit 0 (0x01)`: feature spotlight (`feature:*` / `role:item`)
+/// - `bit 1 (0x02)`: interior geological depth (`unit:depth`, mantle/core/crust/subduction/fault/magma)
+/// - `bit 2 (0x04)`: atmospheric or orbital altitude (`unit:altitude`, aurora/iss/ozone/troposphere/storm/wind)
+/// - `bit 3 (0x08)`: hydrosphere or biosphere (`oceano`, `costa`, `bosque`, `montana`, `suelo`, bio organelles)
+/// - `bit 4 (0x10)`: planetary/astrophysical/quantum cue
+/// - `bit 5 (0x20)`: mind/civilization/technology/explanation cue (`material:*`, `role:explanation`, tech)
+pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
+    let mut mask = 0u8;
+    for raw in cue_tags {
+        let tag = normalize_ascii_lower(raw.as_ref());
+        if tag.starts_with("feature:") || tag == "role:item" {
+            mask |= 0x01;
+        }
+        if tag == "unit:depth"
+            || matches!(
+                tag.strip_prefix("kw:").unwrap_or(""),
+                "manto"
+                    | "nucleo"
+                    | "corteza"
+                    | "subduccion"
+                    | "geodinamo"
+                    | "litosfera"
+                    | "placa"
+                    | "falla"
+                    | "magma"
+                    | "sismo"
+            )
+        {
+            mask |= 0x02;
+        }
+        if tag == "unit:altitude"
+            || matches!(
+                tag.strip_prefix("kw:").unwrap_or(""),
+                "aurora"
+                    | "iss"
+                    | "satelite"
+                    | "ozono"
+                    | "troposfera"
+                    | "nube"
+                    | "tormenta"
+                    | "viento"
+                    | "avion"
+                    | "vapor"
+            )
+        {
+            mask |= 0x04;
+        }
+        if matches!(
+            tag.strip_prefix("kw:").unwrap_or(""),
+            "oceano"
+                | "costa"
+                | "bosque"
+                | "montana"
+                | "suelo"
+                | "europa"
+                | "encelado"
+                | "adn"
+                | "mitocondria"
+                | "cloroplasto"
+        ) {
+            mask |= 0x08;
+        }
+        if matches!(
+            tag.strip_prefix("kw:").unwrap_or(""),
+            "sol"
+                | "mercurio"
+                | "venus"
+                | "tierra"
+                | "luna"
+                | "marte"
+                | "ceres"
+                | "jupiter"
+                | "saturno"
+                | "urano"
+                | "neptuno"
+                | "pluton"
+                | "sagitario"
+                | "andromeda"
+                | "laniakea"
+                | "cuasar"
+                | "reionizacion"
+                | "cmb"
+                | "inflacion"
+                | "higgs"
+                | "quark"
+                | "orbital"
+                | "planck"
+                | "einstein"
+                | "hawking"
+                | "gravitacional"
+        ) {
+            mask |= 0x10;
+        }
+        if tag.starts_with("material:")
+            || tag == "role:explanation"
+            || matches!(
+                tag.strip_prefix("kw:").unwrap_or(""),
+                "turing"
+                    | "benard"
+                    | "neurona"
+                    | "sinapsis"
+                    | "hipocampo"
+                    | "prefrontal"
+                    | "crispr"
+                    | "microchip"
+                    | "ia"
+                    | "fusion"
+                    | "tokamak"
+                    | "dyson"
+                    | "oneill"
+                    | "seti"
+                    | "rosetta"
+                    | "primo"
+                    | "loto"
+                    | "horizonte"
+            )
+        {
+            mask |= 0x20;
+        }
+    }
+    mask & 0x3F
+}
+
 /// Snapshot aligning 1-to-1 with `cosmos_render::universe_scene::DocumentaryFocusState`
 /// so `cosmos_app` can drive documentary shader focus without coupling crates.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -197,6 +323,8 @@ pub struct DocumentaryCueSnapshot {
     pub zone_accent_rgb: [f32; 3],
     pub telemetry: [f32; 4],
     pub emphasis_boost: f32,
+    pub cue_tags_mask: u8,
+    pub submode_override: u8,
     pub cue_tags: Vec<String>,
 }
 
@@ -301,11 +429,22 @@ impl NarrationPlan {
             .map(|seg| &seg.visual_hint)
             .or_else(|| self.segments.first().map(|seg| &seg.visual_hint));
 
-        let (telemetry, emphasis_boost, cue_tags) = if let Some(h) = seg_hint {
-            (h.telemetry, h.emphasis_boost, h.visual_tags.clone())
+        let (telemetry, emphasis_boost, cue_tags, submode_override) = if let Some(h) = seg_hint {
+            let submode_override = h
+                .chromatic
+                .map(|c| c.material_class)
+                .or_else(|| h.harmonic.map(|hm| hm.timbre_index))
+                .unwrap_or(0);
+            (
+                h.telemetry,
+                h.emphasis_boost,
+                h.visual_tags.clone(),
+                submode_override,
+            )
         } else {
-            (self.telemetry, 0.5, Vec::new())
+            (self.telemetry, 1.0, Vec::new(), 0)
         };
+        let cue_tags_mask = encode_cue_tags_mask(&cue_tags);
 
         DocumentaryCueSnapshot {
             active_zone_index: self.zone_index,
@@ -316,6 +455,8 @@ impl NarrationPlan {
             zone_accent_rgb: self.zone_accent_linear_rgb,
             telemetry,
             emphasis_boost,
+            cue_tags_mask,
+            submode_override,
             cue_tags,
         }
     }
@@ -952,12 +1093,13 @@ fn classify_chromatic_material(h_deg: f64, s: f64, l: f64) -> u8 {
 const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "sol", "mercurio", "venus", "tierra", "luna", "marte", "ceres", "jupiter", "saturno",
     "urano", "neptuno", "pluton", "aurora", "iss", "satelite", "ozono", "nucleo", "manto",
-    "corteza", "geodinamo", "subduccion", "sagitario", "andromeda", "laniakea", "cuasar",
-    "reionizacion", "cmb", "inflacion", "higgs", "quark", "orbital", "planck", "einstein",
-    "hawking", "gravitacional", "turing", "benard", "adn", "mitocondria", "cloroplasto",
-    "neurona", "sinapsis", "hipocampo", "prefrontal", "crispr", "microchip", "ia",
-    "fusion", "tokamak", "dyson", "oneill", "europa", "encelado", "seti", "rosetta",
-    "primo", "loto", "horizonte",
+    "corteza", "geodinamo", "subduccion", "troposfera", "nube", "tormenta", "viento", "avion",
+    "vapor", "oceano", "costa", "bosque", "montana", "suelo", "litosfera", "placa", "falla",
+    "magma", "sismo", "sagitario", "andromeda", "laniakea", "cuasar", "reionizacion", "cmb",
+    "inflacion", "higgs", "quark", "orbital", "planck", "einstein", "hawking", "gravitacional",
+    "turing", "benard", "adn", "mitocondria", "cloroplasto", "neurona", "sinapsis", "hipocampo",
+    "prefrontal", "crispr", "microchip", "ia", "fusion", "tokamak", "dyson", "oneill", "europa",
+    "encelado", "seti", "rosetta", "primo", "loto", "horizonte",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

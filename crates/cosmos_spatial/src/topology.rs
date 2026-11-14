@@ -376,7 +376,7 @@ pub fn all_experience_placements() -> Vec<ExperiencePlacement> {
         ExperiencePlacement {
             id: ExperienceId(24),
             slug: "24_cosmic_meaning",
-            title: "Sentido Cósmico",
+            title: "Significado Cósmico",
             sector_id: SectorId::HYPER_LOTUS_24_MEANING,
             anchor_local: DVec3::ZERO,
             u_min: 27.2,

@@ -9,7 +9,8 @@ use crate::types::{HeroVolumeInstance, SpriteInstance};
 use crate::universe_scene::{DocumentaryFocusState, SceneBuildInput, experience_accent_linear, hsl_linear};
 
 /// Encodes active zone (`u16`), feature (`u8`), `scene_index + 1` (`u8`), narration cue,
-/// active weight, and domain submode into `HeroVolumeInstance::kind_tags`.
+/// active weight, semantic cue bitmask (`bits 2..7` of `kind_tags[3]`), and domain submode
+/// into `HeroVolumeInstance::kind_tags`.
 pub fn pack_doc_tags(
     hero_kind: u32,
     vid: u32,
@@ -19,15 +20,70 @@ pub fn pack_doc_tags(
 ) -> [u32; 4] {
     let z_u16 = doc.active_zone_index as u32 & 0xFFFF;
     let f_u8 = (doc.active_feature_index as u32) & 0xFF;
-    let sc_u8 = ((doc.scene_index + 1).clamp(0, 254) as u32) & 0xFF;
+    let sc_u8 = if doc.scene_index >= 0 {
+        ((doc.scene_index + 1).clamp(1, 254) as u32) & 0xFF
+    } else if doc.active_zone_index != u16::MAX {
+        ((doc.active_zone_index.min(253) as u32) + 1) & 0xFF
+    } else {
+        0
+    };
     let packed_z = z_u16 | (f_u8 << 16) | (sc_u8 << 24);
 
     let cue_u8 = (doc.narration_cue_progress.clamp(0.0, 1.0) * 255.0).round() as u32;
-    let wt_u8 = (doc.narration_active_weight.clamp(0.0, 1.0) * 255.0).round() as u32;
-    let packed_w =
-        (base_flags & 0xFF) | ((cue_u8 & 0xFF) << 8) | ((wt_u8 & 0xFF) << 16) | ((submode & 0xFF) << 24);
+    let effective_wt = if doc.narration_active_weight > 0.0 {
+        (doc.narration_active_weight * (0.70 + 0.30 * doc.emphasis_boost.clamp(0.0, 1.0)))
+            .clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let wt_u8 = (effective_wt * 255.0).round() as u32;
+    let flags_byte = (base_flags & 0x03) | (((doc.cue_tags_mask as u32) & 0x3F) << 2);
+    let effective_submode = if submode != 0 {
+        submode
+    } else {
+        doc.submode_override as u32
+    };
+    let packed_w = (flags_byte & 0xFF)
+        | ((cue_u8 & 0xFF) << 8)
+        | ((wt_u8 & 0xFF) << 16)
+        | ((effective_submode & 0xFF) << 24);
 
     [hero_kind, vid, packed_z, packed_w]
+}
+
+/// Zero-Conflict Shader ID Registry: canonical zone variant ID (`1100..=3599`) for
+/// `(experience_id 1..=25, zone_index 0..=99)`: `1000 + experience_id * 100 + zone_index`.
+#[inline]
+pub const fn canonical_zone_vid(experience_id: u8, zone_index: u16) -> u32 {
+    let clamped_zone = if zone_index > 99 { 99 } else { zone_index as u32 };
+    1000 + (experience_id as u32) * 100 + clamped_zone
+}
+
+/// Zero-Conflict Shader ID Registry: canonical companion/overlay geometry variant ID (`3600..=3869`)
+/// for `(experience_id 1..=25, slot 0..=9)`.
+#[inline]
+pub const fn canonical_companion_vid(experience_id: u8, slot: u8) -> u32 {
+    let exp_offset = experience_id.saturating_sub(1) as u32;
+    let clamped_slot = if slot > 9 { 9 } else { slot as u32 };
+    3600 + exp_offset * 10 + clamped_slot
+}
+
+/// Returns `true` when `(experience_id, zone_index)` has been upgraded to its bespoke `[TIER-A]`
+/// canonical shader ID (`1100..=3599`) and `doc_feat(inst)` sub-staging.
+#[inline]
+pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool {
+    matches!((experience_id, zone_index), (3, 5..=8))
+}
+
+/// Dispatches canonical `vid` (`1100..=3599`) for `[TIER-A]` migrated zones while preserving
+/// legacy `doc_stage_variant_id` compatibility for unmigrated fallback zones.
+#[inline]
+pub fn resolve_zone_shader_vid(experience_id: u8, doc: &DocumentaryFocusState) -> u32 {
+    if is_zone_migrated_tier_a(experience_id, doc.active_zone_index) {
+        canonical_zone_vid(experience_id, doc.active_zone_index)
+    } else {
+        doc_stage_variant_id(experience_id, doc)
+    }
 }
 
 /// Resolves the deterministic shader sub-scene variant ID (`vid`) from explicit
@@ -570,13 +626,26 @@ pub fn emit_doc_stage_hero(
             }
             let earth_solid_r = (6.371e6_f64 * 10.0_f64.powf(-input.cam_pose.scale_exp) / 0.84)
                 .clamp(0.18_f64, ((rel_scale * 1.2) as f64).max(0.25)) as f32;
-            let cutaway = if input.earth_cutaway_blend > 0.25
-                || (input.active_experience_id == 3 && (5.2..=6.45).contains(&u_cam))
-                || (doc.active_zone_index >= 7 && doc.active_zone_index <= 13)
+            // Atmospheric & surface zones (`Z00..=Z06`, including `Z06 Surface` at `u = 6.05`) never open the cutaway prematurely.
+            let is_surface_or_atmo_zone = doc.active_zone_index <= 6;
+            let cutaway = if !is_surface_or_atmo_zone
+                && (input.earth_cutaway_blend > 0.25
+                    || (input.active_experience_id == 3 && (5.2..=6.45).contains(&u_cam))
+                    || (7..=13).contains(&doc.active_zone_index))
             {
                 1u32
             } else {
                 0u32
+            };
+            let earth_vid = if is_zone_migrated_tier_a(3, doc.active_zone_index) {
+                canonical_zone_vid(3, doc.active_zone_index)
+            } else {
+                0u32
+            };
+            let shell_submode = if earth_vid == canonical_zone_vid(3, 5) {
+                2u32
+            } else {
+                cutaway
             };
             heroes_surface.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, earth_solid_r],
@@ -585,7 +654,7 @@ pub fn emit_doc_stage_hero(
                 color_b: [0.16, 0.58, 1.45, 1.0],
                 phys_a: [input.time_sec * 0.03, 0.409, 0.0, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(0, 0, cutaway, 0, doc),
+                kind_tags: pack_doc_tags(0, earth_vid, cutaway, cutaway, doc),
             });
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, earth_solid_r * 1.14],
@@ -594,7 +663,7 @@ pub fn emit_doc_stage_hero(
                 color_b: [1.1, 0.24, 2.0, 1.0],
                 phys_a: [input.time_sec * 0.03, 0.0, 0.0, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(0, 0, 0, 0, doc),
+                kind_tags: pack_doc_tags(0, earth_vid, 0, shell_submode, doc),
             });
             // Orbiting Moon impostor tucked safely into upper-left void (zero Thermosphere label overlap)
             let m_ang = input.time_sec * 0.14;
@@ -713,7 +782,7 @@ pub fn emit_doc_stage_hero(
         13 | 14 => {
             let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
             let r_q = (rel_scale * 0.86).clamp(0.04, max_r);
-            let vid = doc_stage_variant_id(experience_id, doc);
+            let vid = resolve_zone_shader_vid(experience_id, doc);
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_q],
                 rot_quat: face_quat,
@@ -731,7 +800,7 @@ pub fn emit_doc_stage_hero(
         15..=17 => {
             let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
             let r_b = (rel_scale * 0.86).clamp(0.04, max_r);
-            let vid = doc_stage_variant_id(experience_id, doc);
+            let vid = resolve_zone_shader_vid(experience_id, doc);
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_b],
                 rot_quat: face_quat,
@@ -750,7 +819,7 @@ pub fn emit_doc_stage_hero(
         _ => {
             let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
             let r_g = (rel_scale * 0.88).clamp(0.04, max_r);
-            let vid = doc_stage_variant_id(experience_id, doc);
+            let vid = resolve_zone_shader_vid(experience_id, doc);
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_g],
                 rot_quat: face_quat,

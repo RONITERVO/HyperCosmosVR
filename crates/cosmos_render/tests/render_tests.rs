@@ -436,6 +436,7 @@ fn phase7_documentary_stages_01_through_25_oled_and_telemetry_hold() {
             narration_active_weight: 0.90,
             zone_accent_rgb: [0.35, 1.15, 1.45],
             telemetry,
+            ..DocumentaryFocusState::default()
         };
         let scene = builder.build(&index, &input);
         assert!(
@@ -926,6 +927,178 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
             .any(|h| h.kind_tags[0] == 2 && h.kind_tags[1] == 2),
         "Exp 4 panorama must emit Saturn's analytical ring (kind=2, vid=2)"
     );
+}
+
+#[test]
+fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
+    use std::collections::HashSet;
+    use cosmos_render::DocumentaryFocusState;
+    use cosmos_render::doc_stages::{
+        canonical_companion_vid, canonical_zone_vid, is_zone_migrated_tier_a, pack_doc_tags,
+        resolve_zone_shader_vid,
+    };
+    use cosmos_spatial::all_experience_placements;
+
+    // 1. Canonical 1100..=3599 & companion 3600..=3869 IDs must be strictly collision-free across all 25 experiences / 376 zones.
+    let placements = all_experience_placements();
+    assert_eq!(placements.len(), 25);
+    let mut zone_vids = HashSet::new();
+    let mut doc_zones = 0usize;
+    let mut total_placements = 0usize;
+    for exp in &placements {
+        for z in 0..exp.zone_count {
+            let vid = canonical_zone_vid(exp.id.0, z);
+            assert!(
+                (1100..=3599).contains(&vid),
+                "exp {} zone {} canonical vid {vid} out of [1100..=3599]",
+                exp.id.0,
+                z
+            );
+            assert!(
+                zone_vids.insert(vid),
+                "duplicate canonical zone vid {vid} at exp {} zone {z}",
+                exp.id.0
+            );
+            total_placements += 1;
+            if exp.id.0 >= 3 {
+                doc_zones += 1;
+            }
+        }
+        assert_ne!(
+            exp.title, "Sentido Cósmico",
+            "Exp 24 title must use Significado Cósmico"
+        );
+    }
+    assert_eq!(doc_zones, 376, "documentary catalog zones across Exps 03..=25 must equal 376");
+    assert_eq!(total_placements, 378, "all_experience_placements including 01/02 spatial labs must equal 378");
+
+    let mut comp_vids = HashSet::new();
+    for exp_id in 1u8..=25u8 {
+        for slot in 0u8..10u8 {
+            let cvid = canonical_companion_vid(exp_id, slot);
+            assert!(
+                (3600..=3869).contains(&cvid),
+                "companion vid {cvid} out of [3600..=3869]"
+            );
+            assert!(comp_vids.insert(cvid), "duplicate companion vid {cvid}");
+        }
+    }
+
+    // 2. pack_doc_tags preserves structural base_flags[0..2], packs cue_tags_mask[2..8],
+    //    applies submode_override when submode==0, and falls back when scene_index == -1.
+    let doc_pack = DocumentaryFocusState {
+        active_zone_index: 5,
+        active_feature_index: 3,
+        scene_index: -1,
+        narration_cue_progress: 0.75,
+        narration_active_weight: 0.90,
+        zone_accent_rgb: [0.4, 0.9, 1.3],
+        telemetry: [0.0; 4],
+        cue_tags_mask: 0b01_0101,
+        submode_override: 7,
+        emphasis_boost: 0.85,
+    };
+    let tags = pack_doc_tags(0, canonical_zone_vid(3, 5), 1, 0, &doc_pack);
+    assert_eq!(tags[1], 1305);
+    assert_eq!((tags[2] >> 24) & 0xFF, 6, "null scene_index must fall back cleanly to zone + 1");
+    assert_eq!(tags[3] & 1, 1, "cutaway bit 0 must be preserved");
+    assert_eq!((tags[3] >> 2) & 0x3F, 0b01_0101, "6-bit cue_tags_mask must pack into bits 2..7");
+    assert_eq!((tags[3] >> 24) & 0xFF, 7, "submode_override must populate bits 24..31 when submode==0");
+
+    // 3. Exp 03 Z05..=Z08 [TIER-A] routing + Z06 Surface premature cutaway bug fix + GPU feature differentiation
+    for z in 5u16..=8u16 {
+        assert!(is_zone_migrated_tier_a(3, z));
+        let d = DocumentaryFocusState {
+            active_zone_index: z,
+            ..Default::default()
+        };
+        assert_eq!(resolve_zone_shader_vid(3, &d), 1300 + z as u32);
+    }
+
+    let mut renderer = CosmosRenderer::init_desktop(384, 384).expect("RTX 5070 DX12 init");
+    let index = build_default_universe_index();
+    let mut builder = UniverseSceneBuilder::new();
+    let cam = RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
+    let total_px = 384 * 384;
+
+    let mut render_exp03 = |zone: u16, feat: u16, scale_u: f64, cam_pos: DVec3| -> (Vec<u8>, u32, u32) {
+        let mut input = SceneBuildInput::desktop_default(
+            ScalePose64::new(SectorId::EARTH_ORBIT, cam_pos, scale_u, DQuat::IDENTITY),
+            cam,
+            384,
+            384,
+        );
+        input.active_experience_id = 3;
+        input.earth_cutaway_blend = if zone >= 7 { 1.0 } else { 0.35 };
+        input.documentary = DocumentaryFocusState {
+            active_zone_index: zone,
+            active_feature_index: feat,
+            scene_index: -1,
+            narration_cue_progress: 0.68,
+            narration_active_weight: 0.92,
+            zone_accent_rgb: [0.35, 1.05, 1.45],
+            telemetry: [0.0; 4],
+            cue_tags_mask: 0x05,
+            submode_override: 0,
+            emphasis_boost: 1.0,
+        };
+        let scene = builder.build(&index, &input);
+        let earth = scene
+            .heroes_surface
+            .iter()
+            .find(|h| h.kind_tags[0] == 0)
+            .expect("Exp 03 must emit Earth surface hero");
+        let vid = earth.kind_tags[1];
+        let cutaway_bit = earth.kind_tags[3] & 1;
+
+        let px = renderer
+            .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+            .expect("Exp 03 offscreen render");
+        let (void_px, lit_px) = count_void_and_lit(&px, 28);
+        let blown_px = px
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+            .count();
+        assert!(
+            void_px * 100 >= total_px * 58,
+            "Exp 03 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
+        );
+        assert!(lit_px > 400, "Exp 03 Z{zone:02} F{feat} must illuminate hero, got {lit_px}");
+        assert!(
+            blown_px * 1000 < total_px * 5,
+            "Exp 03 Z{zone:02} F{feat} must avoid highlight blowout, got {blown_px}"
+        );
+        (px, vid, cutaway_bit)
+    };
+
+    let zones = [
+        (5u16, 1305u32, 0u32, 6.50f64, DVec3::new(0.0, 0.25, 3.30)),
+        (6u16, 1306u32, 0u32, 6.05f64, DVec3::new(0.0, 0.25, 3.15)),
+        (7u16, 1307u32, 1u32, 5.90f64, DVec3::new(0.95, 0.45, 2.48)),
+        (8u16, 1308u32, 1u32, 5.75f64, DVec3::new(0.95, 0.45, 2.48)),
+    ];
+    for &(zone, expected_vid, expected_cutaway, scale_u, cam_pos) in &zones {
+        let mut renders = Vec::with_capacity(5);
+        for feat in 0u16..5u16 {
+            let (px, vid, cut) = render_exp03(zone, feat, scale_u, cam_pos);
+            assert_eq!(
+                (vid, cut),
+                (expected_vid, expected_cutaway),
+                "Exp 03 Z{zone:02} F{feat} must route to canonical vid={expected_vid} with cutaway={expected_cutaway}"
+            );
+            renders.push(px);
+        }
+        for i in 0..5 {
+            for j in (i + 1)..5 {
+                assert_ne!(
+                    renders[i], renders[j],
+                    "Exp 03 Z{zone:02} features F{i} and F{j} must render distinctly"
+                );
+            }
+        }
+    }
 }
 
 trait BindGroupLayoutTestExt {

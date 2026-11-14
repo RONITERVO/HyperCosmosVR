@@ -103,6 +103,48 @@ fn doc_submode(inst: HeroVolumeInstance) -> u32 {
     return (inst.kind_tags.w >> 24u) & 0xFFu;
 }
 
+fn doc_base_flags(inst: HeroVolumeInstance) -> u32 {
+    return inst.kind_tags.w & 0xFFu;
+}
+
+fn doc_cue_mask(inst: HeroVolumeInstance) -> u32 {
+    return (inst.kind_tags.w >> 2u) & 0x3Fu;
+}
+
+fn doc_is_canonical_zone_vid(vid: u32) -> bool {
+    return vid >= 1100u && vid < 3600u;
+}
+
+fn doc_vid_exp(vid: u32) -> u32 {
+    return (vid / 100u) - 10u;
+}
+
+fn doc_vid_zone(vid: u32) -> u32 {
+    return vid % 100u;
+}
+
+fn doc_is_companion_vid(vid: u32) -> bool {
+    return vid >= 3600u && vid < 3870u;
+}
+
+fn doc_feat_focus(inst: HeroVolumeInstance, target_feat: u32) -> f32 {
+    let f = doc_feat(inst);
+    if (f == 255u) {
+        return 1.0;
+    }
+    let w = max(doc_weight(inst), 0.35);
+    let progress = 0.78 + 0.22 * doc_cue(inst);
+    if (f == target_feat) {
+        return mix(1.0, 1.48 * progress, w);
+    }
+    return mix(1.0, 0.56, w);
+}
+
+fn doc_sample_field_grid(uv: vec2<f32>) -> vec4<f32> {
+    let clamped_uv = clamp(uv, vec2<f32>(0.01), vec2<f32>(0.99));
+    return textureSampleLevel(field_grid_tex, field_grid_samp, clamped_uv, 0.0);
+}
+
 fn doc_rot_y(p: vec3<f32>, a: f32) -> vec3<f32> {
     let c = cos(a);
     let s = sin(a);

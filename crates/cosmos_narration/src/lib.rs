@@ -11,8 +11,8 @@ pub use memory::{
     SharedNarrationMemory,
 };
 pub use resolver::{
-    hsl_to_srgb_u8, srgb_to_linear_hdr, AudioAssetIds, ChromaticVisualHint,
-    DocumentaryCueSnapshot, EvidencePolicy, HarmonicVisualHint, MusicTriggerEvent, NarrationPlan,
-    NarrationSegment, PhraseTripleIds, ResolverConfig, ResolverError, SegmentRole,
-    SegmentVisualHint, TargetFocus, TargetResolver, VisualCueTag,
+    encode_cue_tags_mask, hsl_to_srgb_u8, srgb_to_linear_hdr, AudioAssetIds,
+    ChromaticVisualHint, DocumentaryCueSnapshot, EvidencePolicy, HarmonicVisualHint,
+    MusicTriggerEvent, NarrationPlan, NarrationSegment, PhraseTripleIds, ResolverConfig,
+    ResolverError, SegmentRole, SegmentVisualHint, TargetFocus, TargetResolver, VisualCueTag,
 };

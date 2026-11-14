@@ -11,9 +11,10 @@ use cosmos_journey::{
 use cosmos_manifest::{AudioAssetRecord, Locale, UniverseCatalog};
 use cosmos_math::{smoothstep, SectorId};
 use cosmos_narration::{
-    srgb_to_linear_hdr, FocusCandidate, FsmConfig, FsmInput, FsmOutput, FsmStateKind,
-    MemoryPlanState, NarrationPlan, NarrationSegment, ResolverConfig, RestNarrationFsm,
-    SegmentRole, SharedNarrationMemory, TargetFocus, TargetIdentity, TargetResolver,
+    encode_cue_tags_mask, srgb_to_linear_hdr, FocusCandidate, FsmConfig, FsmInput, FsmOutput,
+    FsmStateKind, MemoryPlanState, NarrationPlan, NarrationSegment, ResolverConfig,
+    RestNarrationFsm, SegmentRole, SharedNarrationMemory, TargetFocus, TargetIdentity,
+    TargetResolver,
 };
 use cosmos_nav::{
     DesktopFlightInput, DiegeticAction, FlightCamera, FocusTarget, ScaleMeridianArc, SummonMode,
@@ -1194,13 +1195,6 @@ impl UniverseRuntime {
 
         // 5) Build RenderSceneFrame (compute, far shell, volumetric heroes, diegetic pearls).
         let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
-        // Cold start (`u = 6.60`) presents an intact dramatic Earth; deep mantle cutaway opens smoothly below `u = 6.42`.
-        let earth_cutaway_blend = if active_experience_id == 3 && self.flight.pose.scale_exp < 6.42
-        {
-            (1.0 - smoothstep(5.40, 6.42, self.flight.pose.scale_exp) as f32).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
 
         let diegetic = DiegeticUiInput {
             wrist_pos: None, // Emitted directly with exact WristResonanceRing bead poses below.
@@ -1219,9 +1213,19 @@ impl UniverseRuntime {
             &audio_uniforms,
             verification_override,
         );
+        // Cold start (`u = 6.60`) and Surface (`Z00..=Z06`) present an intact Earth; deep mantle cutaway opens below `u = 6.42` for interior zones (`Z07..` or overview).
         let earth_cutaway_blend = verification_override
             .and_then(|o| o.force_earth_cutaway)
-            .unwrap_or(earth_cutaway_blend);
+            .unwrap_or_else(|| {
+                if active_experience_id == 3
+                    && self.flight.pose.scale_exp < 6.42
+                    && documentary.active_zone_index > 6
+                {
+                    (1.0 - smoothstep(5.40, 6.42, self.flight.pose.scale_exp) as f32).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                }
+            });
 
         let mut scene = self.scene_builder.build(
             &self.spatial,
@@ -1688,6 +1692,11 @@ impl UniverseRuntime {
                     active_feature_index = ff;
                 }
             }
+            let cue_tags_mask = if active_feature_index != u16::MAX {
+                snap.cue_tags_mask | 0x01
+            } else {
+                snap.cue_tags_mask
+            };
             return DocumentaryFocusState {
                 active_zone_index,
                 active_feature_index,
@@ -1696,6 +1705,9 @@ impl UniverseRuntime {
                 narration_active_weight: snap.narration_active_weight,
                 zone_accent_rgb,
                 telemetry,
+                cue_tags_mask,
+                submode_override: snap.submode_override,
+                emphasis_boost: snap.emphasis_boost,
             };
         }
 
@@ -1796,6 +1808,20 @@ impl UniverseRuntime {
                 .map_or([0.0; 4], |z| [z.range_start, z.range_end, z.phys_low, z.phys_high]),
         };
 
+        let fallback_tags: [&str; 2] = [
+            if active_feature_index != u16::MAX {
+                "role:item"
+            } else {
+                ""
+            },
+            if active_experience_id == 3 && (7..=13).contains(&active_zone_index) {
+                "unit:depth"
+            } else if active_experience_id == 3 && active_zone_index <= 5 {
+                "unit:altitude"
+            } else {
+                ""
+            },
+        ];
         DocumentaryFocusState {
             active_zone_index,
             active_feature_index,
@@ -1807,6 +1833,9 @@ impl UniverseRuntime {
                 .clamp(0.0, 1.0),
             zone_accent_rgb,
             telemetry,
+            cue_tags_mask: encode_cue_tags_mask(&fallback_tags),
+            submode_override: 0,
+            emphasis_boost: 1.0,
         }
     }
 
