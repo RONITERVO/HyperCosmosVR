@@ -13,7 +13,12 @@ fn shade_doc_earth_surface(
     let view_dot = max(dot(n_surf, v_dir), 0.0);
     let fresnel = pow(1.0 - view_dot, 3.6);
     let raw_vid = inst.kind_tags.y;
-    let z_idx = select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid));
+    let is_exp03 = doc_is_canonical_zone_vid(raw_vid) || (doc_submode(inst) > 0u);
+    let z_idx = select(
+        99u,
+        select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid)),
+        is_exp03,
+    );
     let w_doc = doc_weight(inst);
 
     let spin_p = doc_rot_y(p_surf, time * 0.03 + inst.phys_a.x * 0.5);
@@ -91,6 +96,92 @@ fn shade_doc_earth_surface(
         tropo_fx += vec3<f32>(0.10, 0.72, 0.88) * vapor_band * 0.38 * f_vapor * (0.3 + 0.7 * ndotl);
     }
 
+    // Z00..=Z04 Outer Space -> Stratosphere surface/limb overlays (paired with volumetric shell)
+    let is_feat_mode = doc_feat(inst) != 255u;
+    let feat_disk = select(0.05, 1.0, is_feat_mode);
+    let nat_rim = select(0.42, 1.0, is_feat_mode);
+    var atmo_disk_fx = vec3<f32>(0.0);
+    if (z_idx == 0u) {
+        let f_sw = doc_feat_focus(inst, 0u);
+        let f_mag = doc_feat_focus(inst, 1u);
+        let f_cr = doc_feat_focus(inst, 2u);
+        let f_geo = doc_feat_focus(inst, 3u);
+        let f_vac = doc_feat_focus(inst, 4u);
+        let bow = smoothstep(0.45, 0.98, dot(n_surf, sun_local)) * fresnel;
+        let cusp = exp(-pow((abs(p_surf.y) - 0.80) * 16.0, 2.0));
+        let cr_spark = pow(max(0.0, snoise3(spin_p * 18.0 + vec3<f32>(time * 1.4))), 10.0);
+        let geo_lat = exp(-pow(p_surf.y * 22.0, 2.0)) * pow(0.5 + 0.5 * cos(atan2(spin_p.z, spin_p.x) * 3.0 - time * 0.4), 6.0);
+        atmo_disk_fx += vec3<f32>(1.15, 0.72, 0.25) * bow * 0.65 * f_sw * nat_rim
+                      + vec3<f32>(0.24, 0.72, 1.45) * cusp * 0.52 * f_mag * nat_rim
+                      + vec3<f32>(0.55, 1.15, 1.48) * cr_spark * 0.75 * f_cr * feat_disk
+                      + vec3<f32>(1.35, 0.98, 0.35) * geo_lat * 0.78 * f_geo * feat_disk
+                      + vec3<f32>(0.18, 0.35, 0.72) * fresnel * 0.28 * f_vac * nat_rim;
+    } else if (z_idx == 1u) {
+        let f_h = doc_feat_focus(inst, 0u);
+        let f_he = doc_feat_focus(inst, 1u);
+        let f_esc = doc_feat_focus(inst, 2u);
+        let f_geo = doc_feat_focus(inst, 3u);
+        let f_sat = doc_feat_focus(inst, 4u);
+        let term = exp(-pow(dot(n_surf, sun_local) * 4.2, 2.0));
+        let esc_spark = pow(max(0.0, snoise3(spin_p * 14.0 - normalize(spin_p + vec3<f32>(1e-4)) * time * 0.8)), 8.0) * term;
+        let heo_trk = exp(-pow((p_surf.y - 0.82 * sin(atan2(spin_p.z, spin_p.x))) * 16.0, 2.0));
+        atmo_disk_fx += vec3<f32>(0.32, 0.78, 1.45) * fresnel * 0.55 * f_h * nat_rim
+                      + vec3<f32>(1.25, 0.92, 0.42) * pow(fresnel, 0.85) * 0.42 * f_he * nat_rim
+                      + vec3<f32>(0.42, 1.25, 1.48) * esc_spark * 0.85 * f_esc * feat_disk
+                      + vec3<f32>(0.88, 0.38, 1.45) * smoothstep(-0.1, 0.7, dot(n_surf, sun_local)) * fresnel * 0.65 * f_geo * nat_rim
+                      + vec3<f32>(0.95, 1.15, 1.45) * heo_trk * 0.55 * f_sat * feat_disk;
+    } else if (z_idx == 2u) {
+        let f_aur = doc_feat_focus(inst, 0u);
+        let f_ion = doc_feat_focus(inst, 1u);
+        let f_iss = doc_feat_focus(inst, 2u);
+        let f_o = doc_feat_focus(inst, 3u);
+        let f_rad = doc_feat_focus(inst, 4u);
+        let aur_oval = exp(-pow((abs(p_surf.y) - 0.75) * 14.0, 2.0)) * (0.45 + 0.55 * sin(atan2(spin_p.z, spin_p.x) * 8.0 + time * 1.1));
+        let ion_day = smoothstep(0.05, 0.85, dot(n_surf, sun_local)) * (0.28 + 0.72 * fresnel);
+        let lon_s = atan2(spin_p.z, spin_p.x);
+        let iss_path = p_surf.y - 0.62 * sin(lon_s);
+        let iss_trk = exp(-pow(iss_path * 24.0, 2.0));
+        let iss_dot = exp(-length(spin_p - normalize(vec3<f32>(cos(time * 0.5), 0.62 * sin(time * 0.5), sin(time * 0.5)))) * 18.0);
+        let hf_arc = pow(0.5 + 0.5 * sin(spin_p.x * 22.0 + spin_p.y * 14.0 - time * 3.4), 6.0)
+                   * smoothstep(0.28, 0.86, fresnel) * smoothstep(-0.1, 0.75, spin_p.y)
+                   * select(0.10, 0.58 * smoothstep(0.20, 1.0, f_rad), is_feat_mode);
+        atmo_disk_fx += vec3<f32>(0.14, 1.42, 0.55) * aur_oval * 0.85 * f_aur * select(0.52, 1.0, is_feat_mode)
+                      + vec3<f32>(0.32, 0.88, 1.48) * ion_day * 0.52 * f_ion * feat_disk
+                      + (vec3<f32>(0.95, 0.78, 0.32) * iss_trk * 0.42 + vec3<f32>(1.45, 1.15, 0.55) * iss_dot * 1.1) * f_iss * feat_disk
+                      + vec3<f32>(0.12, 1.35, 0.68) * fresnel * 0.72 * f_o * nat_rim
+                      + vec3<f32>(0.35, 1.25, 1.48) * hf_arc * feat_disk;
+    } else if (z_idx == 3u) {
+        let f_met = doc_feat_focus(inst, 0u);
+        let f_nlc = doc_feat_focus(inst, 1u);
+        let f_mp = doc_feat_focus(inst, 2u);
+        let f_rkt = doc_feat_focus(inst, 3u);
+        let f_brk = doc_feat_focus(inst, 4u);
+        let met_line = exp(-pow((p_surf.y - 0.35 * p_surf.x - 0.22) * 32.0, 2.0)) * smoothstep(-0.3, 0.6, p_surf.z);
+        let nlc = exp(-pow((abs(p_surf.y) - 0.68) * 11.0, 2.0)) * smoothstep(0.05, 0.55, snoise3(spin_p * 9.0 + vec3<f32>(time * 0.2)));
+        let rkt_flare = exp(-length(spin_p - vec3<f32>(-0.22, 0.42, 0.88)) * 16.0);
+        let brk_sparks = pow(max(0.0, snoise3(spin_p * 20.0 - vec3<f32>(time * 1.8, 0.0, 0.0))), 10.0);
+        atmo_disk_fx += vec3<f32>(1.48, 0.82, 0.24) * met_line * 0.92 * f_met * feat_disk
+                      + vec3<f32>(0.38, 1.12, 1.55) * nlc * 0.82 * f_nlc * nat_rim
+                      + vec3<f32>(0.55, 1.35, 1.55) * fresnel * 0.75 * f_mp * nat_rim
+                      + vec3<f32>(1.48, 0.62, 0.22) * rkt_flare * 0.95 * f_rkt * feat_disk
+                      + vec3<f32>(1.28, 0.92, 0.45) * brk_sparks * 0.72 * f_brk * feat_disk;
+    } else if (z_idx == 4u) {
+        let f_oz = doc_feat_focus(inst, 0u);
+        let f_bal = doc_feat_focus(inst, 1u);
+        let f_jet = doc_feat_focus(inst, 2u);
+        let f_inv = doc_feat_focus(inst, 3u);
+        let f_uv = doc_feat_focus(inst, 4u);
+        let bal_spot = exp(-length(spin_p - vec3<f32>(0.18, 0.32, 0.93)) * 20.0);
+        let jet_trail = exp(-pow(abs(dot(spin_p, normalize(vec3<f32>(0.15, 0.88, -0.45)))) * 38.0, 2.0));
+        let strata = (0.5 + 0.5 * sin(p_surf.y * 42.0)) * (1.0 - polar_ice) * 0.38;
+        let uv_day = smoothstep(0.1, 0.85, dot(n_surf, sun_local));
+        atmo_disk_fx += vec3<f32>(0.42, 0.26, 1.45) * fresnel * 0.52 * f_oz * nat_rim
+                      + vec3<f32>(1.42, 1.42, 1.48) * bal_spot * 0.95 * f_bal * feat_disk
+                      + vec3<f32>(1.32, 1.18, 0.92) * jet_trail * 0.72 * f_jet * feat_disk
+                      + vec3<f32>(0.52, 0.88, 1.25) * strata * f_inv * feat_disk
+                      + vec3<f32>(0.85, 0.35, 1.48) * uv_day * (0.22 + 0.78 * fresnel) * 0.65 * f_uv * feat_disk;
+    }
+
     let half_v = normalize(sun_local + v_dir);
     let ocean_spec = pow(max(dot(n_surf, half_v), 0.0), 64.0) * (1.0 - coast) * (1.0 - clouds) * 1.35 * f_ocean;
 
@@ -99,12 +190,12 @@ fn shade_doc_earth_surface(
     let city_glow = vec3<f32>(1.75, 1.05, 0.34) * city_spark * night_mask * 1.5 * f_coast;
 
     // Ozone indigo glint on stratosphere zone (4), blue Rayleigh atmospheric limb
-    let ozone_glow = vec3<f32>(0.38, 0.22, 1.65) * fresnel * select(0.1, 0.95, z_idx == 4u);
+    let ozone_glow = vec3<f32>(0.38, 0.22, 1.65) * fresnel * select(0.1, 0.95 * doc_feat_focus(inst, 0u), z_idx == 4u);
     let rayleigh = inst.color_b.rgb * fresnel * (0.35 + 1.35 * smoothstep(-0.2, 0.4, dot(n_surf, sun_local)));
 
     let day_lit = mix(albedo, vec3<f32>(0.90), clouds) * (ndotl + 0.025) + vec3<f32>(ocean_spec);
     let zone_rim = mix(1.0, 1.25, w_doc * fresnel);
-    return (day_lit + tropo_fx + city_glow + rayleigh + ozone_glow + vec3<f32>(0.55, 0.85, 1.95) * storm_bolt) * inst.color_a.a * zone_rim;
+    return (day_lit + tropo_fx + atmo_disk_fx + city_glow + rayleigh + ozone_glow + vec3<f32>(0.55, 0.85, 1.95) * storm_bolt) * inst.color_a.a * zone_rim;
 }
 
 fn shade_doc_earth_cutaway(
@@ -144,55 +235,169 @@ fn shade_doc_earth_cutaway(
     var col = vec3<f32>(0.0);
     if (wall_r > moho_r) {
         // Crust (Z07): basaltic oceanic crust vs buoyant granitic continental crust
-        let ocean_col = vec3<f32>(0.10, 0.24, 0.32) * (0.75 + 0.4 * conv) * c_ocean;
-        let cont_col = vec3<f32>(0.34, 0.23, 0.15) * (0.75 + 0.45 * conv) * c_cont;
-        let base_crust = mix(ocean_col, cont_col, cont_region) * select(1.0, 1.38, is_crust_zone) * select(1.0, l_plate, is_litho_zone);
+        let ocean_col = vec3<f32>(0.024, 0.055, 0.080) * (0.75 + 0.4 * conv) * c_ocean;
+        let cont_col = vec3<f32>(0.085, 0.048, 0.026) * (0.75 + 0.45 * conv) * c_cont;
+        let base_crust = mix(ocean_col, cont_col, cont_region) * select(0.72, 1.38, is_crust_zone) * select(1.0, l_plate, is_litho_zone);
         // Plate sutures & brittle fault + seismic pulse rings + rising magma conduits
         let plate_suture = exp(-pow(sin(phi * 6.0 + p_wall.y * 5.0) * 18.0, 2.0)) * 0.42 * c_plate * l_plate;
         let fault_d = abs(wall_r - 0.968 + (phi - 0.78) * 0.08);
-        let fault_glow = exp(-pow(fault_d * 95.0, 2.0)) * 0.65 * select(0.2, c_fault, is_crust_zone);
+        let fault_glow = exp(-pow(fault_d * 95.0, 2.0)) * 0.65 * select(0.08, c_fault, is_crust_zone);
         let seismic_ring = (0.5 + 0.5 * sin(length(p_wall - vec3<f32>(0.55, 0.45, 0.65) * surf_r) * 32.0 - time * 4.5))
                          * fault_glow * select(0.0, 0.85, is_crust_zone);
         let magma_ch = exp(-pow((phi - 1.05) * 9.0, 2.0)) * smoothstep(moho_r - 0.02, 0.995, wall_r);
-        let magma_col = vec3<f32>(1.45, 0.48, 0.10) * magma_ch * select(0.25, c_magma, is_crust_zone);
-        col = base_crust + vec3<f32>(0.85, 0.55, 0.28) * (plate_suture + fault_glow + seismic_ring) + magma_col;
+        let magma_col = vec3<f32>(1.15, 0.34, 0.05) * magma_ch * select(0.10, c_magma, is_crust_zone);
+        col = base_crust + vec3<f32>(0.65, 0.34, 0.14) * (plate_suture + fault_glow + seismic_ring) + magma_col;
     } else if (wall_r > litho_base_r) {
         // Rigid Upper Mantle (Z08 Lithosphere below Moho discontinuity)
         let root_keel = smoothstep(0.2, 0.8, cont_region) * smoothstep(litho_base_r, moho_r, wall_r) * l_root;
-        let mantle_rigid = mix(vec3<f32>(0.28, 0.24, 0.11), vec3<f32>(0.44, 0.30, 0.14), clamp(0.5 + conv * 0.5, 0.0, 1.0));
-        let hi_l = select(1.0, 1.38 * l_mantle * l_plate, is_litho_zone);
+        let mantle_rigid = mix(vec3<f32>(0.052, 0.036, 0.012), vec3<f32>(0.095, 0.052, 0.016), clamp(0.5 + conv * 0.5, 0.0, 1.0));
+        let hi_l = select(0.75, 1.35 * l_mantle * l_plate, is_litho_zone);
         // Wadati-Benioff deep-focus rupture foci along subducting slab
-        let slab_foci = pow(max(0.0, sin(wall_r * 110.0 - phi * 18.0)), 14.0) * subduct * select(0.1, l_quake, is_litho_zone);
-        let subduct_col = mix(vec3<f32>(0.25, 0.72, 1.25), vec3<f32>(1.25, 0.46, 0.14), smoothstep(0.95, 0.89, wall_r))
-                        * subduct * select(0.85, 1.25 * l_subduct, is_litho_zone);
-        let magma_feeder = exp(-pow((phi - 1.05) * 11.0, 2.0)) * vec3<f32>(1.25, 0.36, 0.08) * select(0.15, c_magma, is_crust_zone);
-        col = mantle_rigid * hi_l + vec3<f32>(0.38, 0.26, 0.16) * root_keel * 0.45 + subduct_col + vec3<f32>(1.35, 1.15, 0.45) * slab_foci + magma_feeder;
+        let slab_foci = pow(max(0.0, sin(wall_r * 110.0 - phi * 18.0)), 14.0) * subduct * select(0.05, l_quake, is_litho_zone);
+        let subduct_col = mix(vec3<f32>(0.18, 0.52, 0.98), vec3<f32>(0.98, 0.34, 0.08), smoothstep(0.95, 0.89, wall_r))
+                        * subduct * select(0.28, 1.25 * l_subduct, is_litho_zone);
+        let magma_feeder = exp(-pow((phi - 1.05) * 11.0, 2.0)) * vec3<f32>(0.95, 0.26, 0.05) * select(0.08, c_magma, is_crust_zone);
+        col = mantle_rigid * hi_l + vec3<f32>(0.16, 0.10, 0.04) * root_keel * 0.45 + subduct_col + vec3<f32>(1.15, 0.85, 0.25) * slab_foci + magma_feeder;
     } else if (wall_r > 0.78) {
-        // Asthenosphere (zone 9) ductile flow + partial melt
-        let hi = select(1.0, 1.55, z_idx == 9u);
-        col = mix(vec3<f32>(0.55, 0.14, 0.03), vec3<f32>(1.25, 0.42, 0.08), clamp(0.55 + conv * 0.6, 0.0, 1.0)) * hi
-            + vec3<f32>(1.0, 0.40, 0.14) * subduct * select(0.45, l_subduct, is_litho_zone);
+        // Asthenosphere (Z09): ductile shear + closed convection rolls + partial melt filigree + plume + seismic LVZ
+        let is_astheno = z_idx == 9u;
+        let is_ast_feat = is_astheno && (doc_feat(inst) != 255u);
+        let a_duct = select(1.0, doc_feat_focus(inst, 0u), is_astheno);
+        let a_conv = select(1.0, doc_feat_focus(inst, 1u), is_astheno);
+        let a_melt = select(1.0, doc_feat_focus(inst, 2u), is_astheno);
+        let a_plume = select(1.0, doc_feat_focus(inst, 3u), is_astheno);
+        let a_seis = select(1.0, doc_feat_focus(inst, 4u), is_astheno);
+        let hi = select(0.62, select(0.78, 1.18, is_ast_feat), is_astheno);
+        let shear_grid = exp(-pow(sin(phi * 10.0 + p_wall.y * 8.0) * 10.0, 2.0)) * 0.45 * select(0.04, a_duct, is_astheno);
+        let roll_cells = (0.5 + 0.5 * sin(phi * 6.0) * cos((wall_r - 0.78) * 34.0)) * select(0.06, 0.58 * a_conv, is_astheno);
+        let melt_pockets = pow(max(0.0, snoise3(p_wall * 19.0 + vec3<f32>(0.0, time * 0.12, 0.0))), 6.0) * select(0.04, 1.55 * a_melt, is_astheno);
+        let ast_plume = exp(-pow((phi - 0.65) * 8.0, 2.0)) * (0.5 + 0.5 * plume) * select(0.05, 0.92 * a_plume, is_astheno);
+        let lvz_wave = pow(0.5 + 0.5 * sin(wall_r * 92.0 - phi * 8.0 - time * 3.8), 10.0) * select(0.02, 0.85 * a_seis, is_astheno);
+        col = mix(vec3<f32>(0.095, 0.008, 0.0015), vec3<f32>(0.26, 0.034, 0.004), clamp(0.42 + conv * 0.55 + roll_cells * 0.45, 0.0, 1.0)) * hi * a_duct * a_conv
+            + vec3<f32>(0.72, 0.24, 0.06) * subduct * select(0.16, l_subduct, is_litho_zone)
+            + vec3<f32>(1.15, 0.52, 0.14) * shear_grid
+            + vec3<f32>(1.55, 1.12, 0.28) * melt_pockets
+            + vec3<f32>(1.35, 0.52, 0.08) * ast_plume
+            + vec3<f32>(0.24, 0.95, 1.38) * lvz_wave;
     } else if (wall_r > 0.68) {
-        // Mantle Transition Zone (660 km discontinuity ruby ring, zone 10)
-        let hi = select(1.0, 1.75, z_idx == 10u);
-        col = mix(vec3<f32>(0.68, 0.16, 0.04), vec3<f32>(1.55, 0.58, 0.14), plume) * hi;
+        // Mantle Transition Zone (Z10): olivine->ringwoodite compaction + hydrous pockets + 410/660 discontinuities
+        let is_trans = z_idx == 10u;
+        let is_tr_feat = is_trans && (doc_feat(inst) != 255u);
+        let t_oliv = select(1.0, doc_feat_focus(inst, 0u), is_trans);
+        let t_press = select(1.0, doc_feat_focus(inst, 1u), is_trans);
+        let t_water = select(1.0, doc_feat_focus(inst, 2u), is_trans);
+        let t_disc = select(1.0, doc_feat_focus(inst, 3u), is_trans);
+        let t_660 = select(1.0, doc_feat_focus(inst, 4u), is_trans);
+        let hi = select(0.60, select(0.78, 1.20, is_tr_feat), is_trans);
+        let lattice = pow(abs(sin(p_wall.y * 36.0) * sin(phi * 18.0)), 4.0) * select(0.025, 0.65 * t_oliv, is_trans);
+        let depth_t = clamp((0.78 - wall_r) / 0.10, 0.0, 1.0);
+        let step_band = (0.38 + 0.62 * floor(depth_t * 4.0) / 4.0) * select(1.0, t_press, is_trans);
+        let hydro = pow(max(0.0, snoise3(p_wall * 15.0 + vec3<f32>(1.7))), 5.0) * select(0.03, 1.48 * t_water, is_trans);
+        let bounce_ray = pow(0.5 + 0.5 * sin((wall_r - 0.68) * 78.0 + sin(phi * 6.0) * 2.5 - time * 3.4), 10.0) * select(0.025, 0.90 * t_disc, is_trans);
+        col = mix(vec3<f32>(0.13, 0.012, 0.002), vec3<f32>(0.34, 0.048, 0.006), clamp(plume * 0.68 + step_band * 0.32, 0.0, 1.0)) * hi * step_band
+            + vec3<f32>(1.18, 0.72, 0.22) * lattice
+            + vec3<f32>(0.18, 1.05, 1.42) * hydro
+            + vec3<f32>(1.22, 1.02, 0.28) * bounce_ray
+            + vec3<f32>(1.35, 0.38, 0.10) * exp(-pow((wall_r - 0.695) * 48.0, 2.0)) * select(0.04, t_660, is_trans);
     } else if (wall_r > 0.46) {
-        // Lower Mantle bridgmanite + rising hot superplumes + D'' layer (zone 11)
-        let hi = select(1.0, 1.6, z_idx == 11u);
-        col = mix(vec3<f32>(0.42, 0.08, 0.02), vec3<f32>(1.35, 0.46, 0.08), clamp(0.45 + plume * 0.75 + conv * 0.4, 0.0, 1.0)) * hi;
+        // Lower Mantle (Z11): bridgmanite lattice + deep convection + superplumes + solid creep + D'' LLSVPs
+        let is_lm = z_idx == 11u;
+        let is_lm_feat = is_lm && (doc_feat(inst) != 255u);
+        let m_bridg = select(1.0, doc_feat_focus(inst, 0u), is_lm);
+        let m_conv = select(1.0, doc_feat_focus(inst, 1u), is_lm);
+        let m_plume = select(1.0, doc_feat_focus(inst, 2u), is_lm);
+        let m_dense = select(1.0, doc_feat_focus(inst, 3u), is_lm);
+        let m_dpp = select(1.0, doc_feat_focus(inst, 4u), is_lm);
+        let hi = select(0.60, select(0.78, 1.18, is_lm_feat), is_lm);
+        let perov = pow(abs(sin(p_wall.x * 24.0) * sin(p_wall.y * 24.0)), 6.0) * select(0.03, 0.56 * m_bridg, is_lm);
+        let cold_slab = smoothstep(0.35, 0.95, sin(phi * 3.0 + 1.2)) * select(0.04, 0.58 * m_conv, is_lm);
+        let super_stem = pow(max(0.0, sin(phi * 2.0 + conv * 1.4)), 10.0) * select(0.05, 1.22 * m_plume, is_lm);
+        let isobar = exp(-pow(sin(wall_r * 84.0) * 6.0, 2.0)) * select(0.03, 0.46 * m_dense, is_lm);
+        let dpp_dome = smoothstep(0.52, 0.462, wall_r) * (0.45 + 0.55 * sin(phi * 2.0)) * select(0.05, 1.38 * m_dpp, is_lm);
+        col = mix(vec3<f32>(0.075, 0.006, 0.001), vec3<f32>(0.30, 0.038, 0.004), clamp(0.36 + plume * 0.68 * m_plume + conv * 0.38 * m_conv, 0.0, 1.0)) * hi
+            + vec3<f32>(1.12, 0.78, 0.28) * perov
+            + vec3<f32>(0.18, 0.52, 0.98) * cold_slab
+            + vec3<f32>(1.35, 0.64, 0.14) * super_stem
+            + vec3<f32>(0.98, 0.54, 0.24) * isobar
+            + vec3<f32>(1.28, 0.26, 0.48) * dpp_dome;
     } else {
-        // Liquid Fe-Ni Outer Core helical geodynamo shear (zone 12)
-        let hi = select(1.0, 1.55, z_idx == 12u);
+        // Liquid Fe-Ni Outer Core (Z12): molten swirls + buoyant light elements + Taylor columns + dynamo flux + CMB coupling
+        let is_oc = z_idx == 12u;
+        let is_oc_feat = is_oc && (doc_feat(inst) != 255u);
+        let o_melt = select(1.0, doc_feat_focus(inst, 0u), is_oc);
+        let o_comp = select(1.0, doc_feat_focus(inst, 1u), is_oc);
+        let o_taylor = select(1.0, doc_feat_focus(inst, 2u), is_oc);
+        let o_flux = select(1.0, doc_feat_focus(inst, 3u), is_oc);
+        let o_couple = select(1.0, doc_feat_focus(inst, 4u), is_oc);
+        let hi = select(0.64, select(0.84, 1.22, is_oc_feat), is_oc);
         let helix = 0.5 + 0.5 * sin(p_wall.y * 28.0 + phi * 3.0 - time * 1.4);
-        col = blackbody_rgb(mix(3200.0, 4600.0, clamp(0.45 + helix * 0.4 + conv * 0.25, 0.0, 1.0))) * 1.25 * hi;
+        let taylor_col = exp(-pow(sin(length(p_wall.xz) / max(surf_r, 1e-4) * 38.0 - phi * 2.0) * 6.0, 2.0)) * select(0.03, 0.72 * o_taylor, is_oc);
+        let light_rise = pow(max(0.0, snoise3(p_wall * 22.0 - normalize(p_wall + vec3<f32>(1e-4)) * time * 0.9)), 6.0) * select(0.03, 1.28 * o_comp, is_oc);
+        let flux_loop = pow(max(0.0, cos(atan2(p_wall.y, length(p_wall.xz)) * 6.0 - time * 1.8)), 8.0) * select(0.03, 0.80 * o_flux, is_oc);
+        let cmb_link = smoothstep(0.36, 0.455, wall_r) * pow(max(0.0, cos(phi * 6.0)), 6.0) * select(0.04, 1.15 * o_couple, is_oc);
+        col = blackbody_rgb(mix(1850.0, 2750.0, clamp(0.35 + helix * 0.45 * o_melt + conv * 0.25, 0.0, 1.0))) * 0.36 * hi * o_melt
+            + vec3<f32>(1.18, 0.98, 0.42) * light_rise
+            + vec3<f32>(0.38, 0.98, 1.32) * taylor_col
+            + vec3<f32>(1.18, 0.64, 0.16) * flux_loop
+            + vec3<f32>(0.28, 0.92, 1.38) * cmb_link;
     }
 
-    let seam_660 = exp(-pow((wall_r - 0.72) * 44.0, 2.0)) * 0.42;
-    let seam_cmb = exp(-pow((wall_r - 0.46) * 44.0, 2.0)) * 0.58;
-    let seam_moho = exp(-pow((wall_r - moho_r) * 72.0, 2.0)) * select(0.32, 0.52, is_crust_zone || is_litho_zone);
-    let seam_litho = exp(-pow((wall_r - litho_base_r) * 56.0, 2.0)) * select(0.22, 0.44, is_litho_zone);
-    col += vec3<f32>(1.45, 0.72, 0.22) * (seam_660 + seam_cmb + seam_moho + seam_litho);
+    let seam_410 = exp(-pow((wall_r - 0.78) * 72.0, 2.0)) * select(0.24, 0.78 * doc_feat_focus(inst, 3u), z_idx == 10u);
+    let seam_660 = exp(-pow((wall_r - 0.68) * 64.0, 2.0)) * select(0.28, 0.84 * doc_feat_focus(inst, 4u), z_idx == 10u);
+    let seam_cmb = exp(-pow((wall_r - 0.46) * 68.0, 2.0)) * select(0.38, 0.90 * doc_feat_focus(inst, 4u), z_idx == 11u || z_idx == 12u);
+    let seam_icb = exp(-pow((wall_r - 0.265) * 76.0, 2.0)) * select(0.26, 0.85 * doc_feat_focus(inst, 3u), z_idx == 13u);
+    let seam_moho = exp(-pow((wall_r - moho_r) * 86.0, 2.0)) * select(0.22, 0.56, is_crust_zone || is_litho_zone);
+    let seam_litho = exp(-pow((wall_r - litho_base_r) * 72.0, 2.0)) * select(0.18, 0.48, is_litho_zone);
+    col += vec3<f32>(0.78, 0.24, 0.025) * (seam_410 + seam_660 + seam_cmb + seam_icb + seam_moho + seam_litho);
     return col;
+}
+
+fn shade_doc_earth_inner_core(
+    p_core: vec3<f32>,
+    n_core: vec3<f32>,
+    v_dir: vec3<f32>,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec3<f32> {
+    let raw_vid = inst.kind_tags.y;
+    let is_exp03 = doc_is_canonical_zone_vid(raw_vid) || (doc_submode(inst) > 0u);
+    let z_idx = select(
+        99u,
+        select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid)),
+        is_exp03,
+    );
+    let is_ic = z_idx == 13u;
+    let is_ic_feat = is_ic && (doc_feat(inst) != 255u);
+    let f_solid = select(1.0, smoothstep(0.20, 1.0, doc_feat_focus(inst, 0u)), is_ic);
+    let f_aniso = select(1.0, smoothstep(0.20, 1.0, doc_feat_focus(inst, 1u)), is_ic);
+    let f_press = select(1.0, smoothstep(0.20, 1.0, doc_feat_focus(inst, 2u)), is_ic);
+    let f_grow = select(1.0, smoothstep(0.20, 1.0, doc_feat_focus(inst, 3u)), is_ic);
+    let f_center = select(1.0, smoothstep(0.20, 1.0, doc_feat_focus(inst, 4u)), is_ic);
+
+    let view_dot = max(dot(n_core, v_dir), 0.0);
+    let sun_local = normalize(inst.phys_b.xyz + vec3<f32>(0.25, 0.35, 0.55));
+    let core_shade = 0.14 + 0.86 * pow(max(dot(n_core, sun_local), 0.0), 1.25);
+    let fresnel = pow(1.0 - view_dot, 2.8);
+    let cryst = fbm3(p_core * 14.0 + vec3<f32>(time * 0.14), 3);
+    // Polar HCP iron crystal grain anisotropy (faster P-wave propagation along N-S y-axis)
+    let grain_ns = 0.5 + 0.5 * sin(p_core.x * 58.0 + p_core.z * 58.0 + snoise3(p_core * 26.0) * 1.4);
+    let polar_bias = smoothstep(0.35, 0.92, abs(n_core.y));
+    let aniso_fx = (grain_ns * 0.55 + polar_bias * 0.55) * select(0.06, select(0.08, 0.08 + 0.60 * f_aniso, is_ic_feat), is_ic);
+    // 360 GPa hydrostatic pressure contours
+    let isobar_360 = exp(-pow(sin(n_core.y * 18.0) * 6.0, 2.0)) * select(0.02, select(0.025, 0.025 + 0.60 * f_press, is_ic_feat), is_ic);
+    // Dendritic crystallization freezing front on outer edge
+    let dendrite = pow(max(0.0, snoise3(p_core * 34.0 + vec3<f32>(0.0, time * 0.25, 0.0))), 5.0) * fresnel * select(0.08, select(0.10, 0.10 + 1.10 * f_grow, is_ic_feat), is_ic);
+    // Earth's exact center 6,371 km reticle crosshairs
+    let center_cross = exp(-min(abs(p_core.x), abs(p_core.y)) * 88.0) * exp(-abs(p_core.z - 0.18) * 12.0) * select(0.015, select(0.02, 0.02 + 1.13 * f_center, is_ic_feat), is_ic);
+
+    let base_temp = 2050.0 + cryst * 520.0 + select(0.0, 180.0 * (f_solid - 1.0), is_ic);
+    let inner_hi = select(1.0, select(1.04, 0.92 + 0.20 * f_solid, is_ic_feat), is_ic);
+    let base_col = blackbody_rgb(base_temp) * (0.34 + u_audio.levels_a.z * 0.12) * core_shade * inner_hi;
+    return base_col
+         + vec3<f32>(1.10, 0.72, 0.20) * aniso_fx * (0.45 + 0.55 * core_shade)
+         + vec3<f32>(0.36, 0.88, 1.35) * isobar_360
+         + vec3<f32>(1.38, 1.05, 0.42) * dendrite
+         + vec3<f32>(0.35, 1.35, 1.55) * center_cross;
 }
 
 fn shade_doc_solar_planet_surface(
@@ -231,8 +436,8 @@ fn shade_doc_solar_planet_surface(
     }
 
     if (vid == 4u) {
-        // Venus: super-rotating cream/amber sulfuric acid chevron cloud bands + thick haze limb
-        let warp = fbm3(p_surf * 3.2 + vec3<f32>(time * 0.08, 0.0, 0.0), 4);
+        // Venus: retrograde (-time) super-rotating cream/amber sulfuric acid chevron cloud bands + thick haze limb
+        let warp = fbm3(p_surf * 3.2 + vec3<f32>(-time * 0.08, 0.0, 0.0), 4);
         let chevron = sin(p_surf.y * 8.0 + abs(p_surf.x) * 3.5 + warp * 2.8);
         let col = mix(vec3<f32>(0.56, 0.40, 0.20), vec3<f32>(0.96, 0.80, 0.48), 0.5 + 0.5 * chevron);
         let limb = vec3<f32>(1.1, 0.85, 0.42) * fresnel * (0.3 + 0.7 * ndotl);
@@ -357,15 +562,27 @@ fn raymarch_doc_earth_shell(
     time: f32,
     bass: f32,
 ) -> vec4<f32> {
-    // 03 Earth Magnetosphere Van Allen Flux Lines, Equatorial Exo-Satellites, Mesosphere Meteors & Anchored Auroras!
+    // 03 Deep Earth Shell: Z00 Space, Z01 Exosphere, Z02 Thermosphere (ISS/Ionosphere/Aurora),
+    // Z03 Mesosphere (Meteors/NLCs/Rocket), Z04 Stratosphere (Ozone/Balloon/Contrails/UV), Z05 Troposphere, Z12 Geodynamo
     var accum_rgb = vec3<f32>(0.0);
     var accum_a: f32 = 0.0;
     let raw_vid = inst.kind_tags.y;
-    let z_idx = select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid));
+    let is_exp03 = doc_is_canonical_zone_vid(raw_vid) || (doc_submode(inst) > 0u);
+    let z_idx = select(
+        99u,
+        select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid)),
+        is_exp03,
+    );
     let steps: i32 = i32(mix(16.0, 28.0, fovea_k));
     let dt = (t1 - t0) / f32(steps);
-    let show_magnetosphere = z_idx == 0u || z_idx == 1u || z_idx == 12u || z_idx == 65535u;
-    let mag_gain = select(0.28, 0.92, z_idx == 0u || z_idx == 1u || z_idx == 12u);
+    let limb_r = select(inst.phys_a.y, 0.737, inst.phys_a.y < 0.05);
+    let shell_w = max(0.98 - limb_r, 0.15);
+    let show_magnetosphere = z_idx == 0u || z_idx == 12u || z_idx == 65535u;
+    let mag_gain = select(
+        0.22,
+        select(0.95 * doc_feat_focus(inst, 4u), 0.92 * doc_feat_focus(inst, 1u), z_idx == 0u),
+        z_idx == 0u || z_idx == 12u,
+    );
     let f_tropo_wind = select(1.0, doc_feat_focus(inst, 2u), z_idx == 5u);
     let f_tropo_vapor = select(1.0, doc_feat_focus(inst, 4u), z_idx == 5u);
 
@@ -376,13 +593,14 @@ fn raymarch_doc_earth_shell(
         let t = t0 + (f32(i) + jitter) * dt;
         let p = ro + rd * t;
         let r = length(p);
+        let alt = clamp((r - limb_r) / shell_w, 0.0, 1.0);
 
-        // 0. Z05 Troposphere low-altitude atmospheric limb shell (jet stream & water vapor wisps, r in [0.74, 0.82])
-        if (z_idx == 5u && r > 0.74 && r < 0.82) {
+        // 0. Z05 Troposphere low-altitude atmospheric limb shell (jet stream & water vapor wisps)
+        if (z_idx == 5u && r > limb_r && r < (limb_r + 0.09)) {
             let lat = p.y / r;
             let jet = exp(-pow((abs(lat) - 0.52) * 10.0, 2.0));
             let vapor_ring = exp(-pow(lat * 4.0, 2.0));
-            let limb_env = smoothstep(0.74, 0.76, r) * smoothstep(0.82, 0.77, r);
+            let limb_env = smoothstep(limb_r, limb_r + 0.02, r) * smoothstep(limb_r + 0.09, limb_r + 0.04, r);
             let wisp = 0.5 + 0.5 * sin(atan2(p.z, p.x) * 6.0 - time * 1.4);
             let tropo_limb = vec3<f32>(0.24, 0.74, 1.05) * jet * f_tropo_wind * 0.42
                            + vec3<f32>(0.10, 0.78, 0.88) * vapor_ring * f_tropo_vapor * 0.48;
@@ -393,12 +611,12 @@ fn raymarch_doc_earth_shell(
             }
         }
 
-        // 1. Anchored Polar Auroral Oval Curtains touching Earth limb at r = 0.739 .. 0.915 (03 Termosfera)
-        if (r > 0.739 && r < 0.915) {
+        // 1. Polar Auroral Oval Curtains touching Earth limb (strongest on Z02 Thermosphere)
+        if (r > limb_r && r < (limb_r + 0.18)) {
             let lat = abs(p.y / r);
             let oval = exp(-pow((lat - 0.75) * 15.0, 2.0));
             if (oval > 0.01) {
-                let h_alt = clamp((r - 0.739) / 0.17, 0.0, 1.0);
+                let h_alt = clamp((r - limb_r) / 0.17, 0.0, 1.0);
                 let alt_env = smoothstep(0.0, 0.09, h_alt) * exp(-h_alt * 2.7);
                 let b_dir = normalize(vec3<f32>(p.x, p.y * 0.12, p.z) + vec3<f32>(1e-4));
                 let field_uv = fract(vec2<f32>(b_dir.x * 0.35 + b_dir.z * 0.25 + 0.5, h_alt));
@@ -406,25 +624,148 @@ fn raymarch_doc_earth_shell(
                 let shear = curl_noise3(b_dir * 3.8 + vec3<f32>(0.0, time * 0.14, 0.0));
                 let curtain = snoise3(b_dir * 7.8 + shear * 0.65 + vec3<f32>(0.0, h_alt * 1.4, time * 0.22));
                 let sheet = exp(-pow(curtain * 5.0, 2.0)) * oval * alt_env;
-                let aur_gain = select(1.0, 1.65, z_idx == 2u);
+                let aur_gain = select(0.45, 1.68 * doc_feat_focus(inst, 0u), z_idx == 2u);
                 let pde_mod = mix(vec3<f32>(0.08, 1.75, 0.58), field_s.rgb, clamp(field_s.a * 0.45, 0.0, 0.55));
                 let alt_col = mix(pde_mod, vec3<f32>(0.95, 0.18, 1.85), smoothstep(0.32, 0.86, h_alt)) * aur_gain;
-                let sample_a = sheet * dt * (2.4 + bass * 1.0);
+                let sample_a = sheet * dt * (2.2 + bass * 0.9);
                 accum_rgb += (1.0 - accum_a) * alt_col * sample_a;
-                accum_a += (1.0 - accum_a) * min(sample_a, 0.44);
+                accum_a += (1.0 - accum_a) * min(sample_a, 0.42);
             }
         }
 
-        // 2. Dipole Magnetosphere Van Allen Flux Arcs + Satellites / ISS Orbit (r in [0.76, 0.98])
-        if (show_magnetosphere && r > 0.76 && r < 0.98) {
+        // 2. Z00 Space (Dayside Bow Shock, Van Allen L-shells, Cosmic Rays, GEO Satellites, Interplanetary Vacuum)
+        if (z_idx == 0u && r > limb_r && r < 0.94) {
+            let f_sw = doc_feat_focus(inst, 0u);
+            let f_cr = doc_feat_focus(inst, 2u);
+            let f_geo = doc_feat_focus(inst, 3u);
+            let f_vac = doc_feat_focus(inst, 4u);
+            let az = atan2(p.z, p.x);
+            let dayside = smoothstep(0.05, 0.85, p.x / r);
+            let bow = exp(-pow((alt - (0.56 - dayside * 0.22)) * 22.0, 2.0)) * dayside * pow(0.5 + 0.5 * sin(p.y * 18.0 - time * 1.8), 2.0);
+            let cosmic = pow(max(0.0, snoise3(doc_rot_z(p * 12.0, 0.45) - vec3<f32>(time * 1.2, 0.0, 0.0))), 12.0) * smoothstep(0.94, 0.72, r);
+            let geo_ring = exp(-pow((alt - 0.68) * 28.0, 2.0)) * exp(-pow(p.y * 34.0, 2.0));
+            let geo_node = pow(max(0.0, cos(az * 3.0 - time * 0.35)), 18.0) * geo_ring;
+            let vac_wave = exp(-pow((alt - 0.80) * 26.0, 2.0)) * pow(0.5 + 0.5 * sin(az * 6.0 - time * 0.8), 6.0) * 0.45;
+            let s_a = (bow * 0.55 + cosmic * 0.85 + geo_ring * 0.75 + geo_node + vac_wave) * dt * 1.5;
+            if (s_a > 0.012) {
+                let s_col = vec3<f32>(1.25, 0.72, 0.22) * bow * 0.75 * f_sw
+                          + vec3<f32>(0.45, 1.18, 1.55) * cosmic * 1.25 * f_cr
+                          + vec3<f32>(1.35, 0.98, 0.35) * (geo_ring * 0.45 + geo_node * 1.35) * f_geo
+                          + vec3<f32>(0.24, 0.55, 1.15) * vac_wave * f_vac;
+                accum_rgb += (1.0 - accum_a) * s_col * dt * 1.5;
+                accum_a += (1.0 - accum_a) * min(s_a, 0.28);
+            }
+        }
+
+        // 2b. Z01 Exosphere (Hydrogen Halo, Helium Band, Jeans Escape, UV Geocorona, HEO Orbit)
+        if (z_idx == 1u && r > limb_r && r < 0.94) {
+            let f_h = doc_feat_focus(inst, 0u);
+            let f_he = doc_feat_focus(inst, 1u);
+            let f_esc = doc_feat_focus(inst, 2u);
+            let f_geo = doc_feat_focus(inst, 3u);
+            let f_heo = doc_feat_focus(inst, 4u);
+            let h_halo = exp(-pow((alt - 0.14) * 18.0, 2.0)) * 0.55;
+            let he_band = exp(-pow((alt - 0.24) * 20.0, 2.0)) * 0.72;
+            let escape_ray = pow(max(0.0, sin(atan2(p.z, p.x) * 10.0) * cos(p.y * 8.0 - alt * 9.0 + time * 1.6)), 10.0) * smoothstep(0.10, 0.38, alt) * smoothstep(0.94, 0.65, r);
+            let uv_geo = smoothstep(0.15, 0.75, p.x / r) * exp(-pow((alt - 0.48) * 18.0, 2.0));
+            let p_heo = doc_rot_x(p, 0.85);
+            let heo_ring = exp(-pow((alt - 0.58) * 26.0, 2.0)) * exp(-pow(p_heo.y * 30.0, 2.0));
+            let e_a = (h_halo * 0.45 + he_band * 0.55 + escape_ray * 0.75 + uv_geo * 0.55 + heo_ring * 0.9) * dt * 1.5;
+            if (e_a > 0.012) {
+                let e_col = vec3<f32>(0.32, 0.82, 1.48) * h_halo * f_h
+                          + vec3<f32>(1.32, 0.96, 0.42) * he_band * f_he
+                          + vec3<f32>(0.45, 1.35, 1.48) * escape_ray * 0.95 * f_esc
+                          + vec3<f32>(0.92, 0.42, 1.55) * uv_geo * 0.85 * f_geo
+                          + vec3<f32>(1.25, 1.25, 1.48) * heo_ring * 0.92 * f_heo;
+                accum_rgb += (1.0 - accum_a) * e_col * dt * 1.5;
+                accum_a += (1.0 - accum_a) * min(e_a, 0.28);
+            }
+        }
+
+        // 2c. Z02 Thermosphere (Sunlit Ionosphere, 51.6-deg ISS + Solar Arrays, Atomic O2->2O, HF Radio Bounce)
+        if (z_idx == 2u && r > limb_r && r < 0.94) {
+            let f_ion = doc_feat_focus(inst, 1u);
+            let f_iss = doc_feat_focus(inst, 2u);
+            let f_o = doc_feat_focus(inst, 3u);
+            let f_rad = doc_feat_focus(inst, 4u);
+            let ion_shell = exp(-pow((alt - 0.42) * 18.0, 2.0)) * smoothstep(-0.05, 0.75, p.x / r);
+            let p_iss = doc_rot_z(p, -0.90); // 51.6 deg inclination
+            let iss_ring = exp(-pow((alt - 0.28) * 28.0, 2.0)) * exp(-pow(p_iss.y * 34.0, 2.0));
+            let iss_pos = doc_rot_z(vec3<f32>(cos(time * 0.45), 0.0, sin(time * 0.45)), 0.90) * (limb_r + shell_w * 0.28);
+            let iss_body = exp(-length(p - iss_pos) * 32.0);
+            let o_band = exp(-pow((alt - 0.16) * 22.0, 2.0));
+            let radio_hop = pow(0.5 + 0.5 * sin(atan2(p.z, p.x) * 12.0 - time * 2.5), 12.0) * exp(-pow((alt - (0.24 + 0.14 * sin(atan2(p.z, p.x) * 6.0))) * 22.0, 2.0));
+            let t_a = (ion_shell * 0.5 + iss_ring * 0.8 + iss_body + o_band * 0.6 + radio_hop * 0.85) * dt * 1.65;
+            if (t_a > 0.012) {
+                let t_col = vec3<f32>(0.36, 0.85, 1.52) * ion_shell * 0.75 * f_ion
+                          + (vec3<f32>(0.95, 0.78, 0.28) * iss_ring * 0.72 + vec3<f32>(1.55, 1.35, 0.65) * iss_body * 1.45) * f_iss
+                          + vec3<f32>(0.12, 1.48, 0.65) * o_band * 0.78 * f_o
+                          + vec3<f32>(0.42, 1.28, 1.55) * radio_hop * 1.1 * f_rad;
+                accum_rgb += (1.0 - accum_a) * t_col * dt * 1.65;
+                accum_a += (1.0 - accum_a) * min(t_a, 0.30);
+            }
+        }
+
+        // 2d. Z03 Mesosphere (Meteor Ablation Trails, Noctilucent Clouds, Mesopause -90C Ring, Sounding Rocket, Braking)
+        if (z_idx == 3u && r > limb_r && r < 0.94) {
+            let f_met = doc_feat_focus(inst, 0u);
+            let f_nlc = doc_feat_focus(inst, 1u);
+            let f_mp = doc_feat_focus(inst, 2u);
+            let f_rkt = doc_feat_focus(inst, 3u);
+            let f_brk = doc_feat_focus(inst, 4u);
+            let met_d = abs(p.y - 0.24 - 0.12 * sin(atan2(p.z, p.x) * 3.0)) + abs(alt - 0.26) * 0.85;
+            let meteor = exp(-pow(met_d * 24.0, 2.0)) * (0.4 + 0.6 * sin(atan2(p.z, p.x) * 5.0 - time * 2.2));
+            let nlc = exp(-pow((abs(p.y / r) - 0.72) * 14.0, 2.0)) * exp(-pow((alt - 0.24) * 18.0, 2.0)) * smoothstep(0.05, 0.6, snoise3(p * 12.0));
+            let mesopause = exp(-pow((alt - 0.40) * 24.0, 2.0));
+            let rkt_plume = exp(-pow((alt - 0.28) * 18.0, 2.0)) * exp(-pow((p.x - 0.35) * 14.0, 2.0)) * smoothstep(0.05, 0.6, p.y);
+            let brake_arc = pow(max(0.0, snoise3(p * 15.0 + vec3<f32>(time * 1.6, 0.0, 0.0))), 10.0) * exp(-pow((alt - 0.18) * 16.0, 2.0));
+            let m_a = (meteor * 0.85 + nlc * 0.8 + mesopause * 0.6 + rkt_plume * 0.9 + brake_arc * 0.75) * dt * 1.75;
+            if (m_a > 0.012) {
+                let m_col = vec3<f32>(1.55, 0.88, 0.24) * meteor * 1.15 * f_met
+                          + vec3<f32>(0.35, 1.18, 1.62) * nlc * 1.05 * f_nlc
+                          + vec3<f32>(0.55, 1.38, 1.58) * mesopause * 0.82 * f_mp
+                          + vec3<f32>(1.52, 0.62, 0.22) * rkt_plume * 1.25 * f_rkt
+                          + vec3<f32>(1.38, 1.02, 0.48) * brake_arc * 0.95 * f_brk;
+                accum_rgb += (1.0 - accum_a) * m_col * dt * 1.75;
+                accum_a += (1.0 - accum_a) * min(m_a, 0.32);
+            }
+        }
+
+        // 2e. Z04 Stratosphere (Ozone Shield, Weather Balloon, Supersonic Contrails, Inversion Strata, UV Quenching)
+        if (z_idx == 4u && r > limb_r && r < 0.94) {
+            let f_oz = doc_feat_focus(inst, 0u);
+            let f_bal = doc_feat_focus(inst, 1u);
+            let f_jet = doc_feat_focus(inst, 2u);
+            let f_inv = doc_feat_focus(inst, 3u);
+            let f_uv = doc_feat_focus(inst, 4u);
+            let oz_ring = exp(-pow((alt - 0.22) * 20.0, 2.0));
+            let bal = exp(-length(p - normalize(vec3<f32>(0.25, 0.52, 0.82)) * (limb_r + shell_w * (0.28 + 0.04 * sin(time * 0.6)))) * 28.0);
+            let jet_ring = exp(-pow((alt - 0.12) * 28.0, 2.0)) * exp(-pow((p.y / r - 0.22) * 16.0, 2.0));
+            let inv_strata = exp(-pow((alt - 0.34) * 22.0, 2.0)) * pow(0.5 + 0.5 * sin(p.y * 28.0), 4.0) * 0.55;
+            let uv_rays = exp(-pow((alt - 0.44) * 16.0, 2.0)) * pow(max(0.0, sin(p.y * 22.0 + time * 1.5)), 10.0) * smoothstep(0.0, 0.65, p.x / r);
+            let st_a = (oz_ring * 0.65 + bal + jet_ring * 0.75 + inv_strata * 0.55 + uv_rays * 0.7) * dt * 1.70;
+            if (st_a > 0.012) {
+                let st_col = vec3<f32>(0.42, 0.26, 1.55) * oz_ring * 0.88 * f_oz
+                           + vec3<f32>(1.48, 1.48, 1.55) * bal * 1.45 * f_bal
+                           + vec3<f32>(1.35, 1.25, 1.05) * jet_ring * 0.95 * f_jet
+                           + vec3<f32>(0.45, 0.88, 1.32) * inv_strata * f_inv
+                           + vec3<f32>(0.88, 0.38, 1.55) * uv_rays * 0.95 * f_uv;
+                accum_rgb += (1.0 - accum_a) * st_col * dt * 1.70;
+                accum_a += (1.0 - accum_a) * min(st_a, 0.32);
+            }
+        }
+
+        // 3. Dipole Magnetosphere Van Allen Flux Arcs (Z00 Space, Z12 Geodynamo Coupling)
+        if (show_magnetosphere && r > (limb_r + 0.02) && r < 0.94) {
             let sin2_t = 1.0 - (p.y * p.y) / (r * r);
-            let l_shell = r / max(sin2_t, 0.08);
-            let flux_ring = exp(-abs(l_shell - 1.18) * 30.0) + exp(-abs(l_shell - 1.48) * 32.0) * 0.65;
-            let phi_ribbons = exp(-abs(sin(atan2(p.z, p.x) * 4.0 + time * 0.08)) * 12.0);
-            let mag_a = flux_ring * phi_ribbons * mag_gain * dt * 1.4;
-            if (mag_a > 0.002) {
+            let r_eq_norm = r / max(limb_r, 0.4);
+            let l_shell = r_eq_norm / max(sin2_t, 0.08);
+            let flux_ring = exp(-abs(l_shell - 1.22) * 32.0) + exp(-abs(l_shell - 1.48) * 34.0) * 0.68;
+            let phi_ribbons = exp(-abs(sin(atan2(p.z, p.x) * 4.0 + time * 0.08)) * 14.0);
+            let mag_a = flux_ring * phi_ribbons * mag_gain * dt * 1.5;
+            if (mag_a > 0.010) {
                 accum_rgb += (1.0 - accum_a) * vec3<f32>(0.24, 0.72, 1.85) * mag_a;
-                accum_a += (1.0 - accum_a) * min(mag_a * 0.55, 0.22);
+                accum_a += (1.0 - accum_a) * min(mag_a * 0.55, 0.24);
             }
         }
     }
@@ -693,29 +1034,32 @@ fn raymarch_doc_cosmos_macro(
                 let deep_knots = pow(smoothstep(0.68, 0.96, snoise3(p * 14.0)), 3.2) * (1.0 - smoothstep(0.58, 0.78, r));
                 dens = shell * (0.04 + 0.82 * clamp(meridians, 0.0, 1.4)) + deep_knots + quasar;
                 neb_col = mix(vec3<f32>(0.28, 0.80, 1.45), vec3<f32>(1.65, 0.75, 0.35), clamp(quasar + deep_knots * 1.4, 0.0, 1.0));
-            } else if (vid == 20u) {
-                // Landmark: Heliopause Bow Shock & Magnetotail
-                let bow = exp(-abs(length(vec2<f32>(p.y, p.z)) - sqrt(max(0.0, (0.48 - p.x) * 0.55))) * 26.0) * smoothstep(0.50, -0.75, p.x);
-                let sun_spark = exp(-length(p - vec3<f32>(0.22, 0.0, 0.0)) * 18.0);
-                dens = bow * 1.1 + sun_spark * 1.2;
-                neb_col = mix(vec3<f32>(0.25, 0.95, 1.65), vec3<f32>(1.75, 1.15, 0.42), sun_spark);
-            } else if (vid == 21u) {
-                // Landmark: Orion / Eagle Stellar Nursery Creation Pillars
-                let p_tilt = doc_rot_z(p, 0.25);
-                let c1 = exp(-length(p_tilt.xz - vec2<f32>(-0.22, 0.0)) * 16.0) * smoothstep(0.55, -0.45, p_tilt.y);
-                let c2 = exp(-length(p_tilt.xz - vec2<f32>(0.06, 0.12)) * 19.0) * smoothstep(0.42, -0.45, p_tilt.y);
-                let c3 = exp(-length(p_tilt.xz - vec2<f32>(0.28, -0.08)) * 22.0) * smoothstep(0.28, -0.45, p_tilt.y);
-                let edge_fbm = 0.4 + 0.6 * abs(fbm3(p * 6.5, 3));
-                let stars = pow(max(0.0, snoise3(p * 16.0)), 8.0) * 1.6;
-                dens = ((c1 + c2 + c3) * edge_fbm * 0.9 + stars) * (1.0 - smoothstep(0.70, 0.94, r));
-                neb_col = mix(vec3<f32>(1.45, 0.42, 0.85), vec3<f32>(0.28, 1.25, 1.65), clamp(p_tilt.y + 0.5, 0.0, 1.0));
-            } else if (vid == 22u) {
-                // Landmark: Local Bubble Carved Supernova Shock Cavity Shell
-                let cav_w = snoise3(p * 3.8) * 0.14;
-                let shell = exp(-abs(r - 0.68 - cav_w) * 32.0);
-                let rim = exp(-abs(sin(atan2(p.z, p.x) * 6.0)) * 8.0);
-                dens = shell * (0.28 + 0.65 * rim);
-                neb_col = mix(vec3<f32>(0.18, 1.15, 1.45), vec3<f32>(0.85, 0.55, 1.65), rim);
+            } else if (vid == 20u || vid == 21u || vid == 22u || (vid >= 3640u && vid <= 3649u)) {
+                let mw_slot = select(vid - 20u, doc_submode(inst) % 3u, vid >= 3640u);
+                if (mw_slot == 0u) {
+                    // Landmark: Heliopause Bow Shock & Magnetotail
+                    let bow = exp(-abs(length(vec2<f32>(p.y, p.z)) - sqrt(max(0.0, (0.48 - p.x) * 0.55))) * 26.0) * smoothstep(0.50, -0.75, p.x);
+                    let sun_spark = exp(-length(p - vec3<f32>(0.22, 0.0, 0.0)) * 18.0);
+                    dens = bow * 1.1 + sun_spark * 1.2;
+                    neb_col = mix(vec3<f32>(0.25, 0.95, 1.65), vec3<f32>(1.75, 1.15, 0.42), sun_spark);
+                } else if (mw_slot == 1u) {
+                    // Landmark: Orion / Eagle Stellar Nursery Creation Pillars
+                    let p_tilt = doc_rot_z(p, 0.25);
+                    let c1 = exp(-length(p_tilt.xz - vec2<f32>(-0.22, 0.0)) * 16.0) * smoothstep(0.55, -0.45, p_tilt.y);
+                    let c2 = exp(-length(p_tilt.xz - vec2<f32>(0.06, 0.12)) * 19.0) * smoothstep(0.42, -0.45, p_tilt.y);
+                    let c3 = exp(-length(p_tilt.xz - vec2<f32>(0.28, -0.08)) * 22.0) * smoothstep(0.28, -0.45, p_tilt.y);
+                    let edge_fbm = 0.4 + 0.6 * abs(fbm3(p * 6.5, 3));
+                    let stars = pow(max(0.0, snoise3(p * 16.0)), 8.0) * 1.6;
+                    dens = ((c1 + c2 + c3) * edge_fbm * 0.9 + stars) * (1.0 - smoothstep(0.70, 0.94, r));
+                    neb_col = mix(vec3<f32>(1.45, 0.42, 0.85), vec3<f32>(0.28, 1.25, 1.65), clamp(p_tilt.y + 0.5, 0.0, 1.0));
+                } else {
+                    // Landmark: Local Bubble Carved Supernova Shock Cavity Shell
+                    let cav_w = snoise3(p * 3.8) * 0.14;
+                    let shell = exp(-abs(r - 0.68 - cav_w) * 32.0);
+                    let rim = exp(-abs(sin(atan2(p.z, p.x) * 6.0)) * 8.0);
+                    dens = shell * (0.28 + 0.65 * rim);
+                    neb_col = mix(vec3<f32>(0.18, 1.15, 1.45), vec3<f32>(0.85, 0.55, 1.65), rim);
+                }
             } else {
                 // 10 Early Universe (switches cleanly by zone: Plasma / Quark-Gluon / Electroweak / Inflation)
                 let shell_ring = exp(-abs(r - 0.56) * 48.0);

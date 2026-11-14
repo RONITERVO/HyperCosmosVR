@@ -70,7 +70,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
 
 ## 4. Visual Expansion Roadmap & Claimable Work Packages
 
-Contributors working on documentary shaders, zone disambiguation, or GPU compute choreography should claim **one self-contained 1-PR package** (`3–5` zones or `1` Core P0 prerequisite) from **[`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md)** — see **[`PKG-ACT1-EXP03-Z05-08`](docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z05-08)** as the completed `[TIER-A]` reference exemplar (`canonical_zone_vid`, `encode_cue_tags_mask`, `doc_feat_focus`, and GPU pairwise feature regression testing):
+Contributors working on documentary shaders, zone disambiguation, or GPU compute choreography should claim **one self-contained 1-PR package** (`3–5` zones or `1` Core P0 prerequisite) from **[`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md)** — see **[`PKG-ACT1-EXP03-Z05-08`](docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z05-08)** as the completed `[TIER-A]` reference exemplar (`canonical_zone_vid`, `encode_cue_tags_mask`, `doc_feat_focus`, and GPU pairwise feature regression testing, now joined by [`Z00-04`](docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z00-04) and [`Z09-13`](docs/roadmap/ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md#pkg-act1-exp03-z09-13) to bring `100%` of `03_deep_earth` — `14/14` zones, `70/70` features — to `[TIER-A]`):
 
 - **Master Roadmap & P0 Plumbing Cards:** [`docs/CONTRIBUTOR_VISUAL_ROADMAP.md`](docs/CONTRIBUTOR_VISUAL_ROADMAP.md) (`3` Core Pipeline P0 packages + `88`-package master index, `1100..=3869` pre-allocated shader ID registry, and 4-phase rollout plan).
 - **Act Gap Maps (in `ODYSSEY_ACTS` travel order):**
@@ -91,7 +91,7 @@ Contributors working on documentary shaders, zone disambiguation, or GPU compute
 
 **Shader & Pipeline Package Acceptance Requirements:**
 1. Follow the standard 4-file touch pattern (`crates/cosmos_narration/src/resolver.rs`, `crates/cosmos_render/src/doc_stages.rs`, `shaders/hero_doc_*.wgsl` + `shaders/doc_common.wgsl`, and `shaders/compute_universe.wgsl` / `shaders/instanced_sprites.wgsl` / `crates/cosmos_render/src/universe_scene.rs`) using pre-allocated IDs (`1000 + exp_id * 100 + zone_index` in `1100..=3599`; companions `3600..=3869`) and distinct `doc_feat` (`0..=7`) transitions.
-2. Preserve **OLED pure-black void** (existing `43` baseline PNGs hold `>= 50.90%` `#000000` with `50.9004%` min in `06_cmb_and_inflation.png`; newly upgraded roadmap packages must achieve **`>= 50.91%` `#000000`**, `0.0000%` highlight blowout) and **VR 90/120 Hz budget (`<= 28` raymarch steps for new hero shells; RTX 5070 baseline `mean = 1.863 ms`, `p99 = 4.661 ms`)**.
+2. Preserve **OLED pure-black void** (existing `43` baseline PNGs hold `>= 50.90%` `#000000` with `50.9004%` min in `06_cmb_and_inflation.png`; newly upgraded roadmap packages must achieve **`>= 50.91%` `#000000`**, `0.0000%` highlight blowout) and **VR 90/120 Hz budget (`<= 28` raymarch steps for new hero shells; RTX 5070 baseline `mean = 1.937 ms`, `p99 = 4.696 ms`)**.
 3. Run `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`, `cargo clippy --workspace --all-targets -- -D warnings`, and the workspace / `.github/workflows/ci.yml` tests before opening your PR.
 
 ---

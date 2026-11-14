@@ -209,11 +209,28 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                     | "corteza"
                     | "subduccion"
                     | "geodinamo"
+                    | "geodynamo"
                     | "litosfera"
                     | "placa"
                     | "falla"
                     | "magma"
                     | "sismo"
+                    | "astenosfera"
+                    | "asthenosphere"
+                    | "conveccion"
+                    | "convection"
+                    | "pluma"
+                    | "plume"
+                    | "olivino"
+                    | "ringwoodita"
+                    | "ringwoodite"
+                    | "bridgmanita"
+                    | "bridgmanite"
+                    | "perovskite"
+                    | "coriolis"
+                    | "anisotropia"
+                    | "410"
+                    | "660"
             )
         {
             mask |= 0x02;
@@ -225,12 +242,40 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                     | "iss"
                     | "satelite"
                     | "ozono"
+                    | "ozone"
                     | "troposfera"
                     | "nube"
                     | "tormenta"
                     | "viento"
                     | "avion"
                     | "vapor"
+                    | "magnetosfera"
+                    | "magnetosphere"
+                    | "exosfera"
+                    | "exosphere"
+                    | "geocorona"
+                    | "termosfera"
+                    | "thermosphere"
+                    | "ionosfera"
+                    | "ionosphere"
+                    | "mesosfera"
+                    | "mesosphere"
+                    | "meteoro"
+                    | "meteor"
+                    | "noctilucente"
+                    | "noctilucent"
+                    | "mesopausa"
+                    | "mesopause"
+                    | "cohete"
+                    | "estratosfera"
+                    | "stratosphere"
+                    | "globo"
+                    | "ultravioleta"
+                    | "uv"
+                    | "inversion"
+                    | "hidrogeno"
+                    | "helio"
+                    | "radio"
             )
         {
             mask |= 0x04;
@@ -1092,14 +1137,21 @@ fn classify_chromatic_material(h_deg: f64, s: f64, l: f64) -> u8 {
 
 const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "sol", "mercurio", "venus", "tierra", "luna", "marte", "ceres", "jupiter", "saturno",
-    "urano", "neptuno", "pluton", "aurora", "iss", "satelite", "ozono", "nucleo", "manto",
-    "corteza", "geodinamo", "subduccion", "troposfera", "nube", "tormenta", "viento", "avion",
-    "vapor", "oceano", "costa", "bosque", "montana", "suelo", "litosfera", "placa", "falla",
-    "magma", "sismo", "sagitario", "andromeda", "laniakea", "cuasar", "reionizacion", "cmb",
-    "inflacion", "higgs", "quark", "orbital", "planck", "einstein", "hawking", "gravitacional",
-    "turing", "benard", "adn", "mitocondria", "cloroplasto", "neurona", "sinapsis", "hipocampo",
-    "prefrontal", "crispr", "microchip", "ia", "fusion", "tokamak", "dyson", "oneill", "europa",
-    "encelado", "seti", "rosetta", "primo", "loto", "horizonte",
+    "urano", "neptuno", "pluton", "aurora", "iss", "station", "satelite", "ozono", "ozone",
+    "nucleo", "manto", "corteza", "geodinamo", "geodynamo", "subduccion", "troposfera", "nube",
+    "tormenta", "viento", "avion", "vapor", "oceano", "costa", "bosque", "montana", "suelo",
+    "litosfera", "placa", "falla", "magma", "sismo", "magnetosfera", "magnetosphere",
+    "exosfera", "exosphere", "geocorona", "jeans", "termosfera", "thermosphere", "ionosfera",
+    "ionosphere", "mesosfera", "mesosphere", "meteoro", "meteor", "noctilucente", "noctilucent",
+    "mesopausa", "mesopause", "cohete", "estratosfera", "stratosphere", "globo", "ultravioleta",
+    "uv", "inversion", "hidrogeno", "helio", "radio", "astenosfera", "asthenosphere",
+    "conveccion", "convection", "pluma", "plume", "olivino", "ringwoodita", "ringwoodite", "410",
+    "660", "bridgmanita", "bridgmanite", "perovskite", "coriolis", "anisotropia", "sagitario",
+    "andromeda", "laniakea", "cuasar", "reionizacion", "cmb", "inflacion", "higgs", "quark",
+    "orbital", "planck", "einstein", "hawking", "gravitacional", "turing", "benard", "adn",
+    "mitocondria", "cloroplasto", "neurona", "sinapsis", "hipocampo", "prefrontal", "crispr",
+    "microchip", "ia", "fusion", "tokamak", "dyson", "oneill", "europa", "encelado", "seti",
+    "rosetta", "primo", "loto", "horizonte",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {
