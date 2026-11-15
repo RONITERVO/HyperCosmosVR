@@ -789,8 +789,8 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     planck_in.documentary.active_zone_index = 11;
     let planck_scene = builder.build(&idx, &planck_in);
     assert!(
-        planck_scene.heroes_volume.iter().any(|h| h.kind_tags[1] == 23),
-        "08 Planck u=-35 must emit centered Spin-Foam hero vid=23"
+        planck_scene.heroes_volume.iter().any(|h| h.kind_tags[1] == 2411),
+        "08 Planck u=-35 must emit centered Spin-Foam hero vid=2411"
     );
     assert!(
         planck_scene.particle_batch.batch_params[1] < 1.0
@@ -2478,6 +2478,250 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             assert!(
                 diff >= 400,
                 "Exp 22 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
+                z + 1
+            );
+        }
+
+        // --- 15 & 16. Act III (Exp 13 Z00..=Z11: 73 feats; Exp 14 Z00..=Z14: 114 feats) ---
+        let eye13 = DVec3::new(0.0, 0.0, 3.0);
+        let cam13 = RenderCamera::mono(Quat::IDENTITY, 68.0_f32.to_radians(), 1.0, 0.02);
+
+        let exp13_feats: [u16; 12] = [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7];
+        let mut zone13_f0: Vec<Vec<u8>> = Vec::with_capacity(12);
+        for (z_idx, &feat_count) in exp13_feats.iter().enumerate() {
+            let zone = z_idx as u16;
+            let expected_mode = match zone {
+                2 | 3 => 4u32,
+                4..=6 => 3,
+                1 | 7 => 12,
+                _ => 5,
+            };
+            let u_z = if zone <= 3 { -10.0 } else { -11.25 };
+            let mut renders = Vec::with_capacity(feat_count as usize);
+            for feat in 0u16..feat_count {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::QUANTUM_FIELD, eye13, u_z, DQuat::IDENTITY),
+                    cam13,
+                    256,
+                    256,
+                );
+                input.active_experience_id = 13;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [0.24, 0.95, 1.38],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                if zone >= 2 {
+                    assert_eq!(
+                        scene.far.galaxy_north[3], 0.0,
+                        "Exp 13 Z{zone:02} must keep pure quantum void star_density == 0"
+                    );
+                }
+                let expected_vid = 2300 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 7 && h.kind_tags[1] == expected_vid),
+                    "Exp 13 Z{zone:02} F{feat} must emit primary stage hero (kind=7, vid={expected_vid})"
+                );
+                if let Some(slot) = match zone {
+                    0 => Some(0u8),
+                    1 => Some(1),
+                    4 => Some(4),
+                    5 => Some(5),
+                    7 => Some(7),
+                    8 | 9 => Some(8),
+                    10 | 11 => Some(9),
+                    _ => None,
+                } {
+                    let comp_vid = canonical_companion_vid(13, slot);
+                    assert!(
+                        scene
+                            .heroes_surface
+                            .iter()
+                            .any(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == comp_vid),
+                        "Exp 13 Z{zone:02} must emit canonical companion sphere vid={comp_vid}"
+                    );
+                } else {
+                    assert!(
+                        scene.heroes_surface.is_empty(),
+                        "Exp 13 showcase zone Z{zone:02} must emit 0 peripheral spheres"
+                    );
+                }
+
+                let px = renderer21
+                    .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
+                    .expect("Exp 13 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 254 && c[1] >= 254 && c[2] >= 254)
+                    .count();
+                assert!(
+                    void_px * 100 >= total_px21 * 55,
+                    "Exp 13 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
+                );
+                assert!(
+                    lit_px >= 450,
+                    "Exp 13 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 13 Z{zone:02} F{feat} must have 0 blown highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..renders.len() {
+                for j in (i + 1)..renders.len() {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 120,
+                        "Exp 13 Z{zone:02} features F{i} and F{j} must differ by >=120 px, got {diff}"
+                    );
+                }
+            }
+            zone13_f0.push(renders.remove(0));
+        }
+        for z in 0..11 {
+            let diff = count_diff_px(&zone13_f0[z], &zone13_f0[z + 1]);
+            assert!(
+                diff >= 400,
+                "Exp 13 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
+                z + 1
+            );
+        }
+
+        let eye14 = DVec3::new(0.0, 0.0, 3.0);
+        let cam14 = RenderCamera::mono(Quat::IDENTITY, 68.0_f32.to_radians(), 1.0, 0.02);
+
+        let exp14_feats: [u16; 15] = [6, 7, 7, 8, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8];
+        let mut zone14_f0: Vec<Vec<u8>> = Vec::with_capacity(15);
+        for (z_idx, &feat_count) in exp14_feats.iter().enumerate() {
+            let zone = z_idx as u16;
+            let expected_mode = match zone {
+                1..=5 => 13u32,
+                6..=9 => 15,
+                _ => 5,
+            };
+            let u_z = -29.6;
+            let mut renders = Vec::with_capacity(feat_count as usize);
+            for feat in 0u16..feat_count {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::PLANCK_ORIGIN, eye14, u_z, DQuat::IDENTITY),
+                    cam14,
+                    256,
+                    256,
+                );
+                input.active_experience_id = 14;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [1.28, 0.94, 0.34],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                assert_eq!(
+                    scene.far.galaxy_north[3], 0.0,
+                    "Exp 14 Z{zone:02} must keep pure spacetime void star_density == 0"
+                );
+                let expected_vid = 2400 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 7 && h.kind_tags[1] == expected_vid),
+                    "Exp 14 Z{zone:02} F{feat} must emit primary stage hero (kind=7, vid={expected_vid})"
+                );
+                if let Some(slot) = match zone {
+                    0 => Some(0u8),
+                    1 => Some(1),
+                    2 | 3 => Some(2),
+                    4 => Some(3),
+                    5 => Some(4),
+                    6 => Some(5),
+                    7 => Some(6),
+                    9 => Some(8),
+                    10 | 12..=14 => Some(9),
+                    _ => None,
+                } {
+                    let comp_vid = canonical_companion_vid(14, slot);
+                    assert!(
+                        scene
+                            .heroes_surface
+                            .iter()
+                            .any(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == comp_vid),
+                        "Exp 14 Z{zone:02} must emit canonical companion sphere vid={comp_vid}"
+                    );
+                } else {
+                    assert!(
+                        scene.heroes_surface.is_empty(),
+                        "Exp 14 showcase zone Z{zone:02} must emit 0 peripheral spheres"
+                    );
+                }
+
+                let px = renderer21
+                    .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
+                    .expect("Exp 14 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 254 && c[1] >= 254 && c[2] >= 254)
+                    .count();
+                assert!(
+                    void_px * 100 >= total_px21 * 55,
+                    "Exp 14 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
+                );
+                assert!(
+                    lit_px >= 450,
+                    "Exp 14 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 14 Z{zone:02} F{feat} must have 0 blown highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..renders.len() {
+                for j in (i + 1)..renders.len() {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 120,
+                        "Exp 14 Z{zone:02} features F{i} and F{j} must differ by >=120 px, got {diff}"
+                    );
+                }
+            }
+            zone14_f0.push(renders.remove(0));
+        }
+        for z in 0..14 {
+            let diff = count_diff_px(&zone14_f0[z], &zone14_f0[z + 1]);
+            assert!(
+                diff >= 400,
+                "Exp 14 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
                 z + 1
             );
         }

@@ -384,14 +384,24 @@ pub fn select_compute_mode(
             19..=22 | 25 | 27 => 15,
             _ => 13,
         },
-        13 => {
-            if u_cam < -12.5 {
-                3
-            } else {
-                4
+        13 => match doc.active_zone_index {
+            2 | 3 => 4,    // molecules, atoms -> Electron Spherical-Harmonic Orbitals
+            4..=6 => 3,    // nucleus, nucleons, quarks -> QCD Quark-Gluon Color Flux
+            1 | 7 => 12,   // matter, elementary -> calm structured lattice
+            0 | 8..=11 => 5, // residual, forces, fields, vacuum, frontier -> Quantum Vacuum Fluctuations
+            _ => {
+                if u_cam < -12.5 {
+                    3
+                } else {
+                    4
+                }
             }
-        }
-        14 => 5,
+        },
+        14 => match doc.active_zone_index {
+            1..=5 => 13, // everyday, special, causality, spacetime, equivalence -> calm reference dust
+            6..=9 => 15, // curvature, blackholes, waves, cosmos -> relativistic geodesic flow
+            _ => 5,      // frontier, horizons, planck, quantumgravity, emergent, origin -> Planck Spin-Foam
+        },
         15 => 12,
         16 => 6,
         17 => 7,
@@ -438,7 +448,7 @@ pub fn build_far_shell_uniforms(
     };
     let lotus_alpha = (smoothstep(27.1, 28.0, u_cam)).max(lotus_boost);
 
-    let quantum_void_alpha = 1.0 - smoothstep(-22.0, -14.0, u_cam);
+    let mut quantum_void_alpha = 1.0 - smoothstep(-22.0, -14.0, u_cam);
     let cosmic_web_sky_alpha =
         (smoothstep(23.5, 24.8, u_cam) * (1.0 - smoothstep(25.95, 26.4, u_cam))).clamp(0.0, 1.0);
 
@@ -476,6 +486,20 @@ pub fn build_far_shell_uniforms(
                 } else {
                     0.0
                 };
+            }
+            13 => {
+                galaxy_plane = 0.0;
+                star_density = 0.0;
+                quantum_void_alpha = 0.0;
+            }
+            14 => {
+                galaxy_plane = 0.0;
+                star_density = 0.0;
+                if doc.active_zone_index == 11 {
+                    quantum_void_alpha *= 0.35;
+                } else {
+                    quantum_void_alpha *= 0.22;
+                }
             }
             21 => {
                 if matches!(doc.active_zone_index, 6..=10) {

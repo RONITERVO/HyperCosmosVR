@@ -894,6 +894,58 @@ fn shade_doc_solar_planet_surface(
         return (surf_c * (ndotl * 1.08 + 0.04) + rim_c * fresnel * 0.55) * inst.color_a.a;
     }
 
+    if (vid >= 3740u && vid <= 3759u) {
+        // Canonical Act III Companions (`3740..=3749` Exp 13 Matter/Energy; `3750..=3759` Exp 14 Spacetime)
+        let sub = doc_submode(inst);
+        let feat_f = f32(doc_feat(inst) & 7u);
+        let slot = vid - 3740u;
+        let spin_p = doc_rot_y(p_surf, time * 0.14 + feat_f * 0.42);
+        let lat_grid = exp(-abs(sin(spin_p.y * 14.0)) * 12.0);
+        let lon_grid = exp(-abs(sin(atan2(spin_p.z, spin_p.x) * 6.0)) * 12.0);
+        let grid_g = max(lat_grid, lon_grid);
+        var surf_c = inst.color_a.rgb * 0.55;
+        var rim_c = inst.color_b.rgb * 0.95;
+        if (slot < 4u) {
+            // Exp 13 Z00..Z03: crystal lattice / dipole / tetrahedral / Bohr node
+            let hex_b = 0.5 + 0.5 * sin(spin_p.x * 12.0) * cos(spin_p.y * 12.0);
+            surf_c = mix(vec3<f32>(0.08, 0.24, 0.42), vec3<f32>(0.24, 0.78, 0.92), hex_b * 0.65)
+                   + vec3<f32>(0.22, 0.85, 1.05) * grid_g * 0.42;
+            rim_c = vec3<f32>(0.28, 0.92, 1.15);
+        } else if (slot < 8u) {
+            // Exp 13 Z04..Z07: nucleon triad / QCD bag / Higgs potential sphere
+            let triad = exp(-abs(sin(atan2(spin_p.z, spin_p.x) * 3.0 + time * 0.4)) * 10.0);
+            surf_c = mix(vec3<f32>(0.34, 0.12, 0.36), vec3<f32>(0.92, 0.52, 0.18), triad * 0.72)
+                   + vec3<f32>(0.95, 0.72, 0.24) * exp(-abs(spin_p.y) * 16.0) * 0.45;
+            rim_c = vec3<f32>(1.05, 0.58, 0.22);
+        } else if (slot < 10u) {
+            // Exp 13 Z08..Z11: QFT Feynman propagator / Casimir / symmetry ring
+            let mode_w = 0.5 + 0.5 * sin(spin_p.y * 18.0 - time * 1.4);
+            surf_c = mix(vec3<f32>(0.10, 0.28, 0.46), vec3<f32>(0.68, 0.38, 0.92), mode_w)
+                   + vec3<f32>(0.36, 0.96, 1.12) * grid_g * 0.38;
+            rim_c = vec3<f32>(0.76, 0.52, 1.12);
+        } else if (slot < 13u) {
+            // Exp 14 Z00..Z03: Wheeler curvature / light-clock / Minkowski light-cone emblem
+            let cone_band = exp(-abs(abs(spin_p.y) - length(spin_p.xz) * 0.85) * 14.0);
+            surf_c = mix(vec3<f32>(0.08, 0.16, 0.32), vec3<f32>(0.96, 0.78, 0.28), cone_band * 0.8)
+                   + vec3<f32>(0.24, 0.68, 0.98) * grid_g * 0.35;
+            rim_c = vec3<f32>(1.02, 0.82, 0.32);
+        } else if (slot < 17u) {
+            // Exp 14 Z04..Z07: stress-energy source / equivalence / Shapiro lens / Kerr ergosphere
+            let drag = 0.5 + 0.5 * sin(atan2(spin_p.z, spin_p.x) * 4.0 + spin_p.y * 8.0 - time * 1.1);
+            surf_c = mix(vec3<f32>(0.12, 0.08, 0.24), vec3<f32>(0.94, 0.48, 0.16), drag * 0.65)
+                   + vec3<f32>(0.98, 0.74, 0.34) * exp(-abs(spin_p.y) * 14.0) * 0.48;
+            rim_c = vec3<f32>(1.02, 0.64, 0.24);
+        } else {
+            // Exp 14 Z08..Z14: LIGO quadrupole / Hawking horizon / AdS-CFT holographic boundary
+            let quad = 0.5 + 0.5 * cos(atan2(spin_p.z, spin_p.x) * 2.0 - time * 1.6);
+            let h_tile = exp(-abs(sin(spin_p.y * 20.0)) * 10.0) * exp(-abs(sin(atan2(spin_p.z, spin_p.x) * 10.0)) * 10.0);
+            surf_c = mix(vec3<f32>(0.06, 0.20, 0.36), vec3<f32>(0.36, 0.82, 1.05), quad * 0.55)
+                   + vec3<f32>(0.88, 0.64, 0.24) * h_tile * 0.62 + vec3<f32>(0.26, 0.92, 1.12) * f32(sub & 3u) * 0.04;
+            rim_c = vec3<f32>(0.42, 0.92, 1.15);
+        }
+        return (surf_c * (ndotl * 1.04 + 0.04) + rim_c * fresnel * 0.42) * 0.78 * inst.color_a.a;
+    }
+
     if (vid == 12u) {
         // App 01 Physical Material Spheres OR Red/Black Dwarf Cooling Remnants
         let m_mode = doc_submode(inst);

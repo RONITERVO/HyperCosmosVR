@@ -8,47 +8,44 @@ Odyssey Act III corresponds to **`ODYSSEY_ACTS[2] = &[13, 14]`** in [`crates/cos
 
 | Exp | Catalog Slug | Odyssey Position & Scale Band | Zones | Features | Zone `[A / B / C / D]` | Feature `[A / B / C / D]` | Reserved `vid` Block | Companion `vid` Block |
 |---:|---|---|---:|---:|:---:|:---:|---|---|
-| `13` | `13_matter_energy` (`Espectro de la Materia y la Energía`) | Act 3 · Ch `1/2` (`SectorId::QUANTUM_FIELD`, `u in [-22.0, 0.0]`, `focus=-11.0`) | `12` | `73` | `0 / 3 / 9 / 0` | `0 / 13 / 55 / 5` | `2300..=2311` | `3740..=3749` |
-| `14` | `14_spacetime` (`Espectro del Espacio-Tiempo`) | Act 3 · Ch `2/2` (`SectorId::PLANCK_ORIGIN`, `u in [-35.0, -22.0]`, `focus=-30.0`) | `15` | `114` | `0 / 3 / 12 / 0` | `0 / 9 / 91 / 14` | `2400..=2414` | `3750..=3759` |
-| **ACT III** | **`13 + 14`** | **Odyssey Act III (`2` Experiences)** | **`27`** | **`187`** | **`0 / 6 / 21 / 0`** | **`0 / 22 / 146 / 19`** | **`2300..=2414`** | **`3740..=3759`** |
+| `13` | `13_matter_energy` (`Espectro de la Materia y la Energía`) | Act 3 · Ch `1/2` (`SectorId::QUANTUM_FIELD`, `u in [-22.0, 0.0]`, `focus=-11.0`) | `12` | `73` | `12 / 0 / 0 / 0` (`[TIER-A]`) | `73 / 0 / 0 / 0` (`[TIER-A]`) | `2300..=2311` | `3740..=3749` |
+| `14` | `14_spacetime` (`Espectro del Espacio-Tiempo`) | Act 3 · Ch `2/2` (`SectorId::PLANCK_ORIGIN`, `u in [-35.0, -22.0]`, `focus=-30.0`) | `15` | `114` | `15 / 0 / 0 / 0` (`[TIER-A]`) | `114 / 0 / 0 / 0` (`[TIER-A]`) | `2400..=2414` | `3750..=3759` |
+| **ACT III** | **`13 + 14`** | **Odyssey Act III (`2` Experiences)** | **`27`** | **`187`** | **`27 / 0 / 0 / 0` (`100%` `[TIER-A]`)** | **`187 / 0 / 0 / 0` (`100%` `[TIER-A]`)** | **`2300..=2414`** | **`3740..=3759`** |
 
-> **Critical Audit Reality (`77.8%` Modulo Fallback `[TIER-C]` Collision Map):** Ground-truth inspection of [`doc_stages.rs:43-54`](../../crates/cosmos_render/src/doc_stages.rs#L43-L54) and [`hero_doc_matter_mind.wgsl:360-541`](../../shaders/hero_doc_matter_mind.wgsl#L360-L541) confirms **`21 / 27` (`77.8%`) zones** and **`146 / 187` (`78.1%`) features** are currently routed through **`10 + (sc % 5)`** (Exp 13) and **`20 + (sc % 4)`** (Exp 14) because baked `scene` is `null` in all `27` zones:
-> 1. **Exp 13 Collisions (`10 + (sc % 5)`):** `Z00 residual`, `Z05 nucleons`, and `Z10 vacuum` all display **H2O + Benzene molecules**; `Z01 matter` and `Z11 frontier` display a **Hydrogen `3d_z2` orbital**; `Z07 elementary` displays the **3-quark QCD proton bag**; `Z04 nucleus` and `Z09 fields` share a **static wireframe torus + 2 lines**; and the bespoke **Higgs Mexican-Hat potential (`m_mode=3`)** sits misplaced on **`Z08 forces`** instead of **`Z10 vacuum`**!
-> 2. **Exp 14 Off-By-One Swaps (`20 + (sc % 4)`):** `Z01 everyday Newtonian` renders **Flamm's relativistic curvature well + Mercury precession (`s_mode=1`)**; `Z02 special relativity` and `Z06 gravitational curvature` and `Z10 Hawking horizons` and `Z14 origin` all render **Binary Black Holes (`s_mode=2`)**; `Z03 light & causality` renders **Planck Spin-Foam (`s_mode=3`)** while **Minkowski Light Cones (`s_mode=0`)** sits on `Z00` & `Z04`; and `Z12 quantum gravity` loops back to classical **Light Cones (`s_mode=0`)**!
-> 3. **`doc_feat` & Unused Existing Assets:** `doc_feat(inst)` (`shaders/doc_common.wgsl:82-84`) is **0% called** in `hero_doc_matter_mind.wgsl`, while an existing **Kerr Black Hole raymarcher** (`hero_doc_cosmos.wgsl:411`) and **Hawking pair-production jets** (`hero_doc_cosmos.wgsl:477-484`) remain unported for `Exp 14 Z07/Z10`. Note also [`universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) populates zone `evidence_class` richly across Exp 13 & 14 (though `scene` is `None`).
+> **Completed `[TIER-A]` Upgrade Note:** All `7 / 7` Odyssey Act III Pick-Up Packages (`27` zones, `187` features) are now `[TIER-A]` on `feat/pkg-act3-exp13-14-tier-a` (`2300..=2311` + companions `3740..=3749`, `2400..=2414` + companions `3750..=3759`, zone-gated Mode `4/3/12/5` & `13/15/5` compute shaders, bilingual Act III cue tokens, `<= 28` raymarch steps, and `187`-feature DX12 GPU verification in `render_tests.rs`).
 
-## 2. Core Prerequisites & Act III Package Index (`7` Pick-Up Cards)
+## 2. Core Prerequisites & Act III Package Index (`7` Pick-Up Cards — `7 / 7` `[TIER-A]`)
 
 Before implementing bespoke zone stages (`vid = 2300..2311` / `2400..2414`), check or land the Core P0 prerequisites documented in [the Master Visual Roadmap](../CONTRIBUTOR_VISUAL_ROADMAP.md):
 - [`PKG-P0-DISPATCH-AND-IDS`](../CONTRIBUTOR_VISUAL_ROADMAP.md#pkg-p0-dispatch-and-ids) — `vid >= 1000u` shader dispatcher replacing `10 + (sc % 5)` and `20 + (sc % 4)`
 - [`PKG-P0-FEATURE-AND-CUE-PLUMBING`](../CONTRIBUTOR_VISUAL_ROADMAP.md#pkg-p0-feature-and-cue-plumbing) — propagate `SegmentVisualHint::cue_tags` -> `base_flags` (`engine.rs:1691-1699` -> `universe_scene.rs:17-25` -> WGSL `doc_feat`/`doc_cue`/`doc_weight`)
 - [`PKG-P0-CATALOG-SCENE-AND-CI`](../CONTRIBUTOR_VISUAL_ROADMAP.md#pkg-p0-catalog-scene-and-ci) — `scene` backfill & verification harness coverage
 
-| Package ID (Jump Link) | Phase & Priority | Target Zones | Zone Tiers (`A/B/C/D`) | Feat Tiers (`A/B/C/D`) | Headline Bugs Fixed & Deliverables |
+| Package ID (Jump Link) | Status | Target Zones | Zone Tiers (`A/B/C/D`) | Feat Tiers (`A/B/C/D`) | Implemented Deliverables |
 |---|---|---|---:|---:|---|
-| [`PKG-ACT3-EXP13-Z00-03`](#pkg-act3-exp13-z00-03) | Phase 1/2 (Critical) | `Exp 13 Z00..Z03` (`4` zones, `24` feats) | `0/2/2/0` | `0/8/12/4` | Replace `H2O` on `Z00` w/ residual radiation/neutrinos/DM & `H orbital` on `Z01` w/ 6-phase macroscopic matter; wire `doc_feat 0..5` (`O2/CO2`/isomers on `Z02`, `1H->6C->26Fe` + absorption/Balmer jumps on `Z03`) |
-| [`PKG-ACT3-EXP13-Z04-07`](#pkg-act3-exp13-z04-07) | Phase 1/2 (Critical) | `Exp 13 Z04..Z07` (`4` zones, `24` feats) | `0/1/3/0` | `0/5/18/1` | Build packed p+/n0 cluster + decay/fusion/fission (`Z04`), replace `H2O` on `Z05` w/ 99% QCD gluon mass halo + pion bridge, upgrade `Z06` QCD `uud/udd` + flux snapping + Mode 3, build 3-gen Standard Model matrix (`Z07`) |
-| [`PKG-ACT3-EXP13-Z08-11`](#pkg-act3-exp13-z08-11) | Phase 1/2 (Critical) | `Exp 13 Z08..Z11` (`4` zones, `25` feats) | `0/0/4/0` | `0/0/25/0` | Build 4-quadrant Fundamental Forces (`Z08`) & 3D QFT interference/Feynman lattice (`Z09`), **relocate displaced Higgs Mexican Hat (`m_mode=3`) + Casimir plates onto `Z10 vacuum`**, build 7-pillar Open Physics Frontier (`Z11`) |
-| [`PKG-ACT3-EXP14-Z00-03`](#pkg-act3-exp14-z00-03) | Phase 1/2 (Critical) | `Exp 14 Z00..Z03` (`4` zones, `28` feats) | `0/0/4/0` | `0/0/28/0` | Build QFT-on-GR bridge (`Z00`), Euclidean XYZ synced-clock grid (`Z01`), Special Relativity twin light-clocks/length contraction/train simultaneity (`Z02`), **restore `s_mode=0` Light Cones onto `Z03 causality`** |
-| [`PKG-ACT3-EXP14-Z04-07`](#pkg-act3-exp14-z04-07) | Phase 1/2 (Critical) | `Exp 14 Z04..Z07` (`4` zones, `30` feats) | `0/1/3/0` | `0/4/23/3` | Wire invariant interval hyperbolas & twin proper-time clocks (`Z04`), Equivalence accelerating rocket vs free-fall elevators (`Z05`), **relocate `s_mode=1` curvature well onto `Z06`** + lensing/sheet critique, port/build Kerr BH observatory (`Z07`) |
-| [`PKG-ACT3-EXP14-Z08-10`](#pkg-act3-exp14-z08-10) | Phase 1/2 (Critical) | `Exp 14 Z08..Z10` (`3` zones, `24` feats) | `0/1/2/0` | `0/2/16/6` | Upgrade `s_mode=2` static binary w/ chirping inspiral, merger, ringdown, `+`/`x` ring strain & LIGO fringes (`Z08`), replace Mercury well on `Z09` w/ FLRW expanding cube & `k` morph, replace binary BH on `Z10` w/ Hawking `r^2` holography |
-| [`PKG-ACT3-EXP14-Z11-14`](#pkg-act3-exp14-z11-14) | Phase 1/2 (Critical) | `Exp 14 Z11..Z14` (`4` zones, `32` feats) | `0/1/3/0` | `0/3/24/5` | Upgrade `s_mode=3` Spin-Foam + `1.6e-35 m` caliper & probe BH collapse (`Z11`), replace classical cones on `Z12` w/ 8-candidate Quantum Gravity gallery, replace Mercury on `Z13` w/ MERA tensor network, replace binary BH on `Z14` w/ Hartle-Hawking cap |
+| [`PKG-ACT3-EXP13-Z00-03`](#pkg-act3-exp13-z00-03) | `[TIER-A]` Complete | `Exp 13 Z00..Z03` (`4` zones, `24` feats) | `4/0/0/0` | `24/0/0/0` | Bespoke `2300..=2303` + companions `3740..=3743`, Mode 4/12/5, per-feature `doc_feat 0..5` across residual/crystal/H2O-benzene/orbitals |
+| [`PKG-ACT3-EXP13-Z04-07`](#pkg-act3-exp13-z04-07) | `[TIER-A]` Complete | `Exp 13 Z04..Z07` (`4` zones, `24` feats) | `4/0/0/0` | `24/0/0/0` | Bespoke `2304..=2307` + companions `3744..=3747`, Mode 3/12, packed nucleons, cutaway gluon mass (`0x02`), RGB Y-flux (`submode=8`), Higgs mandala |
+| [`PKG-ACT3-EXP13-Z08-11`](#pkg-act3-exp13-z08-11) | `[TIER-A]` Complete | `Exp 13 Z08..Z11` (`4` zones, `25` feats) | `4/0/0/0` | `25/0/0/0` | Bespoke `2308..=2311` + companions `3748..=3749`, Mode 5, Feynman QED/QCD/Weak vertices, QFT lattice, Casimir plates, Noether & BSM frontier |
+| [`PKG-ACT3-EXP14-Z00-03`](#pkg-act3-exp14-z00-03) | `[TIER-A]` Complete | `Exp 14 Z00..Z03` (`4` zones, `28` feats) | `4/0/0/0` | `28/0/0/0` | Bespoke `2400..=2403` + companions `3750..=3752`, Mode 5/13, Wheeler loop, Euclidean cage, moving light clock (`0x02`), Minkowski light cones |
+| [`PKG-ACT3-EXP14-Z04-07`](#pkg-act3-exp14-z04-07) | `[TIER-A]` Complete | `Exp 14 Z04..Z07` (`4` zones, `30` feats) | `4/0/0/0` | `30/0/0/0` | Bespoke `2404..=2407` + companions `3753..=3756`, Mode 13/15, 4D helical block universe, equivalence cabin (`0x02`), Flamm/GPS well, Kerr BH (`0x02`) |
+| [`PKG-ACT3-EXP14-Z08-10`](#pkg-act3-exp14-z08-10) | `[TIER-A]` Complete | `Exp 14 Z08..Z10` (`3` zones, `24` feats) | `3/0/0/0` | `24/0/0/0` | Bespoke `2408..=2410` + companions `3757..=3759`, Mode 15/5, binary BH quadrupole strain (`0x02`), FLRW expanding lattice, Bekenstein/Hawking veil (`0x02`) |
+| [`PKG-ACT3-EXP14-Z11-14`](#pkg-act3-exp14-z11-14) | `[TIER-A]` Complete | `Exp 14 Z11..Z14` (`4` zones, `32` feats) | `4/0/0/0` | `32/0/0/0` | Bespoke `2411..=2414` + companion `3759`, Mode 5, Planck spin-foam (`submode=8`) + Calabi-Yau, QG frameworks, AdS/CFT MERA (`0x02`), Hartle-Hawking bounce |
 
 ---
 
 ## 3. Claimable Work Packages (`7` Pick-Up Cards)
 
 <a id="pkg-act3-exp13-z00-03"></a>
-### PKG-ACT3-EXP13-Z00-03: Exp 13 Matter & Energy — Residual Radiation, Macroscopic Phases, Molecules & Atomic Orbital Transitions (`Z00..Z03`)
-- **Priority & Rollout:** Phase 1/2 (Eliminates `10 + (sc % 5)` Modulo on `Z00/Z01` + Wires `doc_feat 0..5` on `m_mode 0/1`) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP13-Z00-03: Exp 13 Matter & Energy — Residual Radiation, Macroscopic Phases, Molecules & Atomic Orbital Transitions (`Z00..Z03`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2300..=2303` + companions `3740..=3743`, `24/24` `doc_feat 0..=5` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `13` (`13`) Zones `Z00..Z03` (`4` zones, `24` features)
-- **Current Card Tiers:** Zones `0A / 2B / 2C / 0D` · Features `0A / 8B / 12C / 4D`
+- **Current Card Tiers:** Zones `4A / 0B / 0C / 0D` · Features `24A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Modulo Collisions:** [`doc_stages.rs:43-49,713-726`](../../crates/cosmos_render/src/doc_stages.rs#L43-L49) hardcodes ONLY `z==2 => 10`, `z==3 => 11`, `z==6 => 12`, routing all other zones (`scene=None`) through **`10 + (sc % 5)`**! Consequently `Z00 residual` hits `0 % 5 = 0` (`m_mode=0` H2O + Benzene) and `Z01 matter` hits `1 % 5 = 1` (`m_mode=1` Hydrogen `3d_z2` orbital!).
-- **Compute Switching Bug:** [`universe_scene.rs:312-316`](../../crates/cosmos_render/src/universe_scene.rs#L312-L316) swaps Mode 4 (Orbitals) vs Mode 3 (QCD) solely by camera depth `u_cam >= -12.5` rather than active zone index.
-- **WGSL Branches (`Z00..Z03`):** [`hero_doc_matter_mind.wgsl:362-415`](../../shaders/hero_doc_matter_mind.wgsl#L362-L415) renders `m_mode=0` (`H2O`+`C6H6`) and `m_mode=1` (`3d_z2` lobes + `bohr_1/2` + `nuc`), never calling `doc_feat(inst)` (`Z03` is frozen at Hydrogen `Z=1` with zero photon absorption/emission jumps).
-- **Card Tier Breakdown (`4` zones, `24` features):** Zones `0A / 2B / 2C / 0D` · Features `0A / 8B / 12C / 4D`.
+- **Primary Dispatch & Modulo Collisions (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 13 Z00..=Z03` deterministically to canonical `vid = 2300..=2303` + flanking companion spheres `3740..=3743` (`Z00`, `Z01`).
+- **Compute Switching (Resolved):** [`universe_scene.rs`](../../crates/cosmos_render/src/universe_scene.rs) gates `select_compute_mode` (`Z00 => 5`, `Z01 => 12`, `Z02/Z03 => 4`) and clears starfield/galactic wash in `build_far_shell_uniforms`.
+- **WGSL Branches (`Z00..Z03`):** [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) (`shade_doc_matter_energy_stage`) implements bespoke raymarched chambers and all `24/24` `doc_feat(inst)` feature sub-stages across `2300..=2303` (bonded H2O+C6H6, `O2/CO2/C2H6O` isomers, `1 H -> 6 C -> 26 Fe`, Balmer absorption/emission).
+- **Card Tier Breakdown (`4` zones, `24` features):** Zones `4A / 0B / 0C / 0D` · Features `24A / 0B / 0C / 0D`.
 
 **Reserved Target IDs:**
 
@@ -61,7 +58,7 @@ Before implementing bespoke zone stages (`vid = 2300..2311` / `2400..2414`), che
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-C]` Exp `13` `Z00` `residual` — *Universo residual* / *Residual universe* (`vid = 2300` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z00` `residual` — *Universo residual* / *Residual universe* (`vid = 2300` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Después de las estrellas · campos y partículas extremadamente dispersos" *(EN: "After stars · extremely dispersed fields and particles")* · `evidence_class`: `Continuidad cósmica` · `scene`: `None`
 - **Spoken Macro (ES // EN):** El recorrido comienza donde terminó el futuro cósmico. Incluso un universo casi vacío todavía puede contener radiación, neutrinos, partículas estables y campos cuánticos. // *The journey begins where the cosmic future ended. Even a nearly empty universe can still contain radiation, neutrinos, stable particles, and quantum fields.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (0 % 5) = vid 10` -> **`m_mode = 0` (H2O + Benzene Molecules!!)** (`doc_stages.rs:48`, `hero_doc_matter_mind.wgsl:362-395`) + Compute Mode 4 electron orbitals (`u_cam = -11.0 >= -12.5`).
@@ -77,7 +74,7 @@ Before implementing bespoke zone stages (`vid = 2300..2311` / `2400..2414`), che
 | `4` | **materia oscura** / *dark matter* | `[TIER-C]` | Su identidad microscópica sigue sin conocerse. Si está formada por partículas estables, podría persistir en el futuro lejano. // *Its microscopic identity remains unknown. If it is made up of stable particles, it could persist into the distant future.* | Misrouted via `0 % 5 == 0` -> `m_mode=0` (H2O + Benzene) + Mode 4 orbital particles. | Render tenuous cold dark-matter gravitational halo wisps linking sparse voids (`doc_feat == 4`). |
 | `5` | **campos** / *fields* | `[TIER-C]` | En la física moderna, el espacio no se describe simplemente como ausencia absoluta: los campos forman parte de la estructura física. // *In modern physics, space is not simply described as absolute absence: fields are part of the physical structure.* | Misrouted via `0 % 5 == 0` -> `m_mode=0` (H2O + Benzene) + Mode 4 orbital particles. | Overlay faint continuous space-filling quantum ground-state zero-point mesh (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `13` `Z01` `matter` — *Materia observable* / *observable matter* (`vid = 2301` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z01` `matter` — *Materia observable* / *observable matter* (`vid = 2301` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Metros a micrómetros · enorme diversidad, pocos ingredientes atómicos" *(EN: "Meters to micrometers · enormous diversity, few atomic ingredients")* · `evidence_class`: `Experiencia cotidiana` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Rocas, agua, aire, metales, polvo cósmico y seres vivos parecen muy distintos, pero están construidos principalmente con los mismos electrones y núcleos atómicos. // *Rocks, water, air, metals, cosmic dust, and living things seem very different, but they are mainly built with the same electrons and atomic nuclei.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (1 % 5) = vid 11` -> **`m_mode = 1` (Hydrogen `3d_z2` Orbital Lobes)** since `(zone % 2u) == 0u` is false for `zone=1` (`hero_doc_matter_mind.wgsl:396-415`) + Compute Mode 4.
@@ -93,7 +90,7 @@ Before implementing bespoke zone stages (`vid = 2300..2311` / `2400..2414`), che
 | `4` | **metal** / *metal* | `[TIER-C]` | Electrones compartidos y estructuras cristalinas producen conductividad, brillo y resistencia mecánica. // *Shared electrons and crystalline structures produce conductivity, brightness and mechanical strength.* | Misrouted via `1 % 5 == 1` -> `m_mode=1` (Hydrogen `3d_z2` orbital). | Bathe cubic metal cation lattice inside shimmering delocalized Fermi conduction electron sea (`doc_feat == 4`). |
 | `5` | **polvo cósmico** / *cosmic dust* | `[TIER-C]` | Granos microscópicos de silicatos, carbono, hielo y otros materiales participan en la formación de estrellas y planetas. // *Microscopic grains of silicates, carbon, ice and other materials participate in the formation of stars and planets.* | Misrouted via `1 % 5 == 1` -> `m_mode=1` (Hydrogen `3d_z2` orbital). | Rotate porous fractal amorphous silicate-carbon interstellar cosmic dust grain (`doc_feat == 5`). |
 
-#### `[TIER-B]` Exp `13` `Z02` `molecules` — *Moléculas* / *Molecules* (`vid = 2302` | Feats: `0A / 5B / 0C / 1D`)
+#### `[TIER-A]` Exp `13` `Z02` `molecules` — *Moléculas* / *Molecules* (`vid = 2302` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "≈10⁻¹⁰–10⁻⁸ m · átomos unidos por enlaces" *(EN: "≈10⁻¹⁰–10⁻⁸ m · atoms joined by bonds")* · `evidence_class`: `Estructura química` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Una molécula es una estructura de átomos enlazados. Su forma, distribución electrónica y movimiento determinan muchas propiedades químicas. // *A molecule is a structure of bonded atoms. Its shape, electron distribution, and motion determine many chemical properties.*
 - **Rendered Today:** BESPOKE OVERRIDE (`z == 2 -> vid = 10` -> `m_mode = 0`, `doc_stages.rs:45`, `hero_doc_matter_mind.wgsl:362-395`): crisp Oxygen + 2 Hydrogen bent `H2O` molecule + hexagonal `C6H6` Benzene ring with inner aromatic ring + twin pi torus clouds! Compute Mode 4 particles surround it.
@@ -109,7 +106,7 @@ Before implementing bespoke zone stages (`vid = 2300..2311` / `2400..2414`), che
 | `4` | **carbono** / *carbon* | `[TIER-B]` | El carbono puede formar redes, cadenas y anillos, lo que permite una enorme diversidad molecular. // *Carbon can form networks, chains and rings, allowing for enormous molecular diversity.* | 6-node hexagonal `c_nodes` carbon ring + pi clouds render Benzene. | Morph benzene carbon hexagon smoothly between diamond `sp3` tetrahedron and graphene `sp2` sheet (`doc_feat == 4`). |
 | `5` | **estructura** / *structure* | `[TIER-D]` | La misma composición puede producir sustancias distintas cuando cambia la disposición espacial de los átomos. // *The same composition can produce different substances when the spatial arrangement of the atoms changes.* | Static geometry; no isomer rearrangement comparison (`structural chemistry`). | Rearrange `C2H6O` bonds live between ethanol and dimethyl ether structural isomers (`doc_feat == 5`). |
 
-#### `[TIER-B]` Exp `13` `Z03` `atoms` — *Átomos* / *Atoms* (`vid = 2303` | Feats: `0A / 3B / 0C / 3D`)
+#### `[TIER-A]` Exp `13` `Z03` `atoms` — *Átomos* / *Atoms* (`vid = 2303` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "≈10⁻¹⁰ m · núcleo compacto y nube electrónica" *(EN: "≈10⁻¹⁰ m · compact nucleus and electron cloud")* · `evidence_class`: `Evidencia experimental sólida` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Los electrones no recorren órbitas planetarias fijas. Se describen mediante estados cuánticos y distribuciones de probabilidad alrededor del núcleo. // *Electrons do not travel in fixed planetary orbits. They are described by quantum states and probability distributions around the nucleus.*
 - **Rendered Today:** BESPOKE OVERRIDE (`z == 3 -> vid = 11` -> `m_mode = 1`, `doc_stages.rs:46`, `hero_doc_matter_mind.wgsl:396-415`): Hydrogen `3d_z2` probability lobes (`(zone % 2u) == 0u` is false for `zone=3`) + Bohr guide rings (`bohr_1, bohr_2`) + glowing `nuc` + Compute Mode 4 spherical harmonics.
@@ -160,15 +157,15 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act3-exp13-z04-07"></a>
-### PKG-ACT3-EXP13-Z04-07: Exp 13 Matter & Energy — Packed Atomic Nucleus, Hadron Interior, QCD Quark-Gluon Bag & Standard Model Matrix (`Z04..Z07`)
-- **Priority & Rollout:** Phase 1/2 (Eliminates `4%5=4` Noether Torus, `5%5=0` Water Molecule on Nucleons & `7%5=2` QCD Collision on Standard Model) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP13-Z04-07: Exp 13 Matter & Energy — Packed Atomic Nucleus, Hadron Interior, QCD Quark-Gluon Bag & Standard Model Matrix (`Z04..Z07`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2304..=2307` + companions `3744..=3747`, `24/24` `doc_feat 0..=5` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `13` (`13`) Zones `Z04..Z07` (`4` zones, `24` features)
-- **Current Card Tiers:** Zones `0A / 1B / 3C / 0D` · Features `0A / 5B / 18C / 1D`
+- **Current Card Tiers:** Zones `4A / 0B / 0C / 0D` · Features `24A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Modulo Collisions:** [`doc_stages.rs:43-49`](../../crates/cosmos_render/src/doc_stages.rs#L43-L49) produces absurd mismatches: `Z04 nucleus` (`4%5=4`) renders static **wireframe torus + 2 diagonal lines (`m_mode=4`)**, `Z05 nucleons` (`5%5=0`) loops back to **`H2O + Benzene` molecules (`m_mode=0`)**, `Z06 quarks` hits bespoke `m_mode=2` (`z==6 => 12`), and `Z07 elementary` (`7%5=2`) also gets the `3`-quark proton bag!
-- **WGSL Branches (`Z04..Z07`):** [`hero_doc_matter_mind.wgsl:416-434,455-465`](../../shaders/hero_doc_matter_mind.wgsl#L416-L465) draws a 3-quark proton confinement sphere (`m_mode=2`, `r=0.56`) coupled with Compute Mode 3 QCD plasma at `u < -12.5` (`compute_universe.wgsl:162-187`), never reading `doc_feat(inst)` (no `uud->udd` neutron toggle, no color-flux string snap pair creation).
-- **Card Tier Breakdown (`4` zones, `24` features):** Zones `0A / 1B / 3C / 0D` · Features `0A / 5B / 18C / 1D`.
+- **Primary Dispatch & Modulo Collisions (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 13 Z04..=Z07` deterministically to canonical `vid = 2304..=2307` + companion spheres `3744..=3747` (`Z04`, `Z05`, `Z07`, with showcase `Z06` kept clean).
+- **WGSL Branches (`Z04..Z07`):** [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) (`shade_doc_matter_energy_stage`) renders packed `p+/n0` Fibonacci nucleus (`2304`), `uud/udd` emergent-mass hadron interior (`2305`), QCD confinement bag with `uud->udd` & flux-snap hadronization (`2306`), and 3-generation Standard Model matrix + Higgs ring (`2307`) with `24/24` `doc_feat` choreography.
+- **Card Tier Breakdown (`4` zones, `24` features):** Zones `4A / 0B / 0C / 0D` · Features `24A / 0B / 0C / 0D`.
 
 **Reserved Target IDs:**
 
@@ -181,7 +178,7 @@ Required Verification Gates Before Opening PR:
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-C]` Exp `13` `Z04` `nucleus` — *Núcleo atómico* / *atomic nucleus* (`vid = 2304` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z04` `nucleus` — *Núcleo atómico* / *atomic nucleus* (`vid = 2304` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "≈10⁻¹⁵–10⁻¹⁴ m · protones, neutrones y energía de enlace" *(EN: "≈10⁻¹⁵–10⁻¹⁴ m · protons, neutrons and binding energy")* · `evidence_class`: `Física nuclear comprobada` · `scene`: `None`
 - **Spoken Macro (ES // EN):** El núcleo contiene protones y neutrones ligados por la interacción fuerte residual. Sus configuraciones explican isótopos, radiactividad, fusión y fisión. // *The nucleus contains protons and neutrons bound by the residual strong interaction. Their configurations explain isotopes, radioactivity, fusion and fission.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (4 % 5) = vid 14` -> **`m_mode = 4` (Wireframe Cyan Torus + 2 Orange Diagonal Capsules!!)** (`doc_stages.rs:48`, `hero_doc_matter_mind.wgsl:455-465`).
@@ -197,7 +194,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **fusión** / *fusion* | `[TIER-C]` | Núcleos ligeros pueden unirse y liberar energía; este proceso alimenta las estrellas y creó muchos elementos. // *Light nuclei can join and release energy; this process powers stars and created many elements.* | Misrouted via `4 % 5 == 4` -> `m_mode=4` static wireframe torus + 2 straight capsules. | Collide `D + T -> He-4 + n + Q` releasing luminous thermonuclear binding energy flash (`doc_feat == 4`). |
 | `5` | **fisión** / *fission* | `[TIER-C]` | Un núcleo pesado puede dividirse en fragmentos más ligeros y liberar energía junto con neutrones. // *A heavy nucleus can split into lighter fragments and release energy along with neutrons.* | Misrouted via `4 % 5 == 4` -> `m_mode=4` static wireframe torus + 2 straight capsules. | Inject thermal neutron causing `U-235` liquid drop oscillation neck-snap into Kr + Ba + `3 n` (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `13` `Z05` `nucleons` — *Protones y neutrones* / *protons and neutrons* (`vid = 2305` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z05` `nucleons` — *Protones y neutrones* / *protons and neutrons* (`vid = 2305` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "≈10⁻¹⁵ m · hadrones compuestos, no esferas rígidas" *(EN: "≈10⁻¹⁵ m · composite hadrons, not rigid spheres")* · `evidence_class`: `Estructura subnuclear` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Protones y neutrones son hadrones. Su masa y estructura emergen de quarks, gluones y la dinámica de la cromodinámica cuántica, no sólo de sumar masas de quarks. // *Protons and neutrons are hadrons. Their mass and structure emerge from quarks, gluons, and the dynamics of quantum chromodynamics, not just from adding quark masses.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (5 % 5) = vid 10` -> **`m_mode = 0` (H2O + Benzene Molecules!!)** (`doc_stages.rs:48`).
@@ -213,7 +210,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **forma dinámica** / *dynamic shape* | `[TIER-C]` | Un nucleón no tiene una superficie sólida clásica; su estructura depende de cómo se mida y de la escala de energía. // *A nucleon has no classical solid surface; its structure depends on how it is measured and on the energy scale.* | Misrouted via `5 % 5 == 0` -> `m_mode=0` (H2O + Benzene Molecules!). | Fire high-energy electron probe waves scattering off diffuse quark spatial form factor (`doc_feat == 4`). |
 | `5` | **interacción residual** / *residual interaction* | `[TIER-C]` | La fuerza que liga núcleos es un efecto residual de la interacción fuerte que actúa dentro de protones y neutrones. // *The force that binds nuclei is a residual effect of the strong interaction acting within protons and neutrons.* | Misrouted via `5 % 5 == 0` -> `m_mode=0` (H2O + Benzene Molecules!). | Bridge two adjacent nucleons with glowing pion-exchange residual strong-force meson loop (`doc_feat == 5`). |
 
-#### `[TIER-B]` Exp `13` `Z06` `quarks` — *Quarks y gluones* / *Quarks and gluons* (`vid = 2306` | Feats: `0A / 5B / 0C / 1D`)
+#### `[TIER-A]` Exp `13` `Z06` `quarks` — *Quarks y gluones* / *Quarks and gluons* (`vid = 2306` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Sin tamaño interno observado · confinamiento y carga de color" *(EN: "No observed internal size · confinement and color charge")* · `evidence_class`: `Cromodinámica cuántica` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Los quarks up y down forman protones y neutrones. Los gluones transmiten la interacción fuerte. La carga de color es una propiedad cuántica, no un color visible. // *Up and down quarks form protons and neutrons. Gluons carry the strong interaction. Color charge is a quantum property, not a visible color.*
 - **Rendered Today:** BESPOKE OVERRIDE (`z == 6 -> vid = 12` -> `m_mode = 2`, `doc_stages.rs:47`, `hero_doc_matter_mind.wgsl:416-434`): Proton confinement bag (`r=0.56`) + 3 orbiting Red/Green/Blue valence quarks (`g1,g2,g3`) + glowing Y-junction gluon flux tubes (`f1,f2,f3`) + Compute Mode 3 at `u < -12.5`.
@@ -229,7 +226,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **confinamiento** / *confinement* | `[TIER-B]` | No se han observado quarks o gluones aislados en condiciones ordinarias; al intentar separarlos, la energía produce nuevos hadrones. // *No isolated quarks or gluons have been observed under ordinary conditions; attempts to separate them instead supply enough energy to produce new hadrons.* | Purple confinement bag boundary `r=0.56` + tethered flux strings (`note: lacks string-snap pair creation`). | Pull one quark outward until color flux string snaps and materializes a new quark-antiquark meson pair (`doc_feat == 4`). |
 | `5` | **interacción fuerte** / *strong interaction* | `[TIER-B]` | La cromodinámica cuántica describe cómo quarks y gluones forman hadrones y cómo cambia su interacción con la energía. // *Quantum chromodynamics describes how quarks and gluons form hadrons and how their interaction changes with energy.* | Tethered color dynamics + Mode 3 QCD plasma depict strong interaction. | Zoom inside `< 0.1 fm` core demonstrating weakened asymptotic-freedom coupling (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `13` `Z07` `elementary` — *Partículas elementales* / *Elementary particles* (`vid = 2307` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z07` `elementary` — *Partículas elementales* / *Elementary particles* (`vid = 2307` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Quarks · leptones · bosones de interacción · Higgs" *(EN: "Quarks · leptons · interaction bosons · Higgs")* · `evidence_class`: `Modelo Estándar comprobado` · `scene`: `None`
 - **Spoken Macro (ES // EN):** El Modelo Estándar organiza las partículas elementales conocidas y describe con gran precisión las interacciones fuerte, débil y electromagnética. // *The Standard Model organizes the known elementary particles and describes with great precision the strong, weak and electromagnetic interactions.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (7 % 5) = vid 12` -> **`m_mode = 2` (QCD Proton Bag)** (`doc_stages.rs:48`). Note Higgs `m_mode = 3` ended up on `z=8` instead of `z=7`!
@@ -280,14 +277,14 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act3-exp13-z08-11"></a>
-### PKG-ACT3-EXP13-Z08-11: Exp 13 Matter & Energy — Four Fundamental Interactions, QFT Lattice, Relocated Higgs Vacuum & Open Frontier (`Z08..Z11`)
-- **Priority & Rollout:** Phase 1/2 (CRITICAL: Fixes Displaced `m_mode=3` Higgs Hat on `Z08 forces` -> `Z10 quantum-vacuum` + Removes `H2O` on `Z10` & `H Orbital` on `Z11`) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP13-Z08-11: Exp 13 Matter & Energy — Four Fundamental Interactions, QFT Lattice, Relocated Higgs Vacuum & Open Frontier (`Z08..Z11`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2308..=2311` + companions `3748..=3749`, relocated Higgs hat to `Z10`, `25/25` `doc_feat 0..=6` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `13` (`13`) Zones `Z08..Z11` (`4` zones, `25` features)
-- **Current Card Tiers:** Zones `0A / 0B / 4C / 0D` · Features `0A / 0B / 25C / 0D`
+- **Current Card Tiers:** Zones `4A / 0B / 0C / 0D` · Features `25A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Displaced Shader Bug:** [`doc_stages.rs:48`](../../crates/cosmos_render/src/doc_stages.rs#L48) modulo `10 + (sc % 5)` puts the bespoke **Higgs Mexican-Hat quartic potential (`m_mode=3`, [`hero_doc_matter_mind.wgsl:435-453`](../../shaders/hero_doc_matter_mind.wgsl#L435-L453))** on **`Z08 forces`**, puts the static **wireframe torus (`m_mode=4`, `L455-465`)** on `Z09 fields`, puts **`H2O + Benzene` (`m_mode=0`)** on `Z10 vacuum`, and puts **`Hydrogen 3d_z2` (`m_mode=1`)** on `Z11 frontier` (which uniquely has **`7` features `F0..F6`**)! `doc_feat(inst)` is unread.
-- **Card Tier Breakdown (`4` zones, `25` features):** Zones `0A / 0B / 4C / 0D` · Features `0A / 0B / 25C / 0D` (`100% TIER-C`).
+- **Primary Dispatch & Relocated Shader (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 13 Z08..=Z11` deterministically to canonical `vid = 2308..=2311` + companion spheres `3748..=3749`; [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) renders the 4-quadrant Fundamental Interactions (`2308`), QFT Harmonic Lattice & Feynman Vertex (`2309`), relocated Higgs Mexican-Hat VEV + Casimir Plates (`2310`), and 7-feature Open Frontier Mandala (`2311`, `F0..=F6`).
+- **Card Tier Breakdown (`4` zones, `25` features):** Zones `4A / 0B / 0C / 0D` · Features `25A / 0B / 0C / 0D`.
 
 **Reserved Target IDs:**
 
@@ -300,7 +297,7 @@ Required Verification Gates Before Opening PR:
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-C]` Exp `13` `Z08` `forces` — *Cuatro interacciones* / *Four interactions* (`vid = 2308` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z08` `forces` — *Cuatro interacciones* / *Four interactions* (`vid = 2308` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Fuerte · electromagnética · débil · gravitatoria" *(EN: "strong · electromagnetic · weak · gravitational")* · `evidence_class`: `Tres cuánticas + gravedad` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Tres interacciones tienen descripciones cuánticas dentro del Modelo Estándar. La gravedad se describe extraordinariamente bien mediante relatividad general, pero falta una teoría cuántica completa confirmada. // *Three interactions have quantum descriptions within the Standard Model. Gravity is extraordinarily well described by general relativity, but a complete confirmed quantum theory is lacking.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (8 % 5) = vid 13` -> **`m_mode = 3` (Higgs Mexican-Hat Quartic Potential + Orbiting Boson!!)** (`doc_stages.rs:48`, `hero_doc_matter_mind.wgsl:435-453`).
@@ -316,7 +313,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **alcance** / *range* | `[TIER-C]` | Gravedad y electromagnetismo tienen largo alcance; las interacciones fuerte residual y débil dominan escalas subatómicas. // *Gravity and electromagnetism are long-range; the residual strong and weak interactions dominate at subatomic scales.* | Misrouted via `8 % 5 == 3` -> `m_mode=3` (misplaced Higgs Mexican-Hat potential). | Overlay concentric range shells comparing infinite `1/r^2` forces vs `10^-15 m` / `10^-18 m` short ranges (`doc_feat == 4`). |
 | `5` | **unificación** / *unification* | `[TIER-C]` | Electromagnetismo e interacción débil forman una teoría electrodébil; una unificación completa con la fuerte y la gravedad no está confirmada. // *Electromagnetism and the weak interaction form an electroweak theory; complete unification with the strong interaction and gravity has not been confirmed.* | Misrouted via `8 % 5 == 3` -> `m_mode=3` (misplaced Higgs Mexican-Hat potential). | Plot converging running coupling tracks merging EM + Weak into Electroweak symmetry at ~100 GeV (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `13` `Z09` `fields` — *Campos cuánticos* / *Quantum fields* (`vid = 2309` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z09` `fields` — *Campos cuánticos* / *Quantum fields* (`vid = 2309` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Campos en todo el espacio · excitaciones localizadas e interacciones" *(EN: "Fields throughout space · localized excitations and interactions")* · `evidence_class`: `Marco fundamental actual` · `scene`: `None`
 - **Spoken Macro (ES // EN):** En teoría cuántica de campos, una partícula puede entenderse como una excitación cuantizada de un campo. Los campos, no pequeñas bolas permanentes, son el lenguaje fundamental del Modelo Estándar. // *In quantum field theory, a particle can be understood as a quantized excitation of a field. Fields, not permanent little balls, are the fundamental language of the Standard Model.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (9 % 5) = vid 14` -> **`m_mode = 4` (Wireframe Torus + 2 Straight Orange Capsules)** (`doc_stages.rs:48`, `hero_doc_matter_mind.wgsl:455-465`).
@@ -332,7 +329,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **creación y aniquilación** / *creation and annihilation* | `[TIER-C]` | Las interacciones pueden transformar energía entre excitaciones de distintos campos respetando leyes de conservación. // *Interactions can transform energy between excitations of different fields respecting conservation laws.* | Misrouted via `9 % 5 == 4` -> `m_mode=4` static wireframe torus + 2 straight capsules. | Transfer glowing quantum excitation cleanly from electron field layer into photon field via 3-leg Feynman vertex (`doc_feat == 4`). |
 | `5` | **acoplamiento** / *coupling* | `[TIER-C]` | La intensidad y forma de las interacciones dependen de cómo los campos se acoplan entre sí. // *The intensity and shape of the interactions depend on how the fields couple together.* | Misrouted via `9 % 5 == 4` -> `m_mode=4` static wireframe torus + 2 straight capsules. | Modulate coupling spring intensity `alpha = 1/137` vs `alpha_s ~ 1` governing vertex transition rate (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `13` `Z10` `vacuum` — *Vacío cuántico* / *Quantum vacuum* (`vid = 2310` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `13` `Z10` `vacuum` — *Vacío cuántico* / *Quantum vacuum* (`vid = 2310` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "No es ‘nada’ · estado base de campos cuánticos" *(EN: "It is not 'nothing' · ground state of quantum fields")* · `evidence_class`: `Estado de mínima energía` · `scene`: `None`
 - **Spoken Macro (ES // EN):** El vacío cuántico es el estado de menor energía de los campos, no una caja llena de partículas ordinarias ocultas. Sus propiedades pueden producir efectos físicos medibles. // *The quantum vacuum is the lowest energy state of the fields, not a box full of hidden ordinary particles. Its properties can produce measurable physical effects.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (10 % 5) = vid 10` -> **`m_mode = 0` (H2O + Benzene Molecules!!)** (`doc_stages.rs:48`).
@@ -348,7 +345,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **ruptura de simetría** / *symmetry breaking* | `[TIER-C]` | El estado de mínima energía puede no mostrar todas las simetrías de las ecuaciones, generando propiedades físicas nuevas. // *The state of minimum energy may not show all the symmetries of the equations, generating new physical properties.* | Misrouted via `10 % 5 == 0` -> `m_mode=0` (`H2O + Benzene`) while `m_mode=3` Higgs hat sat on `z=8`. | Roll scalar phase ball from unstable central apex down onto symmetric brim of relocated Higgs Mexican Hat (`doc_feat == 4`). |
 | `5` | **campo de Higgs** / *Higgs field* | `[TIER-C]` | El valor no nulo del campo de Higgs en el vacío participa en la generación de masas de partículas elementales. // *The non-zero value of the Higgs field in a vacuum participates in the generation of masses of elementary particles.* | Misrouted via `10 % 5 == 0` -> `m_mode=0` (`H2O + Benzene`) while `m_mode=3` Higgs hat sat on `z=8`. | Lock oscillating scalar bead at non-zero `v = 246 GeV` VEV ring imparting mass to traversing `W/Z` modes (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `13` `Z11` `frontier` — *Frontera de la física fundamental* / *Frontier of fundamental physics* (`vid = 2311` | Feats: `0A / 0B / 7C / 0D`)
+#### `[TIER-A]` Exp `13` `Z11` `frontier` — *Frontera de la física fundamental* / *Frontier of fundamental physics* (`vid = 2311` | Feats: `7A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Lo descrito termina · las preguntas fundamentales permanecen" *(EN: "The current description ends · fundamental questions remain")* · `evidence_class`: `Teorías incompletas` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Hemos descrito gran parte de lo que existe, pero todavía no sabemos por qué estas partículas, estos campos y estas leyes forman nuestro universo. // *We have described much of what exists, but we still do not know why these particles, these fields and these laws form our universe.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `10 + (11 % 5) = vid 11` -> **`m_mode = 1` (Hydrogen `3d_z2` Orbital)** (`doc_stages.rs:48`).
@@ -400,14 +397,15 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act3-exp14-z00-03"></a>
-### PKG-ACT3-EXP14-Z00-03: Exp 14 Spacetime — Quantum Geometry Question, Euclidean Grid, Special Relativity Light Clocks & Light-Cone Causality (`Z00..Z03`)
-- **Priority & Rollout:** Phase 1/2 (CRITICAL: Eliminates `20 + (sc % 4)` Modulo & Restores `s_mode=0` Light Cones from `Z04` onto `Z03 causality`) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP14-Z00-03: Exp 14 Spacetime — Quantum Geometry Question, Euclidean Grid, Special Relativity Light Clocks & Light-Cone Causality (`Z00..Z03`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2400..=2403` + companions `3750..=3752`, restored Light Cones onto `Z03`, `28/28` `doc_feat` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `14` (`14`) Zones `Z00..Z03` (`4` zones, `28` features)
-- **Current Card Tiers:** Zones `0A / 0B / 4C / 0D` · Features `0A / 0B / 28C / 0D`
+- **Current Card Tiers:** Zones `4A / 0B / 0C / 0D` · Features `28A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Off-By-One Modulo Chaos:** [`doc_stages.rs:50-54,713-726`](../../crates/cosmos_render/src/doc_stages.rs#L50-L54) hardcodes ONLY `z==8 => 22` and `z==11 => 23`, routing all remaining zones through **`20 + (sc % 4)`**! Consequently `Z00 frontier` steals `s_mode=0` Minkowski Cones, `Z01 everyday Newtonian` renders **Flamm's relativistic gravity well + Mercury precession (`s_mode=1`, `hero_doc_matter_mind.wgsl:484-502`)**, `Z02 special relativity` renders **Binary Black Holes (`s_mode=2`, `L503-522`)**, and `Z03 causality` steals **Spin-Foam (`s_mode=3`, `L523-541`)** while `s_mode=0` Light Cones (`L469-483`) sits off on `Z04`! [`universe_scene.rs:321,365`](../../crates/cosmos_render/src/universe_scene.rs#L321-L365) runs Mode 5 Planck foam across every zone.
-- **Card Tier Breakdown (`4` zones, `28` features):** Zones `0A / 0B / 4C / 0D` · Features `0A / 0B / 28C / 0D` (`100% TIER-C`; feature counts `6, 7, 7, 8`).
+- **Primary Dispatch & Compute Gating (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 14 Z00..=Z03` deterministically to canonical `vid = 2400..=2403` + companions `3750..=3752`; [`universe_scene.rs`](../../crates/cosmos_render/src/universe_scene.rs) runs Mode 5 on `Z00` and Mode 13 on `Z01..=Z03` with controlled `quantum_void_alpha`.
+- **WGSL Branches (`Z00..Z03`):** [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) (`shade_doc_spacetime_stage`) renders the QFT/GR curved bridge (`2400`), rigid XYZ Euclidean lattice (`2401`), twin inertial light-clock lab (`2402`), and Minkowski light-cone causality hourglass (`2403`) across all `28/28` features (`6, 7, 7, 8`).
+- **Card Tier Breakdown (`4` zones, `28` features):** Zones `4A / 0B / 0C / 0D` · Features `28A / 0B / 0C / 0D` (feature counts `6, 7, 7, 8`).
 
 **Reserved Target IDs:**
 
@@ -420,7 +418,7 @@ Required Verification Gates Before Opening PR:
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-C]` Exp `14` `Z00` `frontier` — *Frontera de la física fundamental* / *Frontier of fundamental physics* (`vid = 2400` | Feats: `0A / 0B / 6C / 0D`)
+#### `[TIER-A]` Exp `14` `Z00` `frontier` — *Frontera de la física fundamental* / *Frontier of fundamental physics* (`vid = 2400` | Feats: `6A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Punto de partida · campos cuánticos + gravedad clásica" *(EN: "Starting point · quantum fields + classical gravity")* · `evidence_class`: `Continuidad con Materia y Energía` · `scene`: `None`
 - **Spoken Macro (ES // EN):** El Modelo Estándar describe partículas y campos; la relatividad general describe la gravedad. El recorrido comienza en la pregunta que todavía los separa: ¿qué clase de realidad es el espacio-tiempo? // *The Standard Model describes particles and fields; General relativity describes gravity. The journey begins with the question that still separates them: what kind of reality is space-time?*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (0 % 4) = vid 20` -> **`s_mode = 0` (Minkowski Hourglass Light Cones + Worldline)** (`doc_stages.rs:53`, `hero_doc_matter_mind.wgsl:469-483`) + Compute Mode 5 Planck foam (`compute_universe.wgsl:209-222`).
@@ -436,7 +434,7 @@ Required Verification Gates Before Opening PR:
 | `4` | **pregunta** / *question* | `[TIER-C]` | ¿Es el espacio-tiempo fundamental, continuo y suave, o surge de relaciones más profundas? // *Is spacetime fundamental, continuous, and smooth, or does it emerge from deeper relationships?* | Misrouted via `0 % 4 == 0` -> `s_mode=0` (Minkowski light cones). | Dissolve unified field boundary into speculative dashed `?` metric lines avoiding premature certainty (`doc_feat == 4`). |
 | `5` | **continuidad** / *continuity* | `[TIER-C]` | La materia y la energía del universo anterior se convierten aquí en fuentes y habitantes de una geometría dinámica. // *The matter and energy of the previous universe here become sources and inhabitants of a dynamic geometry.* | Misrouted via `0 % 4 == 0` -> `s_mode=0` (Minkowski light cones). | Link inbound portal glow from Exp 13 `Z11` (`frontier`) straight into relativistic spacetime exploration (`doc_feat == 5`). |
 
-#### `[TIER-C]` Exp `14` `Z01` `everyday` — *Espacio y tiempo cotidianos* / *Everyday space and time* (`vid = 2401` | Feats: `0A / 0B / 7C / 0D`)
+#### `[TIER-A]` Exp `14` `Z01` `everyday` — *Espacio y tiempo cotidianos* / *Everyday space and time* (`vid = 2401` | Feats: `7A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Bajas velocidades · gravedad débil · intuición casi newtoniana" *(EN: "Low speeds · weak gravity · almost Newtonian intuition")* · `evidence_class`: `Aproximación cotidiana` · `scene`: `None`
 - **Spoken Macro (ES // EN):** En la vida diaria, una rejilla estable y un reloj universal parecen suficientes. Esa imagen funciona muy bien como aproximación, pero deja de ser exacta a velocidades extremas o en gravedad intensa. // *In daily life, a stable grid and a universal clock seem sufficient. That image works very well as an approximation, but it is no longer accurate at extreme speeds or in intense gravity.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (1 % 4) = vid 21` -> **`s_mode = 1` (Flamm's Paraboloid Gravity Well + Mercury Rosette Precession!!)** (`doc_stages.rs:53`, `hero_doc_matter_mind.wgsl:484-502`).
@@ -453,7 +451,7 @@ Required Verification Gates Before Opening PR:
 | `5` | **dirección** / *direction* | `[TIER-C]` | Las direcciones organizan el espacio local, pero la geometría global puede ser curva y no admitir una única orientación universal. // *Directions organize local space, but global geometry may be curved and not support a single universal orientation.* | Misrouted via `1 % 4 == 1` -> `s_mode=1` (Flamm's curved well + Mercury precession!). | Faintly tilt outer rim edges revealing that Newtonian flatness is a low-speed weak-field approximation (`doc_feat == 5`). |
 | `6` | **simultaneidad** / *simultaneity* | `[TIER-C]` | En la experiencia común tratamos muchos sucesos como simultáneos; a gran distancia y alta velocidad, esa relación depende del observador. // *In common experience we treat many events as simultaneous; at great distance and high speed, that relationship depends on the observer.* | Misrouted via `1 % 4 == 1` -> `s_mode=1` (Flamm's curved well + Mercury precession!). | Sweep flat horizontal universal `t = const` simultaneity plane uniformly up the entire cube (`doc_feat == 6`). |
 
-#### `[TIER-C]` Exp `14` `Z02` `special` — *Relatividad especial* / *Special relativity* (`vid = 2402` | Feats: `0A / 0B / 7C / 0D`)
+#### `[TIER-A]` Exp `14` `Z02` `special` — *Relatividad especial* / *Special relativity* (`vid = 2402` | Feats: `7A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Sistemas inerciales · velocidad de la luz invariante" *(EN: "Inertial frames · invariant speed of light")* · `evidence_class`: `Comprobación experimental extraordinaria` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Observadores inerciales pueden discrepar sobre longitudes, duraciones y simultaneidad, pero concuerdan en las leyes físicas y en la estructura causal del espacio-tiempo. // *Inertial observers may disagree about lengths, durations, and simultaneity, but they agree on physical laws and the causal structure of spacetime.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (2 % 4) = vid 22` -> **`s_mode = 2` (Binary Black Hole Inspiral & Gravitational Waves!!)** (`doc_stages.rs:53`, `hero_doc_matter_mind.wgsl:503-522`).
@@ -470,7 +468,7 @@ Required Verification Gates Before Opening PR:
 | `5` | **simultaneidad relativa** / *relative simultaneity* | `[TIER-C]` | Dos sucesos separados que son simultáneos para un observador pueden no serlo para otro en movimiento relativo. // *Two separate events that are simultaneous for one observer may not be simultaneous for another in relative motion.* | Misrouted via `2 % 4 == 2` -> `s_mode=2` (Binary BH + GW spirals!). | Tilt two intersecting `t'` simultaneity planes swapping lightning strikes at opposite ends of a moving train (`doc_feat == 5`). |
 | `6` | **masa y energía** / *mass and energy* | `[TIER-C]` | La equivalencia E = mc² muestra que la masa en reposo contribuye al contenido energético; no significa que todo objeto acelerado adquiera una nueva masa fundamental. // *The equivalence E = mc² shows that the rest mass contributes to the energy content; It does not mean that every accelerated object acquires a new fundamental mass.* | Misrouted via `2 % 4 == 2` -> `s_mode=2` (Binary BH + GW spirals!). | Glow warm compact rest-mass energy core `E = m c^2` vs kinetic velocity boost vector (`doc_feat == 6`). |
 
-#### `[TIER-C]` Exp `14` `Z03` `causality` — *Luz y causalidad* / *Light and causality* (`vid = 2403` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z03` `causality` — *Luz y causalidad* / *Light and causality* (`vid = 2403` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Conos de luz · límite universal de propagación causal" *(EN: "Light cones · universal limit of causal propagation")* · `evidence_class`: `Estructura causal comprobada` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Cada acontecimiento posee un pasado que puede influirlo y un futuro al que puede influir. Fuera de esos conos, una conexión causal exigiría superar el límite relativista. // *Each event has a past that can influence it and a future that it can influence. Outside of these cones, a causal connection would require exceeding the relativistic limit.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (3 % 4) = vid 23` -> **`s_mode = 3` (Spin-Foam Tetrahedral Lattice + Calabi-Yau String Loops!!)** (`doc_stages.rs:53`, `hero_doc_matter_mind.wgsl:523-541`).
@@ -523,14 +521,14 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act3-exp14-z04-07"></a>
-### PKG-ACT3-EXP14-Z04-07: Exp 14 Spacetime — 4D Minkowski Intervals, Equivalence Elevators, Relocated Curvature Well & Kerr Horizon (`Z04..Z07`)
-- **Priority & Rollout:** Phase 1/2 (Moves `s_mode=1` Curvature Well onto `Z06` & Replaces `Z07` Spin-Foam with Interactive Kerr Horizon Observatory) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP14-Z04-07: Exp 14 Spacetime — 4D Minkowski Intervals, Equivalence Elevators, Relocated Curvature Well & Kerr Horizon (`Z04..Z07`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2404..=2407` + companions `3753..=3756`, relocated Flamm curvature well onto `Z06` & Kerr BH onto `Z07`, `30/30` `doc_feat` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `14` (`14`) Zones `Z04..Z07` (`4` zones, `30` features)
-- **Current Card Tiers:** Zones `0A / 1B / 3C / 0D` · Features `0A / 4B / 23C / 3D`
+- **Current Card Tiers:** Zones `4A / 0B / 0C / 0D` · Features `30A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Modulo Collisions:** [`doc_stages.rs:50-54`](../../crates/cosmos_render/src/doc_stages.rs#L50-L54) hits `Z04 spacetime` accidentally on `4%4=0` (`s_mode=0` cones, `doc_feat` unread — missing invariant interval hyperbolas & proper-time twin clocks), sends **`Z05 equivalence`** to `s_mode=1` Flamm's well (`5%4=1`), sends **`Z06 curvature`** to **`s_mode=2` Binary Black Holes (`6%4=2`)**, and sends **`Z07 blackholes`** to **`s_mode=3` Planck Spin-Foam (`7%4=3`)** — while a full raymarched **Kerr BH** (`kind=4`) already sits unused inside [`hero_doc_cosmos.wgsl:411`](../../shaders/hero_doc_cosmos.wgsl#L411) / [`hero_volumetric.wgsl:74-81`](../../shaders/hero_volumetric.wgsl#L74-L81)!
-- **Card Tier Breakdown (`4` zones, `30` features):** Zones `0A / 1B / 3C / 0D` · Features `0A / 4B / 23C / 3D` (feature counts `7, 7, 8, 8`).
+- **Primary Dispatch & Shader Relocation (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 14 Z04..=Z07` deterministically to canonical `vid = 2404..=2407` + companions `3753..=3756`; [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) renders 4D Minkowski intervals & proper-time twin clocks (`2404`), Equivalence twin elevators & bent laser (`2405`), relocated Flamm paraboloid curvature well + Einstein ring (`2406`), and Kerr Black Hole horizon + Doppler accretion disk (`2407`) across `30/30` features.
+- **Card Tier Breakdown (`4` zones, `30` features):** Zones `4A / 0B / 0C / 0D` · Features `30A / 0B / 0C / 0D` (feature counts `7, 7, 8, 8`).
 
 **Reserved Target IDs:**
 
@@ -543,7 +541,7 @@ Required Verification Gates Before Opening PR:
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-B]` Exp `14` `Z04` `spacetime` — *El espacio-tiempo* / *Spacetime* (`vid = 2404` | Feats: `0A / 4B / 0C / 3D`)
+#### `[TIER-A]` Exp `14` `Z04` `spacetime` — *El espacio-tiempo* / *Spacetime* (`vid = 2404` | Feats: `7A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Tres dimensiones espaciales + una dimensión temporal" *(EN: "Three spatial dimensions + one temporal dimension")* · `evidence_class`: `Marco geométrico de la relatividad` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Un objeto no es solo un punto que cambia de posición: traza una línea de universo. Distintos observadores usan coordenadas diferentes para la misma historia física. // *An object is not just a point that changes position: it traces a worldline. Different observers use different coordinates for the same physical history.*
 - **Rendered Today:** ACCIDENTAL MODULO MATCH (`4 % 4 = 0 -> vid=20`, `s_mode=0`): Minkowski Hourglass Past/Future Light Cones + Origin Flash (`cue`-modulated `line 480`) + curved green `worldline` capsule (`line 481`) + Compute Mode 5.
@@ -560,7 +558,7 @@ Required Verification Gates Before Opening PR:
 | `5` | **trayectoria** / *trajectory* | `[TIER-B]` | Una trayectoria físicamente posible permanece dentro del cono de luz y conecta eventos causalmente relacionados. // *A physically possible trajectory remains within the light cone and connects causally related events.* | Timelike worldline stays cleanly inside past/future light cone boundaries. | Project multiple interlocking causal histories safely contained within overlapping light cones (`doc_feat == 5`). |
 | `6` | **historia** / *history* | `[TIER-B]` | La física relativista describe historias completas en espacio-tiempo, no una sucesión universal de instantáneas compartidas por todo el cosmos. // *Relativistic physics describes complete histories in spacetime, not a universal succession of snapshots shared throughout the cosmos.* | Simultaneous block-universe cone displays past-present-future history together. | Frame full 4D block-universe hourglass showing past, present, and future geometries unified (`doc_feat == 6`). |
 
-#### `[TIER-C]` Exp `14` `Z05` `equivalence` — *Principio de equivalencia* / *Equivalence principle* (`vid = 2405` | Feats: `0A / 0B / 7C / 0D`)
+#### `[TIER-A]` Exp `14` `Z05` `equivalence` — *Principio de equivalencia* / *Equivalence principle* (`vid = 2405` | Feats: `7A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Caída libre local · gravedad y aceleración" *(EN: "Local free fall · gravity and acceleration")* · `evidence_class`: `Fundamento experimental de la relatividad general` · `scene`: `None`
 - **Spoken Macro (ES // EN):** En una región suficientemente pequeña, un laboratorio en caída libre se comporta como un sistema inercial. Esa equivalencia local conecta aceleración y gravedad. // *In a sufficiently small region, a laboratory in free fall behaves like an inertial system. That local equivalence connects acceleration and gravity.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (5 % 4) = vid 21` -> **`s_mode = 1` (Flamm's Paraboloid Gravity Well + Mercury Precession)** (`doc_stages.rs:53`).
@@ -577,7 +575,7 @@ Required Verification Gates Before Opening PR:
 | `5` | **local** / *local* | `[TIER-C]` | La equivalencia es local: en regiones extensas, diferencias de gravedad revelan curvatura y fuerzas de marea. // *The equivalence is local: in large regions, differences in gravity reveal curvature and tidal forces.* | Misrouted via `5 % 4 == 1` -> `s_mode=1` (Flamm's well + Mercury orbit). | Zoom outward across planetary center revealing two `free-falling` drops subtly converging due to tidal curvature (`doc_feat == 5`). |
 | `6` | **inercia** / *inertia* | `[TIER-C]` | Una trayectoria inercial en espacio-tiempo curvo es una geodésica, no necesariamente una línea recta en coordenadas ordinarias. // *An inertial trajectory in curved spacetime is a geodesic, not necessarily a straight line in ordinary coordinates.* | Misrouted via `5 % 4 == 1` -> `s_mode=1` (Flamm's well + Mercury orbit). | Contrast small local uniform box (`flat tangent plane`) vs large global spherical gravitational field (`doc_feat == 6`). |
 
-#### `[TIER-C]` Exp `14` `Z06` `curvature` — *Curvatura gravitatoria* / *Gravitational curvature* (`vid = 2406` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z06` `curvature` — *Curvatura gravitatoria* / *Gravitational curvature* (`vid = 2406` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Materia–energía ↔ geometría dinámica" *(EN: "Matter–energy ↔ dynamic geometry")* · `evidence_class`: `Relatividad general ampliamente comprobada` · `scene`: `None`
 - **Spoken Macro (ES // EN):** La materia y la energía afectan la geometría; esa geometría guía el movimiento. La gravedad aparece en relojes desincronizados, rayos de luz desviados, geodésicas convergentes y fuerzas de marea. // *Matter and energy affect geometry, and that geometry guides motion. Gravity appears in clocks running at different rates, deflected light rays, converging geodesics, and tidal forces.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (6 % 4) = vid 22` -> **`s_mode = 2` (Binary Black Hole Inspiral & GW Spirals!!)** (`doc_stages.rs:53`).
@@ -595,7 +593,7 @@ Required Verification Gates Before Opening PR:
 | `6` | **energía** / *energy* | `[TIER-C]` | No solo la masa: presión, flujo de energía y otras formas de tensión también contribuyen a la fuente gravitatoria. // *Not just mass: pressure, energy flow, and other forms of stress also contribute to the gravitational source.* | Misrouted via `6 % 4 == 2` to `s_mode=2` (Binary BHs) instead of `s_mode=1` Gravity Well. | Illuminate energy-momentum core glow showing pressure, energy & momentum flux sourcing curvature (`doc_feat == 6`). |
 | `7` | **lámina elástica** / *elastic sheet* | `[TIER-C]` | La analogía de la lámina hundida puede sugerir trayectorias curvadas, pero usa gravedad externa, elimina dimensiones y no representa la curvatura temporal. // *The stretched-sheet analogy may suggest curved paths, but it uses external gravity, omits dimensions, and does not represent curvature in time.* | Misrouted via `6 % 4 == 2` to `s_mode=2` (Binary BHs) instead of `s_mode=1` Gravity Well. | Toggle 2D rubber-sheet cartoon critique beside authentic 3+1D volumetric time-space curvature (`doc_feat == 7`). |
 
-#### `[TIER-C]` Exp `14` `Z07` `blackholes` — *Agujeros negros* / *Black holes* (`vid = 2407` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z07` `blackholes` — *Agujeros negros* / *Black holes* (`vid = 2407` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Curvatura extrema · horizonte sin superficie material" *(EN: "Extreme curvature · horizon without material surface")* · `evidence_class`: `Horizontes observados indirectamente · interiores desconocidos` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Un agujero negro contiene una región causal separada por un horizonte. Las observaciones apoyan con fuerza la existencia de objetos compactos con horizontes, pero su interior profundo permanece fuera del acceso directo. // *A black hole contains a causal region separated by a horizon. Observations strongly support the existence of compact objects with horizons, but their deep interior remains out of direct access.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (7 % 4) = vid 23` -> **`s_mode = 3` (Spin-Foam Tetrahedral Lattice + Calabi-Yau String Loops!!)** (`doc_stages.rs:53`).
@@ -647,14 +645,14 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act3-exp14-z08-10"></a>
-### PKG-ACT3-EXP14-Z08-10: Exp 14 Spacetime — Binary BH Chirp/Merger & LIGO, FLRW Expanding Metric & Holographic Hawking Horizon (`Z08..Z10`)
-- **Priority & Rollout:** Phase 1/2 (Upgrades `Z08` Static Binary to Chirp+LIGO, Replaces `Z09` Mercury Orbit w/ FLRW Cube & `Z10` Binary BH w/ Hawking Holography) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP14-Z08-10: Exp 14 Spacetime — Binary BH Chirp/Merger & LIGO, FLRW Expanding Metric & Holographic Hawking Horizon (`Z08..Z10`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2408..=2410` + companions `3757..=3759`, LIGO L-arm chirp + FLRW comoving grid + Hawking holographic tiles, `24/24` `doc_feat` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `14` (`14`) Zones `Z08..Z10` (`3` zones, `24` features)
-- **Current Card Tiers:** Zones `0A / 1B / 2C / 0D` · Features `0A / 2B / 16C / 6D`
+- **Current Card Tiers:** Zones `3A / 0B / 0C / 0D` · Features `24A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Modulo Collisions:** [`doc_stages.rs:51,53`](../../crates/cosmos_render/src/doc_stages.rs#L51-L53) sends `Z08 waves` to bespoke `vid=22` (`s_mode=2` [`hero_doc_matter_mind.wgsl:503-522`](../../shaders/hero_doc_matter_mind.wgsl#L503-L522)), yet orbital separation `sep = 0.18` is **frozen circular** (no inspiral shrink, no merger coalescence, no ringdown damping, no `+`/`x` transverse ring stretch, no LIGO interferometer, `doc_feat` unread!). Meanwhile `Z09 cosmos` (`9%4=1`) renders **Flamm's well + Mercury orbit (`s_mode=1`)** and `Z10 horizons` (`10%4=2`) renders **Binary BHs (`s_mode=2`)** instead of Hawking radiation (note `hero_doc_cosmos.wgsl:477-484` has an unused Hawking pair shader `vid=12`!).
-- **Card Tier Breakdown (`3` zones, `24` features):** Zones `0A / 1B / 2C / 0D` · Features `0A / 2B / 16C / 6D` (`8` features per zone).
+- **Primary Dispatch & Shader Upgrades (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 14 Z08..=Z10` deterministically to canonical `vid = 2408..=2410` + companions `3757..=3759`; [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) upgrades Binary BH GW chirp/merger/ringdown + `+`/`x` polarization ring + LIGO L-arms (`2408`), FLRW comoving expansion + redshifting photon + curvature triangle (`2409`), and Hawking temperature + 2D Planck-area Voronoi holographic tiles (`2410`) across `24/24` features.
+- **Card Tier Breakdown (`3` zones, `24` features):** Zones `3A / 0B / 0C / 0D` · Features `24A / 0B / 0C / 0D` (`8` features per zone).
 
 **Reserved Target IDs:**
 
@@ -666,7 +664,7 @@ Required Verification Gates Before Opening PR:
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-B]` Exp `14` `Z08` `waves` — *Ondas gravitacionales* / *Gravitational waves* (`vid = 2408` | Feats: `0A / 2B / 0C / 6D`)
+#### `[TIER-A]` Exp `14` `Z08` `waves` — *Ondas gravitacionales* / *Gravitational waves* (`vid = 2408` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Geometría oscilante · propagación a la velocidad de la luz" *(EN: "Oscillating geometry · propagation at the speed of light")* · `evidence_class`: `Detectadas directamente` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Sistemas compactos acelerados producen perturbaciones que alternan estiramiento y compresión de distancias. No viajan a través de un éter: son cambios propagantes de la geometría. // *Accelerated compact systems produce perturbations that alternate stretching and compression of distances. They do not travel through an ether: they are propagating changes in geometry.*
 - **Rendered Today:** BESPOKE OVERRIDE (`z == 8 -> vid = 22` -> `s_mode = 2`, `doc_stages.rs:51`, `hero_doc_matter_mind.wgsl:503-522`): Twin orbiting `#000000` black holes (`bh1, bh2`) with golden rims + rotating `cos(2*phi - 9.5*r)` quadrupole spiral wave ridges.
@@ -684,7 +682,7 @@ Required Verification Gates Before Opening PR:
 | `6` | **interferómetro** / *interferometer* | `[TIER-D]` | Detectores láser comparan longitudes perpendiculares y pueden medir cambios muchísimo menores que un protón respecto de brazos kilométricos. // *Laser detectors compare perpendicular lengths and can measure changes much smaller than a proton over kilometer arms.* | No LIGO perpendicular laser-arm interferometer or fringe detector. | Overlay perpendicular 4-km LIGO L-arm laser cavities flashing constructive/destructive fringe beats (`doc_feat == 6`). |
 | `7` | **mensajería** / *messenger astronomy* | `[TIER-D]` | Las ondas gravitacionales abren una forma de astronomía distinta de la luz y permiten estudiar colisiones invisibles. // *Gravitational waves open a form of astronomy independent of light and allow otherwise invisible collisions to be studied.* | No multi-messenger waveform vs EM spectrum comparison. | Display synced chirp waveform overlay + glowing multi-messenger kilonova arc (`doc_feat == 7`). |
 
-#### `[TIER-C]` Exp `14` `Z09` `cosmos` — *Un universo dinámico* / *A dynamic universe* (`vid = 2409` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z09` `cosmos` — *Un universo dinámico* / *A dynamic universe* (`vid = 2409` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "La escala del espacio cambia con el tiempo cósmico" *(EN: "The scale of space changes with cosmic time")* · `evidence_class`: `Cosmología relativista respaldada por observaciones` · `scene`: `None`
 - **Spoken Macro (ES // EN):** En cosmología, las galaxias lejanas no necesitan desplazarse por un vacío exterior. La métrica que asigna distancias puede evolucionar y producir expansión cosmológica. // *In cosmology, distant galaxies do not need to move through an external vacuum. The metric that assigns distances can evolve and produce cosmological expansion.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (9 % 4) = vid 21` -> **`s_mode = 1` (Flamm's Paraboloid + Mercury Precession)** (`doc_stages.rs:53`).
@@ -702,7 +700,7 @@ Required Verification Gates Before Opening PR:
 | `6` | **geometría cósmica** / *cosmic geometry* | `[TIER-C]` | La curvatura espacial global puede ser positiva, negativa o aproximadamente plana; las observaciones favorecen una geometría muy cercana a plana. // *Global spatial curvature may be positive, negative, or approximately flat; observations favor a geometry very close to flat.* | Misrouted via `9 % 4 == 1` -> `s_mode=1` (Flamm's well + Mercury orbit!). | Morph cosmic triangle test comparing spherical `>180 deg`, flat `=180 deg` & hyperbolic `<180 deg` geometry (`doc_feat == 6`). |
 | `7` | **sin exterior** / *no exterior* | `[TIER-C]` | La teoría no requiere que el universo se expanda dentro de un espacio externo de mayor dimensión. // *The theory does not require that the universe expand into a higher-dimensional external space.* | Misrouted via `9 % 4 == 1` -> `s_mode=1` (Flamm's well + Mercury orbit!). | Remove any outer boundary wall showing expansion happens homogeneously inside manifold itself (`doc_feat == 7`). |
 
-#### `[TIER-C]` Exp `14` `Z10` `horizons` — *Horizontes, temperatura e información* / *Horizons, temperature and information* (`vid = 2410` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z10` `horizons` — *Horizontes, temperatura e información* / *Horizons, temperature and information* (`vid = 2410` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Gravedad + campos cuánticos + termodinámica + información" *(EN: "Gravity + quantum fields + thermodynamics + information")* · `evidence_class`: `Teoría semiclásica sólida · preguntas abiertas` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Los horizontes poseen temperatura y entropía en la descripción semiclásica. Esta unión inesperada sugiere que la geometría puede codificar información de una manera aún no comprendida por completo. // *Horizons have temperature and entropy in the semiclassical description. This unexpected union suggests that geometry can encode information in a way not yet fully understood.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (10 % 4) = vid 22` -> **`s_mode = 2` (Binary Black Hole Inspiral & GW Spirals!!)** (`doc_stages.rs:53`). Note `hero_doc_cosmos.wgsl:477-484` ALREADY has Hawking pair-production jets (`kind=4, vid=12`) used only in Exp 12!
@@ -754,14 +752,14 @@ Required Verification Gates Before Opening PR:
 </details>
 
 <a id="pkg-act3-exp14-z11-14"></a>
-### PKG-ACT3-EXP14-Z11-14: Exp 14 Spacetime — Planck Scale Caliper, 8 Quantum Gravity Paths, Emergent MERA Tensor Bulk & No-Boundary Origin (`Z11..Z14`)
-- **Priority & Rollout:** Phase 1/2 (Upgrades `s_mode=3` Spin-Foam on `Z11` & Replaces Classic Cones/Mercury/Binary BHs on `Z12..Z14`) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
+### PKG-ACT3-EXP14-Z11-14: Exp 14 Spacetime — Planck Scale Caliper, 8 Quantum Gravity Paths, Emergent MERA Tensor Bulk & No-Boundary Origin (`Z11..Z14`) `[COMPLETED — TIER-A]`
+- **Priority & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1/2 (`2411..=2414` + companion `3759`, `32/32` `doc_feat` wired & GPU-verified) · Depends on `PKG-P0-DISPATCH-AND-IDS`, `PKG-P0-FEATURE-AND-CUE-PLUMBING`
 - **Scope:** Exp `14` (`14`) Zones `Z11..Z14` (`4` zones, `32` features)
-- **Current Card Tiers:** Zones `0A / 1B / 3C / 0D` · Features `0A / 3B / 24C / 5D`
+- **Current Card Tiers:** Zones `4A / 0B / 0C / 0D` · Features `32A / 0B / 0C / 0D`
 
 **Current State:**
-- **Primary Dispatch & Modulo Collisions:** [`doc_stages.rs:52-53`](../../crates/cosmos_render/src/doc_stages.rs#L52-L53) routes `Z11 planck` to `vid=23` (`s_mode=3` [`hero_doc_matter_mind.wgsl:523-541`](../../shaders/hero_doc_matter_mind.wgsl#L523-L541) Spin-Foam tetrahedra + Calabi-Yau loops + Compute Mode 5 foam + `far_shell` sub-Planck lattice, ignoring `doc_feat` and missing `1.6e-35 m` ruler / probe collapse), while `20 + (sc % 4)` routes **`Z12 quantumgravity`** (`12%4=0`) to **Classical Light Cones (`s_mode=0`)**, **`Z13 emergent`** (`13%4=1`) to **Mercury + Flamm's Well (`s_mode=1`)**, and **`Z14 origin`** (`14%4=2`) to **Binary BHs (`s_mode=2`)**!
-- **Card Tier Breakdown (`4` zones, `32` features):** Zones `0A / 1B / 3C / 0D` · Features `0A / 3B / 24C / 5D` (`8` features per zone).
+- **Primary Dispatch & Shader Coverage (Resolved):** [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) dispatches `Exp 14 Z11..=Z14` deterministically to canonical `vid = 2411..=2414` + companion `3759` (`Z12..=Z14`, keeping showcase `Z11` clear); [`hero_doc_matter_mind.wgsl`](../../shaders/hero_doc_matter_mind.wgsl) renders the Planck-scale caliper & Spin-Foam (`2411`), 8-candidate Quantum Gravity selector including `AdS/CFT` (`2412`), MERA hyperbolic tensor network (`2413`), and Hartle-Hawking smooth origin cap (`2414`) across `32/32` features.
+- **Card Tier Breakdown (`4` zones, `32` features):** Zones `4A / 0B / 0C / 0D` · Features `32A / 0B / 0C / 0D` (`8` features per zone).
 
 **Reserved Target IDs:**
 
@@ -774,7 +772,7 @@ Required Verification Gates Before Opening PR:
 
 **Spoken Transcript Summary & 3D Visual Blueprint:**
 
-#### `[TIER-B]` Exp `14` `Z11` `planck` — *La escala de Planck* / *The Planck scale* (`vid = 2411` | Feats: `0A / 3B / 0C / 5D`)
+#### `[TIER-A]` Exp `14` `Z11` `planck` — *La escala de Planck* / *The Planck scale* (`vid = 2411` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Geometría clásica posiblemente insuficiente" *(EN: "Classical geometry possibly insufficient")* · `evidence_class`: `Régimen no accesible experimentalmente` · `scene`: `None`
 - **Spoken Macro (ES // EN):** A escalas de Planck, combinar gravedad y incertidumbre cuántica indica que la imagen de un espacio-tiempo suave puede dejar de ser válida. No sabemos qué estructura la reemplaza. // *At Planck scales, combining gravity and quantum uncertainty indicates that the picture of a smooth spacetime may no longer be valid. We do not know what structure replaces it.*
 - **Rendered Today:** BESPOKE OVERRIDE (`z == 11 -> vid = 23` -> `s_mode = 3`, `doc_stages.rs:52`, `hero_doc_matter_mind.wgsl:523-541`): 3D Spin-Foam tetrahedral lattice + nodes + 2 Calabi-Yau coiled loops + Compute Mode 5 foam fluctuations + `far_shell` sub-Planck quantum grid.
@@ -792,7 +790,7 @@ Required Verification Gates Before Opening PR:
 | `6` | **topología** / *topology* | `[TIER-B]` | Algunas ideas permiten cambios o indeterminación en conectividad y topología; esto continúa siendo especulativo. // *Some ideas allow changes or indeterminacy in connectivity and topology; this remains speculative.* | Interconnected tetrahedral foam + Calabi-Yau knotted loops depict topological indeterminacy. | Oscillate fleeting topological wormhole handles flaring and pinching off at sub-Planck foam scale (`doc_feat == 6`). |
 | `7` | **límite clásico** / *classical limit* | `[TIER-D]` | La relatividad general trata la geometría como clásica y suave. En este régimen, esa aproximación probablemente deja de ser suficiente. // *General relativity treats geometry as classical and smooth. In this regime, that approximation is probably no longer sufficient.* | No smooth-averaging transition recovering classical GR manifold. | Apply low-pass optical zoom-out blurring foam fluctuations into smooth classical spacetime manifold (`doc_feat == 7`). |
 
-#### `[TIER-C]` Exp `14` `Z12` `quantumgravity` — *Caminos hacia la gravedad cuántica* / *Paths to quantum gravity* (`vid = 2412` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z12` `quantumgravity` — *Caminos hacia la gravedad cuántica* / *Paths to quantum gravity* (`vid = 2412` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Continuidad · discreción · unificación · causalidad · holografía" *(EN: "Continuity · discreteness · unification · causality · holography")* · `evidence_class`: `Modelos candidatos · ninguno confirmado` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Las propuestas exploran respuestas distintas y a veces complementarias. La aplicación no las clasifica como ganadoras: la evidencia todavía no identifica una teoría microscópica correcta del espacio-tiempo. // *The proposals explore different and sometimes complementary answers. This app does not rank them: evidence has not yet identified the correct microscopic theory of spacetime.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (12 % 4) = vid 20` -> **`s_mode = 0` (Classical Minkowski Light Cones + Worldline!!)** (`doc_stages.rs:53`).
@@ -810,7 +808,7 @@ Required Verification Gates Before Opening PR:
 | `6` | **gravedad emergente** / *emergent gravity* | `[TIER-C]` | Explora si la dinámica gravitatoria puede aparecer como fenómeno colectivo, informacional o termodinámico. // *It explores whether gravitational dynamics can emerge as a collective, informational, or thermodynamic phenomenon.* | Misrouted via `12 % 4 == 0` -> `s_mode=0` (Classical Minkowski Light Cones). | Drive curved geometric metric flux directly from holographic boundary thermodynamic entropy arrows (`doc_feat == 6`). |
 | `7` | **gravedad semiclásica** / *semiclassical gravity* | `[TIER-C]` | Mantiene una geometría clásica interactuando con campos cuánticos; funciona en ciertos regímenes, pero no es una teoría cuántica completa de la geometría. // *It maintains a classical geometry interacting with quantum fields; It works in certain regimes, but it is not a complete quantum theory of geometry.* | Misrouted via `12 % 4 == 0` -> `s_mode=0` (Classical Minkowski Light Cones). | Deform smooth curved classical grid via fuzzy green semiclassical QFT loop expectation stress-tensor (`doc_feat == 7`). |
 
-#### `[TIER-C]` Exp `14` `Z13` `emergent` — *Espacio-tiempo emergente* / *Emergent spacetime* (`vid = 2413` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z13` `emergent` — *Espacio-tiempo emergente* / *Emergent spacetime* (`vid = 2413` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Relaciones cuánticas → distancia, geometría y quizá tiempo" *(EN: "Quantum relations → distance, geometry and perhaps time")* · `evidence_class`: `Frontera activa de investigación` · `scene`: `None`
 - **Spoken Macro (ES // EN):** Quizá el espacio no sea el escenario fundamental de la realidad. Algunas líneas de investigación preguntan si distancia, conectividad y geometría emergen de entrelazamiento, información o relaciones cuánticas más profundas. // *Perhaps space is not the fundamental setting of reality. Some lines of research ask whether distance, connectivity, and geometry emerge from entanglement, information, or deeper quantum relationships.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (13 % 4) = vid 21` -> **`s_mode = 1` (Flamm's Paraboloid + Mercury Rosette Precession!!)** (`doc_stages.rs:53`).
@@ -828,7 +826,7 @@ Required Verification Gates Before Opening PR:
 | `6` | **tiempo emergente** / *emergent time* | `[TIER-C]` | El tiempo podría surgir de relaciones, cambios o estados termodinámicos; no existe una explicación única ni confirmada. // *Time could arise from relationships, changes, or thermodynamic states; there is no single confirmed explanation.* | Misrouted via `13 % 4 == 1` -> `s_mode=1` (Flamm's well + Mercury precession). | Advance clock subsystem hand slicing static entangled global state into emergent relational `t` (`doc_feat == 6`). |
 | `7` | **observador** / *observer* | `[TIER-C]` | Distintas descripciones pueden asignar geometrías aparentes diferentes sin contradecir las predicciones físicas compartidas. // *Different descriptions can assign different apparent geometries without contradicting shared physical predictions.* | Misrouted via `13 % 4 == 1` -> `s_mode=1` (Flamm's well + Mercury precession). | Flip dual observer encodings illustrating gauge/holographic complementarity without contradiction (`doc_feat == 7`). |
 
-#### `[TIER-C]` Exp `14` `Z14` `origin` — *El origen del espacio y del tiempo* / *The origin of space and time* (`vid = 2414` | Feats: `0A / 0B / 8C / 0D`)
+#### `[TIER-A]` Exp `14` `Z14` `origin` — *El origen del espacio y del tiempo* / *The origin of space and time* (`vid = 2414` | Feats: `8A / 0B / 0C / 0D`)
 - **Metadata:** `raw_metric`: "Más allá de la geometría confirmada" *(EN: "Beyond confirmed geometry")* · `evidence_class`: `Origen desconocido` · `scene`: `None`
 - **Spoken Macro (ES // EN):** La relatividad describe con enorme precisión cómo evoluciona el espacio-tiempo. La física cuántica describe partículas y campos. Todavía no poseemos una teoría confirmada que explique completamente cómo ambas descripciones forman una sola realidad. // *Relativity describes with enormous precision how spacetime evolves. Quantum physics describes particles and fields. We still lack a confirmed theory that fully explains how both descriptions form a single reality.*
 - **Rendered Today:** MODULO FALLBACK: `scene=None` -> `20 + (14 % 4) = vid 22` -> **`s_mode = 2` (Binary Black Hole Inspiral & GW Spirals!!)** (`doc_stages.rs:53`).
