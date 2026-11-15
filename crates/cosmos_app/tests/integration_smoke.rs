@@ -185,7 +185,9 @@ fn spatial_guide_renders_welcome_help_and_close_up_tour_controls() {
         }
         assert!(
             pixels
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .filter(|p| p[0] > 180 && p[1] > 180 && p[2] > 180)
                 .count()
                 > 500,
@@ -222,8 +224,10 @@ fn spatial_guide_renders_welcome_help_and_close_up_tour_controls() {
                 )
                 .expect("occlusion reference");
             let changed = close_pixels
-                .chunks_exact(4)
-                .zip(occluded.chunks_exact(4))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(occluded.as_chunks::<4>().0)
                 .filter(|(a, b)| a.iter().zip(b.iter()).any(|(x, y)| x.abs_diff(*y) > 24))
                 .count();
             assert!(
@@ -320,7 +324,9 @@ fn capture_guide_stereo(
             pixels.extend_from_slice(&data[offset..offset + (width * 4) as usize]);
         }
         let black = pixels
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .filter(|p| p[0] == 0 && p[1] == 0 && p[2] == 0)
             .count();
         assert!(
