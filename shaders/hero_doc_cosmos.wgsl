@@ -826,12 +826,29 @@ fn shade_doc_solar_planet_surface(
         return (m_col * (ndotl * 1.12 + 0.025) + inst.color_b.rgb * fresnel * 0.35) * inst.color_a.a;
     }
 
-    if (vid == 11u) {
-        // Exoplanet Biosignature World / Dying Star / Material Target
-        let n_t = fbm3(p_surf * 4.2 + vec3<f32>(time * 0.02), 4);
+    if (vid == 11u || vid == 3820u) {
+        // Exoplanet Biosignature World / Canonical Exp 21 Companion (`3820`) / Material Target
+        let sub = select(0u, doc_submode(inst), vid == 3820u);
+        let feat_f = f32(doc_feat(inst) & 7u);
+        let spin_p = doc_rot_y(p_surf, feat_f * 0.42);
+        let n_t = fbm3(spin_p * 4.2 + vec3<f32>(time * 0.02), 4);
         let bio_land = smoothstep(0.05, 0.25, n_t);
-        let col = mix(vec3<f32>(0.02, 0.12, 0.28), mix(inst.color_a.rgb, inst.color_b.rgb, clamp(0.5 + n_t, 0.0, 1.0)), bio_land);
-        return (col * (ndotl * 1.1 + 0.02) + inst.color_b.rgb * fresnel * 0.5) * inst.color_a.a;
+        var sea_c = vec3<f32>(0.02, 0.12, 0.28);
+        var atmo_c = inst.color_b.rgb;
+        if (sub == 3u) {
+            // False-positive volcanic / desiccated abiotic mimic
+            sea_c = vec3<f32>(0.16, 0.05, 0.03);
+            atmo_c = vec3<f32>(1.15, 0.46, 0.18);
+        } else if (sub == 2u) {
+            // Biosignature world with red-edge land + O2/O3 cyan limb
+            sea_c = vec3<f32>(0.02, 0.18, 0.34);
+            atmo_c = vec3<f32>(0.24, 1.18, 1.42);
+        } else if (sub == 1u) {
+            // Transiting Super-Earth ocean world
+            sea_c = vec3<f32>(0.04, 0.22, 0.42);
+        }
+        let col = mix(sea_c, mix(inst.color_a.rgb, atmo_c * 0.72, clamp(0.5 + n_t, 0.0, 1.0)), bio_land);
+        return (col * (ndotl * 1.1 + 0.02) + atmo_c * fresnel * 0.5) * inst.color_a.a;
     }
 
     if (vid == 12u) {
@@ -2275,6 +2292,8 @@ fn shade_doc_early_universe_stage(
         let slice_ret = (exp(-abs(r - 0.38) * 42.0) + exp(-abs(r - 0.50) * 42.0)) * (0.16 + 1.44 * f4);
         dens = (orbitals + he_sites + rays + fog_clear + slice_ret) * env_outer;
         neb_col = mix(vec3<f32>(0.24, 1.18, 1.52), vec3<f32>(1.48, 0.94, 0.34), clamp(he_sites * 1.2 + fog_clear, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.34, 1.54) * orbitals * g0 * 0.45
+            + vec3<f32>(1.52, 0.88, 0.32) * he_sites * g1 * 0.55
             + vec3<f32>(1.52, 1.18, 0.42) * rays * (0.55 + g2)
             + vec3<f32>(0.42, 1.38, 1.34) * slice_ret * g4;
     } else if (z_idx == 2u) {
@@ -2378,6 +2397,15 @@ fn shade_doc_early_universe_stage(
         neb_col = mix(vec3<f32>(0.42, 0.46, 1.48), vec3<f32>(0.28, 1.28, 1.46), clamp(spin_foam + p_blur, 0.0, 1.0))
             + vec3<f32>(1.48, 0.88, 0.34) * branches * (0.65 + g2)
             + vec3<f32>(1.28, 0.48, 1.52) * (no_sing * g3 + q_wisps * (0.65 + g4));
+    }
+
+    let ef = doc_feat(inst);
+    if (ef <= 5u) {
+        let fa = f32(ef) * 1.0471975 + f32(z_idx) * 0.45;
+        let fc = vec3<f32>(cos(fa) * 0.28, sin(fa) * 0.22, 0.08 * sin(fa * 2.0));
+        let f_node = exp(-length(p - fc) * 12.0) + exp(-abs(length(p.xy - fc.xy) - 0.12) * 38.0) * exp(-abs(p.z) * 18.0);
+        dens += f_node * 0.55 * env_outer;
+        neb_col += hsl_to_rgb(fract(0.08 + f32(ef) * 0.16 + f32(z_idx) * 0.07), 0.92, 0.56) * f_node * 0.95;
     }
 
     return doc_cosmo_finish(neb_col, dens);

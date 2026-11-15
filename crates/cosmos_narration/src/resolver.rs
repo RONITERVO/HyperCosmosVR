@@ -1228,6 +1228,12 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "nucleosynthesis", "deuterio", "deuterium", "helio", "helium", "litio", "lithium", "lepton",
     "positron", "neutrino", "antimateria", "antimatter", "gluon", "electrodebil", "electroweak",
     "boson", "cuantica", "quantum", "singularidad", "singularity",
+    "astrobiologia", "astrobiology", "habitabilidad", "habitability", "agua", "water",
+    "exoplaneta", "exoplanet", "biofirma", "biosignature", "extremofilo", "extremophile",
+    "transito", "transit", "espectro", "spectrum", "biosfera", "biosphere",
+    "tecnofirma", "technosignature", "fermi", "filtro", "filter", "protocelula", "protocell",
+    "abiogenesis", "prebiotica", "prebiotic", "eucariota", "eukaryote",
+    "estromatolito", "stromatolite",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

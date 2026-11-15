@@ -95,6 +95,7 @@ pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool
             | (8, 0..=10)
             | (9, 0..=10)
             | (10, 0..=8)
+            | (21, 0..=24)
     )
 }
 
@@ -906,7 +907,12 @@ pub fn emit_doc_stage_hero(
     heroes_volume: &mut Vec<HeroVolumeInstance>,
     sprites: &mut Vec<SpriteInstance>,
 ) {
-    let doc = &input.documentary;
+    let default_doc = DocumentaryFocusState::default();
+    let doc = if input.active_experience_id == 0 || experience_id == input.active_experience_id {
+        &input.documentary
+    } else {
+        &default_doc
+    };
     let accent = experience_accent_linear(experience_id);
     let zone_c = active_zone_color(doc, accent);
     let u_cam = input.cam_pose.scale_exp as f32;
@@ -1215,7 +1221,11 @@ pub fn emit_doc_stage_hero(
             let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
             let r_g = rel_scale.clamp(0.04, max_r);
             let stage_vid = resolve_zone_shader_vid(experience_id, doc);
-            let submode = (doc.active_zone_index as u32).min(31);
+            let submode = if doc.active_zone_index != u16::MAX {
+                (doc.active_zone_index as u32).min(31)
+            } else {
+                0
+            };
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_g],
                 rot_quat,
@@ -1271,6 +1281,11 @@ pub fn emit_doc_stage_hero(
             let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
             let r_g = (rel_scale * 0.88).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
+            let submode = if doc.active_zone_index != u16::MAX {
+                (doc.active_zone_index as u32).min(31)
+            } else {
+                0
+            };
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_g],
                 rot_quat: face_quat,
@@ -1278,31 +1293,57 @@ pub fn emit_doc_stage_hero(
                 color_b: [zone_c.x, zone_c.y, zone_c.z, 0.95],
                 phys_a: [input.time_sec * 0.2, 0.0, 0.8, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(9, vid, 0, 0, doc),
+                kind_tags: pack_doc_tags(9, vid, 0, submode, doc),
             });
 
-            if experience_id == 21 && doc.active_zone_index != 12 {
-                // Orbiting Habitable Exoplanet + Cracked Ice Ocean World tucked cleanly beside Goldilocks Ring
-                let exo_p = pos + stage_right * (r_g * 0.56);
-                heroes_surface.push(HeroVolumeInstance {
-                    pos_radius: [exo_p.x, exo_p.y, exo_p.z, (r_g * 0.13).clamp(0.03, 2.0)],
-                    rot_quat: face_quat,
-                    color_a: [0.22, 0.78, 0.48, 1.15],
-                    color_b: [0.35, 0.95, 1.35, 1.0],
-                    phys_a: [input.time_sec * 0.05, 0.0, 0.0, dwell],
-                    phys_b: sun,
-                    kind_tags: pack_doc_tags(1, 11, 0, 0, doc),
-                });
-                let eur_p = pos - stage_right * (r_g * 0.56);
-                heroes_surface.push(HeroVolumeInstance {
-                    pos_radius: [eur_p.x, eur_p.y, eur_p.z, (r_g * 0.11).clamp(0.03, 1.6)],
-                    rot_quat: face_quat,
-                    color_a: [0.72, 0.84, 0.94, 1.1],
-                    color_b: [0.22, 1.25, 1.65, 1.0],
-                    phys_a: [input.time_sec * 0.05, 0.0, 0.0, dwell],
-                    phys_b: sun,
-                    kind_tags: pack_doc_tags(1, 10, 0, 0, doc),
-                });
+            if experience_id == 21 {
+                if doc.active_zone_index == u16::MAX {
+                    // Legacy overview fallback: flanking Habitable Exoplanet + Cracked Ice Moon
+                    let exo_p = pos + stage_right * (r_g * 0.56);
+                    heroes_surface.push(HeroVolumeInstance {
+                        pos_radius: [exo_p.x, exo_p.y, exo_p.z, (r_g * 0.13).clamp(0.03, 2.0)],
+                        rot_quat: face_quat,
+                        color_a: [0.22, 0.78, 0.48, 1.15],
+                        color_b: [0.35, 0.95, 1.35, 1.0],
+                        phys_a: [input.time_sec * 0.05, 0.0, 0.0, dwell],
+                        phys_b: sun,
+                        kind_tags: pack_doc_tags(1, 11, 0, 0, doc),
+                    });
+                    let eur_p = pos - stage_right * (r_g * 0.56);
+                    heroes_surface.push(HeroVolumeInstance {
+                        pos_radius: [eur_p.x, eur_p.y, eur_p.z, (r_g * 0.11).clamp(0.03, 1.6)],
+                        rot_quat: face_quat,
+                        color_a: [0.72, 0.84, 0.94, 1.1],
+                        color_b: [0.22, 1.25, 1.65, 1.0],
+                        phys_a: [input.time_sec * 0.05, 0.0, 0.0, dwell],
+                        phys_b: sun,
+                        kind_tags: pack_doc_tags(1, 10, 0, 0, doc),
+                    });
+                } else if matches!(doc.active_zone_index, 4 | 13 | 14 | 15) {
+                    // Canonical Tier-A Exp 21 companion planet sphere (`vid=3820`) for planetary/biosignature zones only
+                    let comp_sub = match doc.active_zone_index {
+                        4 => 0,
+                        13 => 1,
+                        14 => 2,
+                        _ => 3,
+                    };
+                    let comp_p = pos + stage_right * (r_g * 0.62);
+                    let (col_a, col_b) = match comp_sub {
+                        3 => ([0.62, 0.24, 0.14, 1.15], [1.25, 0.52, 0.22, 1.0]),
+                        2 => ([0.18, 0.78, 0.56, 1.15], [0.28, 1.18, 1.48, 1.0]),
+                        1 => ([0.34, 0.56, 0.88, 1.15], [0.55, 0.96, 1.38, 1.0]),
+                        _ => ([0.22, 0.78, 0.48, 1.15], [0.35, 0.95, 1.35, 1.0]),
+                    };
+                    heroes_surface.push(HeroVolumeInstance {
+                        pos_radius: [comp_p.x, comp_p.y, comp_p.z, (r_g * 0.13).clamp(0.03, 1.8)],
+                        rot_quat: face_quat,
+                        color_a: col_a,
+                        color_b: col_b,
+                        phys_a: [input.time_sec * 0.05, 0.0, 0.0, dwell],
+                        phys_b: sun,
+                        kind_tags: pack_doc_tags(1, canonical_companion_vid(21, 0), 0, comp_sub, doc),
+                    });
+                }
             }
         }
     }
