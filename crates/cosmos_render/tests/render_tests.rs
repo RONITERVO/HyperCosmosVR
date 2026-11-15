@@ -863,14 +863,14 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     let saturn_body = saturn_scene
         .heroes_surface
         .iter()
-        .find(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == 2)
-        .expect("Exp 4 Saturn shot must emit Saturn surface hero (kind=1, vid=2)");
+        .find(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == 1407)
+        .expect("Exp 4 Saturn shot must emit canonical Saturn surface hero (kind=1, vid=1407)");
     assert!(
         saturn_scene
             .heroes_volume
             .iter()
-            .any(|h| h.kind_tags[0] == 2 && h.kind_tags[1] == 2),
-        "Exp 4 Saturn shot must emit Saturn Cassini/Encke ring (kind=2, vid=2)"
+            .any(|h| h.kind_tags[0] == 2 && h.kind_tags[1] == 1407),
+        "Exp 4 Saturn shot must emit canonical Saturn Cassini/Encke ring (kind=2, vid=1407)"
     );
     let saturn_dist = Vec3::from_slice(&saturn_body.pos_radius[..3]).length();
     assert!(
@@ -970,13 +970,24 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
 
     let mut comp_vids = HashSet::new();
     for exp_id in 1u8..=25u8 {
-        for slot in 0u8..10u8 {
+        let max_slots: u8 = match exp_id {
+            1..=3 => 10,
+            4 | 5 => 12,
+            6 => 9,
+            7 => 10,
+            8..=10 => 3,
+            _ => 10,
+        };
+        for slot in 0u8..max_slots {
             let cvid = canonical_companion_vid(exp_id, slot);
             assert!(
                 (3600..=3869).contains(&cvid),
                 "companion vid {cvid} out of [3600..=3869]"
             );
-            assert!(comp_vids.insert(cvid), "duplicate companion vid {cvid}");
+            assert!(
+                comp_vids.insert(cvid),
+                "duplicate companion vid {cvid} for exp {exp_id} slot {slot}"
+            );
         }
     }
 
@@ -1001,7 +1012,7 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
     assert_eq!((tags[3] >> 2) & 0x3F, 0b01_0101, "6-bit cue_tags_mask must pack into bits 2..7");
     assert_eq!((tags[3] >> 24) & 0xFF, 7, "submode_override must populate bits 24..31 when submode==0");
 
-    // 3. Exp 05 canonical GalacticLandmark IDs (3640..=3649) & Exp 12 un-bypassed primary stage (kind=9, vid=120..=124)
+    // 3. Exp 05 canonical GalacticLandmark IDs (3660..=3671) & Exp 12 un-bypassed primary stage (kind=9, vid=120..=124)
     {
         use cosmos_math::CameraRelativePose;
         use cosmos_render::doc_stages::{emit_celestial_or_landmark, emit_doc_stage_hero};
@@ -1040,8 +1051,8 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             assert_eq!(hv.len(), 1, "Exp 05 zone {z} must emit 1 landmark volume hero");
             assert_eq!(
                 hv[0].kind_tags[1],
-                canonical_companion_vid(5, (z as u8).min(9)),
-                "Exp 05 landmark must use canonical companion vid 3640..=3649"
+                canonical_companion_vid(5, (z as u8).min(11)),
+                "Exp 05 landmark must use canonical companion vid 3660..=3671"
             );
             assert_eq!(
                 (hv[0].kind_tags[3] >> 24) & 0xFF,
@@ -1084,7 +1095,7 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             if matches!(z, 5..=7) {
                 assert!(
                     hv.iter().any(|h| h.kind_tags[0] == 4 && h.kind_tags[1] == canonical_companion_vid(12, 0)),
-                    "Exp 12 black-hole era zone {z} must keep flanking BH companion 3710"
+                    "Exp 12 black-hole era zone {z} must keep flanking BH companion 3730"
                 );
             }
         }
@@ -1190,6 +1201,152 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 assert_ne!(
                     renders[i], renders[j],
                     "Exp 03 Z{zone:02} features F{i} and F{j} must render distinctly"
+                );
+            }
+        }
+    }
+
+    // 5. Exp 04 Solar System full 12-zone (Z00..=Z11) [TIER-A] routing, companions (3640..=3651), and 60/60 feature GPU verification
+    for z in 0u16..=11u16 {
+        assert!(
+            is_zone_migrated_tier_a(4, z),
+            "Exp 04 Z{z:02} must be migrated Tier-A"
+        );
+    }
+    let mut solar_idx = build_default_universe_index();
+    for zi in 0u16..=11u16 {
+        let (local_pos, body_u, radius_m) =
+            cosmos_spatial::solar_body_local_pose(zi, (zi as f32) / 11.0, 0.05, 35.0);
+        let _ = solar_idx.insert_entity(cosmos_spatial::SpatialEntity {
+            id: 95_000 + zi as u64,
+            experience_id: 4,
+            zone_index: zi,
+            feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM,
+            local_pos,
+            orient: DQuat::IDENTITY,
+            radius_m,
+            scale_exp: body_u,
+            kind: cosmos_spatial::EntityKind::CelestialBody,
+            salience_weight: 1.65,
+        });
+    }
+    for zone in 0u16..=11u16 {
+        let ent = solar_idx
+            .find_zone_entity(4, zone)
+            .expect("Exp 04 Solar System zone entity must exist");
+        let (eye, target) = if zone == 0 {
+            (ent.local_pos + DVec3::new(-1.15, 0.42, 0.75), ent.local_pos)
+        } else {
+            let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
+            let tang = DVec3::new(-rad.z, 0.0, rad.x);
+            let offset = match zone {
+                1 => -rad * 0.21 + tang * 0.22 + DVec3::Y * 0.08,
+                2 => -rad * 0.30 + tang * 0.46 + DVec3::Y * 0.18,
+                5 | 7 | 10 => -rad * 0.38 + tang * 0.90 + DVec3::Y * 0.36,
+                _ => -rad * 0.34 + tang * 0.78 + DVec3::Y * 0.30,
+            };
+            let t_shift = if zone >= 3 {
+                tang * -0.05 + DVec3::Y * 0.02
+            } else {
+                DVec3::ZERO
+            };
+            (ent.local_pos + offset, ent.local_pos + t_shift)
+        };
+        let look = (target - eye).normalize().as_vec3();
+        let cam_q = Quat::from_rotation_arc(Vec3::NEG_Z, look);
+        let cam = RenderCamera::mono(cam_q, 72.0_f32.to_radians(), 1.0, 0.02);
+
+        let mut renders = Vec::with_capacity(5);
+        for feat in 0u16..5u16 {
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::SOLAR_SYSTEM, eye, 10.72, DQuat::IDENTITY),
+                cam,
+                384,
+                384,
+            );
+            input.active_experience_id = 4;
+            input.documentary = DocumentaryFocusState {
+                active_zone_index: zone,
+                active_feature_index: feat,
+                scene_index: -1,
+                narration_cue_progress: 0.68,
+                narration_active_weight: 0.92,
+                zone_accent_rgb: [0.35, 0.95, 1.45],
+                telemetry: [0.0; 4],
+                cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                submode_override: 0,
+                emphasis_boost: 1.0,
+            };
+            let scene = builder.build(&solar_idx, &input);
+            let expected_vid = 1400 + zone as u32;
+            let expected_kind = if zone == 3 { 0u32 } else { 1u32 };
+            assert!(
+                scene
+                    .heroes_surface
+                    .iter()
+                    .any(|h| h.kind_tags[0] == expected_kind && h.kind_tags[1] == expected_vid),
+                "Exp 04 Z{zone:02} F{feat} must emit primary surface hero (kind={expected_kind}, vid={expected_vid})"
+            );
+            if zone >= 3 {
+                let comp_vid = 3640 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_surface
+                        .iter()
+                        .chain(scene.heroes_volume.iter())
+                        .any(|h| h.kind_tags[1] == comp_vid),
+                    "Exp 04 Z{zone:02} F{feat} must emit canonical companion (vid={comp_vid})"
+                );
+            }
+            if zone == 7 && feat == 4 {
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == 3647),
+                    "Exp 04 Saturn Z07 F4 must emit Enceladus cryo-plume volume hero (kind=3, vid=3647)"
+                );
+            }
+            if zone == 10 && feat == 4 {
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == 3650),
+                    "Exp 04 Kuiper Z10 F4 must emit comet tail volume hero (kind=3, vid=3650)"
+                );
+            }
+
+            let px = renderer
+                .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                .expect("Exp 04 offscreen render");
+            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let blown_px = px
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                .count();
+            assert!(
+                void_px * 100 >= total_px * 58,
+                "Exp 04 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
+            );
+            assert!(
+                lit_px > 180,
+                "Exp 04 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
+            );
+            assert!(
+                blown_px * 1000 < total_px * 5,
+                "Exp 04 Z{zone:02} F{feat} must avoid highlight blowout, got {blown_px}"
+            );
+            renders.push(px);
+        }
+        for i in 0..5 {
+            for j in (i + 1)..5 {
+                assert_ne!(
+                    renders[i], renders[j],
+                    "Exp 04 Z{zone:02} features F{i} and F{j} must render distinctly"
                 );
             }
         }

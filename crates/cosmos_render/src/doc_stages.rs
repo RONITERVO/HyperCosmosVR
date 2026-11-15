@@ -60,19 +60,32 @@ pub const fn canonical_zone_vid(experience_id: u8, zone_index: u16) -> u32 {
 }
 
 /// Zero-Conflict Shader ID Registry: canonical companion/overlay geometry variant ID (`3600..=3869`)
-/// for `(experience_id 1..=25, slot 0..=9)`.
+/// matching the Pre-Allocated Companion Block table in `docs/CONTRIBUTOR_VISUAL_ROADMAP.md`.
 #[inline]
 pub const fn canonical_companion_vid(experience_id: u8, slot: u8) -> u32 {
-    let exp_offset = experience_id.saturating_sub(1) as u32;
-    let clamped_slot = if slot > 9 { 9 } else { slot as u32 };
-    3600 + exp_offset * 10 + clamped_slot
+    const fn clamp_u32(v: u32, max_v: u32) -> u32 {
+        if v > max_v { max_v } else { v }
+    }
+    let s = slot as u32;
+    match experience_id {
+        1 => 3600 + clamp_u32(s, 9),
+        2 => 3610 + clamp_u32(s, 9),
+        3 => 3620 + clamp_u32(s, 9),
+        4 => 3640 + clamp_u32(s, 11),
+        5 => 3660 + clamp_u32(s, 11),
+        6 => 3680 + clamp_u32(s, 8),
+        7 => 3700 + clamp_u32(s, 9),
+        8..=10 => 3710 + ((experience_id - 8) as u32) * 3 + clamp_u32(s, 2),
+        11..=25 => 3720 + ((experience_id - 11) as u32) * 10 + clamp_u32(s, 9),
+        _ => 3600 + clamp_u32(s, 9),
+    }
 }
 
 /// Returns `true` when `(experience_id, zone_index)` has been upgraded to its bespoke `[TIER-A]`
 /// canonical shader ID (`1100..=3599`) and `doc_feat(inst)` sub-staging.
 #[inline]
 pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool {
-    matches!((experience_id, zone_index), (3, 0..=13))
+    matches!((experience_id, zone_index), (3, 0..=13) | (4, 0..=11))
 }
 
 /// Dispatches canonical `vid` (`1100..=3599`) for `[TIER-A]` migrated zones while preserving
@@ -191,8 +204,33 @@ fn normalized_music_telemetry(doc: &DocumentaryFocusState, synth_b: [f32; 4]) ->
     ([pitch_01, timbre as f32, amp, 1.0], timbre)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn push_solar_companion(
+    heroes_surface: &mut Vec<HeroVolumeInstance>,
+    pos: Vec3,
+    radius: f32,
+    rot_arr: [f32; 4],
+    color_a: [f32; 4],
+    color_b: [f32; 4],
+    phys_a: [f32; 4],
+    sun: [f32; 4],
+    comp_vid: u32,
+    submode: u32,
+    doc: &DocumentaryFocusState,
+) {
+    heroes_surface.push(HeroVolumeInstance {
+        pos_radius: [pos.x, pos.y, pos.z, radius],
+        rot_quat: rot_arr,
+        color_a,
+        color_b,
+        phys_a,
+        phys_b: sun,
+        kind_tags: pack_doc_tags(1, comp_vid, 0, submode, doc),
+    });
+}
+
 /// Maps `cosmos_spatial` solar bodies (`SolarSystem` `exp 4` / `CelestialBody`) cleanly
-/// onto their analytical surface/ring shader variants.
+/// onto their analytical surface/ring shader variants and `[TIER-A]` `1400..=1411` + `3640..=3651` stages.
 pub fn emit_celestial_or_landmark(
     vis: &VisibleEntity,
     input: &SceneBuildInput,
@@ -208,6 +246,8 @@ pub fn emit_celestial_or_landmark(
     let sun = [sun_dir.x, sun_dir.y, sun_dir.z, 1.0];
     let rot = vis.pose.orient;
     let rot_arr = [rot.x, rot.y, rot.z, rot.w];
+    let stage_right = input.camera.cam_right.normalize_or(Vec3::X);
+    let stage_up = input.camera.cam_up.normalize_or(Vec3::Y);
 
     if vis.kind == EntityKind::CelestialBody {
         // Prevent Solar System bodies (which share EARTH_ORBIT / lower shell pad)
@@ -220,6 +260,15 @@ pub fn emit_celestial_or_landmark(
             // 12 Solar System zones (0:Sun, 1:Mercury, 2:Venus, 3:Earth, 4:Mars,
             // 5:Asteroid Belt, 6:Jupiter, 7:Saturn, 8:Uranus, 9:Neptune, 10:Kuiper Belt, 11:Pluto)
             let body_idx = vis.zone_index as u32;
+            let is_active_body = input.documentary.active_zone_index == vis.zone_index;
+            let body_doc = if is_active_body {
+                input.documentary
+            } else {
+                DocumentaryFocusState::default()
+            };
+            let canon_vid = canonical_zone_vid(4, vis.zone_index);
+            let comp_vid = canonical_companion_vid(4, (vis.zone_index as u8).min(11));
+
             let max_r = (dist * 0.42).clamp(0.04, 10.0);
             let floor_r = match body_idx {
                 0 => (dist * 0.014).clamp(0.04, 0.14),
@@ -227,8 +276,11 @@ pub fn emit_celestial_or_landmark(
                 _ => (dist * 0.0048).clamp(0.022, 0.056),
             };
             let r_b = vis.pose.rel_scale.max(floor_r).clamp(0.022, max_r);
+            let max_comp_r = (dist * 0.16).clamp(0.02, 0.42);
             match body_idx {
                 0 => {
+                    let surf_vid = if is_active_body { canon_vid } else { 1 };
+                    let vol_vid = if is_active_body { canon_vid } else { 4 };
                     heroes_surface.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b],
                         rot_quat: rot_arr,
@@ -236,7 +288,7 @@ pub fn emit_celestial_or_landmark(
                         color_b: [1.45, 0.48, 0.10, 1.0],
                         phys_a: [input.time_sec * 0.04, 0.0, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(1, 1, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(1, surf_vid, 0, 0, &body_doc),
                     });
                     heroes_volume.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b * 1.30],
@@ -245,12 +297,14 @@ pub fn emit_celestial_or_landmark(
                         color_b: [1.45, 0.42, 0.10, 0.85],
                         phys_a: [input.time_sec * 0.04, 0.0, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(3, 4, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(3, vol_vid, 0, 0, &body_doc),
                     });
                     return;
                 }
                 3 => {
-                    // Earth inside Solar System
+                    // Earth inside Solar System (`1403` + orbiting Moon & dipolar magnetosphere `3643`)
+                    let surf_vid = if is_active_body { canon_vid } else { 0 };
+                    let earth_submode = if is_active_body { 2 } else { 0 };
                     heroes_surface.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b],
                         rot_quat: rot_arr,
@@ -258,28 +312,58 @@ pub fn emit_celestial_or_landmark(
                         color_b: [0.16, 0.58, 1.45, 1.0],
                         phys_a: [input.time_sec * 0.05, 0.409, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(0, 0, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(0, surf_vid, 0, earth_submode, &body_doc),
                     });
+                    if is_active_body {
+                        let shell_mul = 1.22_f32;
+                        heroes_volume.push(HeroVolumeInstance {
+                            pos_radius: [pos.x, pos.y, pos.z, r_b * shell_mul],
+                            rot_quat: rot_arr,
+                            color_a: [0.15, 2.2, 0.9, 1.2],
+                            color_b: [1.1, 0.24, 2.0, 1.0],
+                            phys_a: [input.time_sec * 0.03, 0.84 / shell_mul, 0.0, dwell],
+                            phys_b: sun,
+                            kind_tags: pack_doc_tags(0, canon_vid, 0, 3, &body_doc),
+                        });
+                        let m_ang = input.time_sec * 0.18;
+                        let moon_pos = pos
+                            - stage_right * (r_b * (1.85 + 0.10 * m_ang.cos()))
+                            + stage_up * (r_b * (0.68 + 0.06 * m_ang.sin()));
+                        push_solar_companion(
+                            heroes_surface,
+                            moon_pos,
+                            (r_b * 0.24).clamp(0.015, max_comp_r),
+                            rot_arr,
+                            [0.72, 0.72, 0.74, 1.05],
+                            [0.36, 0.36, 0.38, 1.0],
+                            [input.time_sec * 0.02, 0.0, 0.0, dwell],
+                            sun,
+                            comp_vid,
+                            0,
+                            &body_doc,
+                        );
+                    }
                     return;
                 }
                 5 | 10 => {
-                    // Asteroid Belt (5: Ceres + rocky debris ring) & Kuiper Belt (10: icy dwarf + icy ring)
+                    // Asteroid Belt (5: Ceres + Vesta/Psyche `3645` + Kirkwood disk) & Kuiper Belt (10: frosted KBO + Haumea/Makemake/Comet `3650`)
                     let is_kuiper = body_idx == 10;
                     let body_r = (r_b * 0.44).clamp(0.03, 1.2);
                     let ring_tilt = Quat::from_euler(glam::EulerRot::XYZ, 0.35, 0.15, 0.08);
                     let rq = [ring_tilt.x, ring_tilt.y, ring_tilt.z, ring_tilt.w];
-                    let (vid, ca, cb, r_col_a, r_col_b, shard_col) = if is_kuiper {
+                    let legacy_vid = if is_kuiper { 10 } else { 3 };
+                    let surf_vid = if is_active_body { canon_vid } else { legacy_vid };
+                    let ring_vid = if is_active_body { canon_vid } else { 1 };
+                    let (ca, cb, r_col_a, r_col_b, shard_col) = if is_kuiper {
                         (
-                            10,
                             [0.72, 0.84, 0.95, 1.10],
-                            [0.22, 1.25, 1.65, 1.0],
+                            [0.52, 0.26, 0.18, 1.0],
                             [0.45, 0.85, 1.15, 0.62],
                             [0.62, 0.96, 1.25, 0.62],
                             [0.52, 0.88, 1.22, 0.90],
                         )
                     } else {
                         (
-                            3,
                             [0.54, 0.49, 0.43, 1.05],
                             [0.30, 0.27, 0.23, 1.0],
                             [0.76, 0.62, 0.46, 0.58],
@@ -294,7 +378,7 @@ pub fn emit_celestial_or_landmark(
                         color_b: cb,
                         phys_a: [input.time_sec * 0.04, 0.12, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(1, vid, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(1, surf_vid, 0, body_idx, &body_doc),
                     });
                     heroes_volume.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, body_r * 2.35],
@@ -303,12 +387,56 @@ pub fn emit_celestial_or_landmark(
                         color_b: r_col_b,
                         phys_a: [0.0, 0.35, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(2, 1, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(2, ring_vid, 0, body_idx, &body_doc),
                     });
+                    if is_active_body {
+                        let comp_r = (body_r * 0.38).clamp(0.014, max_comp_r);
+                        let comp_pos = pos - stage_right * (body_r * 1.48) + stage_up * (body_r * 0.46);
+                        let (comp_ca, comp_cb) = if is_kuiper {
+                            ([0.86, 0.88, 0.92, 1.10], [0.42, 0.78, 1.15, 1.0])
+                        } else {
+                            ([0.62, 0.58, 0.54, 1.08], [0.85, 0.88, 0.94, 1.0])
+                        };
+                        push_solar_companion(
+                            heroes_surface,
+                            comp_pos,
+                            comp_r,
+                            rot_arr,
+                            comp_ca,
+                            comp_cb,
+                            [input.time_sec * 0.08, 0.25, 0.0, dwell],
+                            sun,
+                            comp_vid,
+                            body_doc.active_feature_index.min(4) as u32,
+                            &body_doc,
+                        );
+                        if is_kuiper && body_doc.active_feature_index == 4 {
+                            heroes_volume.push(HeroVolumeInstance {
+                                pos_radius: [comp_pos.x, comp_pos.y, comp_pos.z, comp_r * 2.6],
+                                rot_quat: rot_arr,
+                                color_a: [0.32, 0.92, 1.65, 1.10],
+                                color_b: [1.45, 0.96, 0.42, 0.92],
+                                phys_a: [input.time_sec * 0.08, 0.0, 0.0, dwell],
+                                phys_b: sun,
+                                kind_tags: pack_doc_tags(3, comp_vid, 0, 4, &body_doc),
+                            });
+                        }
+                    }
                     let spread = r_b.clamp(0.08, 1.6);
+                    let is_family_cluster =
+                        is_active_body && !is_kuiper && body_doc.active_feature_index == 3;
                     for j in 0..7 {
-                        let a = (j as f32 / 7.0) * std::f32::consts::TAU + (vis.id % 17) as f32 * 0.37;
-                        let rad = spread * (0.42 + 0.14 * ((j % 3) as f32));
+                        let a = if is_family_cluster {
+                            0.42 + (j as f32 - 3.0) * 0.14
+                        } else {
+                            (j as f32 / 7.0) * std::f32::consts::TAU
+                                + (vis.id % 17) as f32 * 0.37
+                        };
+                        let rad = if is_family_cluster {
+                            spread * (0.58 + 0.04 * ((j % 3) as f32))
+                        } else {
+                            spread * (0.42 + 0.14 * ((j % 3) as f32))
+                        };
                         let off = Vec3::new(a.cos() * rad, ((j as f32 * 1.9).sin()) * rad * 0.18, a.sin() * rad);
                         let rock_sz = (spread * (0.045 + 0.015 * ((j % 3) as f32))).clamp(0.006, 0.065);
                         sprites.push(SpriteInstance {
@@ -321,55 +449,117 @@ pub fn emit_celestial_or_landmark(
                     return;
                 }
                 7 => {
-                    // Saturn + Cassini/Encke Ring Plane
+                    // Saturn + Cassini/B-ring + Titan/Enceladus companions (`1407` / `3647`)
                     let ring_tilt = Quat::from_euler(glam::EulerRot::XYZ, 0.47, 0.2, 0.15);
                     let rq = [ring_tilt.x, ring_tilt.y, ring_tilt.z, ring_tilt.w];
+                    let surf_vid = if is_active_body { canon_vid } else { 2 };
+                    let ring_vid = if is_active_body { canon_vid } else { 2 };
                     heroes_surface.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b],
                         rot_quat: rq,
                         color_a: [0.88, 0.75, 0.50, 1.1],
                         color_b: [0.65, 0.58, 0.44, 1.0],
-                        phys_a: [0.0, 0.47, 0.0, dwell],
+                        phys_a: [input.time_sec * 0.04, 0.47, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(1, 2, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(1, surf_vid, 0, 0, &body_doc),
                     });
                     heroes_volume.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b * 2.25],
                         rot_quat: rq,
                         color_a: [0.95, 0.84, 0.62, 1.15],
                         color_b: [0.48, 0.56, 0.78, 1.0],
-                        phys_a: [0.0, 0.47, 0.0, dwell],
+                        phys_a: [input.time_sec * 0.04, 0.47, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(2, 2, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(2, ring_vid, 0, 0, &body_doc),
                     });
+                    if is_active_body {
+                        let titan_pos = pos - stage_right * (r_b * 2.42) + stage_up * (r_b * 0.78);
+                        push_solar_companion(
+                            heroes_surface,
+                            titan_pos,
+                            (r_b * 0.16).clamp(0.014, max_comp_r),
+                            rot_arr,
+                            [0.95, 0.60, 0.22, 1.10],
+                            [1.15, 0.76, 0.28, 1.0],
+                            [input.time_sec * 0.02, 0.0, 0.0, dwell],
+                            sun,
+                            comp_vid,
+                            0,
+                            &body_doc,
+                        );
+                        let enc_r = (r_b * 0.11).clamp(0.011, max_comp_r);
+                        let enc_pos = pos + stage_right * (r_b * 2.36) - stage_up * (r_b * 0.52);
+                        push_solar_companion(
+                            heroes_surface,
+                            enc_pos,
+                            enc_r,
+                            rot_arr,
+                            [0.86, 0.94, 1.02, 1.12],
+                            [0.32, 0.92, 1.35, 1.0],
+                            [input.time_sec * 0.03, 0.0, 0.0, dwell],
+                            sun,
+                            comp_vid,
+                            1,
+                            &body_doc,
+                        );
+                        if body_doc.active_feature_index == 4 {
+                            heroes_volume.push(HeroVolumeInstance {
+                                pos_radius: [enc_pos.x, enc_pos.y, enc_pos.z, (enc_r * 2.15).clamp(0.02, max_comp_r * 1.4)],
+                                rot_quat: rot_arr,
+                                color_a: [0.38, 1.15, 1.65, 1.10],
+                                color_b: [0.78, 0.95, 1.15, 0.95],
+                                phys_a: [input.time_sec * 0.25, 0.0, 0.0, dwell],
+                                phys_b: sun,
+                                kind_tags: pack_doc_tags(3, comp_vid, 0, 4, &body_doc),
+                            });
+                        }
+                    }
                     return;
                 }
                 8 => {
-                    // Uranus + Delicate Ring
+                    // Uranus + dark charcoal epsilon rings + Miranda companion (`1408` / `3648`)
                     let tilt_u = Quat::from_euler(glam::EulerRot::XYZ, 1.71, 0.1, 0.0);
                     let uq = [tilt_u.x, tilt_u.y, tilt_u.z, tilt_u.w];
+                    let surf_vid = if is_active_body { canon_vid } else { 7 };
+                    let ring_vid = if is_active_body { canon_vid } else { 1 };
                     heroes_surface.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b],
                         rot_quat: uq,
                         color_a: [0.42, 0.85, 0.94, 1.1],
                         color_b: [0.58, 0.96, 1.05, 1.0],
-                        phys_a: [0.0, 1.71, 0.0, dwell],
+                        phys_a: [input.time_sec * 0.03, 1.71, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(1, 7, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(1, surf_vid, 0, body_idx, &body_doc),
                     });
                     heroes_volume.push(HeroVolumeInstance {
                         pos_radius: [pos.x, pos.y, pos.z, r_b * 1.85],
                         rot_quat: uq,
-                        color_a: [0.48, 0.85, 0.95, 0.75],
-                        color_b: [0.65, 0.95, 1.1, 0.75],
-                        phys_a: [0.0, 1.71, 0.0, dwell],
+                        color_a: [0.22, 0.25, 0.28, 0.60],
+                        color_b: [0.34, 0.38, 0.42, 0.60],
+                        phys_a: [input.time_sec * 0.03, 1.71, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(2, 1, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(2, ring_vid, 0, body_idx, &body_doc),
                     });
+                    if is_active_body {
+                        let miranda_pos = pos + stage_right * (r_b * 1.56) + stage_up * (r_b * 0.56);
+                        push_solar_companion(
+                            heroes_surface,
+                            miranda_pos,
+                            (r_b * 0.18).clamp(0.012, max_comp_r),
+                            rot_arr,
+                            [0.64, 0.68, 0.72, 1.08],
+                            [0.36, 0.42, 0.48, 1.0],
+                            [input.time_sec * 0.04, 0.0, 0.0, dwell],
+                            sun,
+                            comp_vid,
+                            0,
+                            &body_doc,
+                        );
+                    }
                     return;
                 }
                 _ => {
-                    let vid = match body_idx {
+                    let legacy_vid = match body_idx {
                         1 => 3,  // Mercury
                         2 => 4,  // Venus
                         4 => 5,  // Mars
@@ -378,7 +568,8 @@ pub fn emit_celestial_or_landmark(
                         11 => 9, // Pluto
                         _ => 10, // Europa / icy moons
                     };
-                    let (ca, cb) = match vid {
+                    let surf_vid = if is_active_body { canon_vid } else { legacy_vid };
+                    let (ca, cb) = match legacy_vid {
                         3 => ([0.52, 0.48, 0.44, 1.05], [0.28, 0.26, 0.24, 1.0]),
                         4 => ([0.95, 0.78, 0.45, 1.08], [0.62, 0.42, 0.20, 1.0]),
                         5 => ([0.88, 0.36, 0.16, 1.10], [0.48, 0.18, 0.08, 1.0]),
@@ -400,8 +591,131 @@ pub fn emit_celestial_or_landmark(
                         color_b: cb,
                         phys_a: [spin_angle, 0.1, 0.0, dwell],
                         phys_b: sun,
-                        kind_tags: pack_doc_tags(1, vid, 0, 0, &input.documentary),
+                        kind_tags: pack_doc_tags(1, surf_vid, 0, body_idx, &body_doc),
                     });
+                    if is_active_body {
+                        match body_idx {
+                            4 => {
+                                // Phobos & Deimos around Mars (`3644`)
+                                push_solar_companion(
+                                    heroes_surface,
+                                    pos - stage_right * (r_b * 1.48) + stage_up * (r_b * 0.42),
+                                    (r_b * 0.16).clamp(0.012, max_comp_r),
+                                    rot_arr,
+                                    [0.52, 0.38, 0.30, 1.06],
+                                    [0.32, 0.22, 0.16, 1.0],
+                                    [input.time_sec * 0.06, 0.0, 0.0, dwell],
+                                    sun,
+                                    comp_vid,
+                                    0,
+                                    &body_doc,
+                                );
+                                push_solar_companion(
+                                    heroes_surface,
+                                    pos + stage_right * (r_b * 1.82) - stage_up * (r_b * 0.44),
+                                    (r_b * 0.12).clamp(0.010, max_comp_r),
+                                    rot_arr,
+                                    [0.48, 0.36, 0.28, 1.04],
+                                    [0.28, 0.20, 0.15, 1.0],
+                                    [input.time_sec * 0.04, 0.0, 0.0, dwell],
+                                    sun,
+                                    comp_vid,
+                                    1,
+                                    &body_doc,
+                                );
+                            }
+                            6 => {
+                                // Galilean quartet (`3646`): Europa (submode=1 -> cracked-ice cutaway) + Io (submode=0) + Ganymede/Callisto sprites
+                                push_solar_companion(
+                                    heroes_surface,
+                                    pos - stage_right * (r_b * 1.62) + stage_up * (r_b * 0.28),
+                                    (r_b * 0.22).clamp(0.015, max_comp_r),
+                                    rot_arr,
+                                    [0.72, 0.84, 0.95, 1.12],
+                                    [0.22, 1.25, 1.65, 1.0],
+                                    [input.time_sec * 0.03, 0.0, 0.0, dwell],
+                                    sun,
+                                    comp_vid,
+                                    1,
+                                    &body_doc,
+                                );
+                                push_solar_companion(
+                                    heroes_surface,
+                                    pos + stage_right * (r_b * 1.44) - stage_up * (r_b * 0.24),
+                                    (r_b * 0.20).clamp(0.014, max_comp_r),
+                                    rot_arr,
+                                    [0.98, 0.82, 0.28, 1.12],
+                                    [0.95, 0.42, 0.12, 1.0],
+                                    [input.time_sec * 0.05, 0.0, 0.0, dwell],
+                                    sun,
+                                    comp_vid,
+                                    0,
+                                    &body_doc,
+                                );
+                                for (idx_m, (rx, ry, col_m)) in [
+                                    (-2.05_f32, -0.34_f32, [0.76, 0.72, 0.66, 0.95]),
+                                    (2.12_f32, 0.36_f32, [0.56, 0.54, 0.52, 0.92]),
+                                ]
+                                .into_iter()
+                                .enumerate()
+                                {
+                                    let mp = pos + stage_right * (r_b * rx) + stage_up * (r_b * ry);
+                                    sprites.push(SpriteInstance {
+                                        pos_size: [mp.x, mp.y, mp.z, (r_b * 0.14).clamp(0.010, 0.065)],
+                                        axis_aspect: [0.0, 1.0, 0.0, 1.0],
+                                        color_alpha: col_m,
+                                        tags_f: [5.0, (idx_m as f32) * 0.25, 0.48, 0.0],
+                                    });
+                                }
+                            }
+                            9 => {
+                                // Retrograde cantaloupe Triton (`3649`) orbiting Neptune
+                                push_solar_companion(
+                                    heroes_surface,
+                                    pos - stage_right * (r_b * 1.56) + stage_up * (r_b * 0.48),
+                                    (r_b * 0.22).clamp(0.014, max_comp_r),
+                                    rot_arr,
+                                    [0.82, 0.76, 0.74, 1.08],
+                                    [0.45, 0.65, 0.88, 1.0],
+                                    [-input.time_sec * 0.05, 0.0, 0.0, dwell],
+                                    sun,
+                                    comp_vid,
+                                    0,
+                                    &body_doc,
+                                );
+                            }
+                            11 => {
+                                // Tidally locked Charon (`3651`) + 4 outer tiny moonlets (Nix, Hydra, Kerberos, Styx)
+                                push_solar_companion(
+                                    heroes_surface,
+                                    pos + stage_right * (r_b * 1.62) + stage_up * (r_b * 0.28),
+                                    (r_b * 0.51).clamp(0.016, max_comp_r),
+                                    rot_arr,
+                                    [0.58, 0.58, 0.62, 1.06],
+                                    [0.54, 0.22, 0.14, 1.0],
+                                    [input.time_sec * 0.03, 0.0, 0.0, dwell],
+                                    sun,
+                                    comp_vid,
+                                    0,
+                                    &body_doc,
+                                );
+                                for m_i in 0..4u32 {
+                                    let ang = (m_i as f32) * 1.45 + 0.55;
+                                    let rad = r_b * (2.15 + 0.24 * (m_i as f32));
+                                    let mp = pos
+                                        + stage_right * (ang.cos() * rad)
+                                        + stage_up * (ang.sin() * rad * 0.48);
+                                    sprites.push(SpriteInstance {
+                                        pos_size: [mp.x, mp.y, mp.z, (r_b * 0.09).clamp(0.008, 0.048)],
+                                        axis_aspect: [stage_right.x, stage_right.y, stage_right.z, 1.35],
+                                        color_alpha: [0.84, 0.88, 0.94, 0.95],
+                                        tags_f: [5.0, (m_i as f32) * 0.18, 0.45, 0.0],
+                                    });
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
                     return;
                 }
             }
@@ -418,14 +732,14 @@ pub fn emit_celestial_or_landmark(
             && (vis.experience_id == input.active_experience_id
                 || matches!(input.active_experience_id, 5..=9))
         {
-            // Promote iconic landmarks via canonical companion IDs (Exp 05 = 3640..=3649, exact zone in submode)
+            // Promote iconic landmarks via canonical companion IDs (Exp 05 = 3660..=3671, exact zone in submode)
             let landmark_submode = if vis.experience_id == 5 {
                 vis.zone_index as u32
             } else {
                 0u32
             };
             let vid = match vis.experience_id {
-                5 => canonical_companion_vid(5, (vis.zone_index as u8).min(9)),
+                5 => canonical_companion_vid(5, (vis.zone_index as u8).min(11)),
                 6 => 6,
                 7 => 7,
                 8 => 8,

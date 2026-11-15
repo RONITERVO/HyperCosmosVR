@@ -231,6 +231,12 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                     | "anisotropia"
                     | "410"
                     | "660"
+                    | "acantilado"
+                    | "scarp"
+                    | "volcan"
+                    | "volcano"
+                    | "olympus"
+                    | "marineris"
             )
         {
             mask |= 0x02;
@@ -276,6 +282,19 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                     | "hidrogeno"
                     | "helio"
                     | "radio"
+                    | "corona"
+                    | "invernadero"
+                    | "greenhouse"
+                    | "presion"
+                    | "pressure"
+                    | "hexagono"
+                    | "hexagon"
+                    | "metano"
+                    | "methane"
+                    | "supersonico"
+                    | "supersonic"
+                    | "geiser"
+                    | "geyser"
             )
         {
             mask |= 0x04;
@@ -287,8 +306,11 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                 | "bosque"
                 | "montana"
                 | "suelo"
+                | "continente"
+                | "continent"
                 | "europa"
                 | "encelado"
+                | "enceladus"
                 | "adn"
                 | "mitocondria"
                 | "cloroplasto"
@@ -298,17 +320,47 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
         if matches!(
             tag.strip_prefix("kw:").unwrap_or(""),
             "sol"
+                | "fotosfera"
+                | "photosphere"
+                | "mancha"
+                | "sunspot"
                 | "mercurio"
                 | "venus"
+                | "retrograda"
+                | "retrograde"
                 | "tierra"
                 | "luna"
                 | "marte"
+                | "rover"
+                | "fobos"
+                | "phobos"
+                | "deimos"
                 | "ceres"
+                | "vesta"
+                | "metalico"
+                | "metallic"
+                | "kirkwood"
                 | "jupiter"
+                | "galileana"
+                | "galilean"
                 | "saturno"
+                | "cassini"
+                | "titan"
                 | "urano"
+                | "miranda"
                 | "neptuno"
+                | "triton"
+                | "kuiper"
+                | "haumea"
+                | "makemake"
+                | "resonancia"
+                | "resonance"
+                | "cometa"
+                | "comet"
                 | "pluton"
+                | "sputnik"
+                | "caronte"
+                | "charon"
                 | "sagitario"
                 | "andromeda"
                 | "laniakea"
@@ -1150,8 +1202,15 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "andromeda", "laniakea", "cuasar", "reionizacion", "cmb", "inflacion", "higgs", "quark",
     "orbital", "planck", "einstein", "hawking", "gravitacional", "turing", "benard", "adn",
     "mitocondria", "cloroplasto", "neurona", "sinapsis", "hipocampo", "prefrontal", "crispr",
-    "microchip", "ia", "fusion", "tokamak", "dyson", "oneill", "europa", "encelado", "seti",
-    "rosetta", "primo", "loto", "horizonte",
+    "microchip", "ia", "fusion", "tokamak", "dyson", "oneill", "europa", "encelado", "enceladus",
+    "seti", "rosetta", "primo", "loto", "horizonte", "fotosfera", "photosphere", "mancha",
+    "sunspot", "corona", "acantilado", "scarp", "invernadero", "greenhouse", "retrograda",
+    "retrograde", "volcan", "volcano", "presion", "pressure", "continente", "continent",
+    "olympus", "marineris", "rover", "fobos", "phobos", "deimos", "vesta", "metalico",
+    "metallic", "kirkwood", "galileana", "galilean", "hexagono", "hexagon", "cassini", "titan",
+    "metano", "methane", "miranda", "supersonico", "supersonic", "triton", "geiser", "geyser",
+    "kuiper", "haumea", "makemake", "resonancia", "resonance", "cometa", "comet", "sputnik",
+    "caronte", "charon",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

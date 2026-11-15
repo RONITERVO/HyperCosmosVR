@@ -292,7 +292,12 @@ fn cs_advect_particles(@builtin(global_invocation_id) gid: vec3<u32>) {
         pos += vel * dt;
         pos.y *= 0.985;
         let belt_c = mix(vec3<f32>(1.15, 0.80, 0.42), vec3<f32>(0.32, 0.82, 1.32), smoothstep(0.45, 0.92, r_norm));
-        tint = belt_c * (0.42 + 0.25 * sin(seed_v.x * TAU + time * 1.4));
+        // Jovian 3:1, 5:2, 2:1 Kirkwood gaps + outer 3:2 Plutino Kuiper resonance modulation
+        let k31 = smoothstep(0.015, 0.040, abs(r_norm - 0.35));
+        let k52 = smoothstep(0.015, 0.038, abs(r_norm - 0.40));
+        let k21 = smoothstep(0.016, 0.042, abs(r_norm - 0.46));
+        let plutino = select(1.0, 0.48 + 0.68 * exp(-abs(r_norm - 0.78) * 14.0), r_norm > 0.72);
+        tint = belt_c * (k31 * k52 * k21) * plutino * (0.42 + 0.25 * sin(seed_v.x * TAU + time * 1.4));
         age = fract(age + dt * 0.15);
     } else if (mode == 11u) {
         // Mode 11: Geodynamo & Atmospheric Trade Winds (03, 18) hugged smoothly inside magnetosphere
