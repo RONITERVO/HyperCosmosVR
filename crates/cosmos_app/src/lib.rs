@@ -5,6 +5,8 @@
 pub mod assets;
 pub mod desktop;
 pub mod engine;
+pub mod guide;
+pub mod hologram;
 pub mod headless;
 pub mod vr;
 

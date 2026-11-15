@@ -66,6 +66,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
 
 ### UI & Architecture Discipline
 - **Zero 2D overlays:** Do not introduce screen-space HTML/DOM/ImGui menus or HUD bars. All controls belong on diegetic 3D spatial anchors (`Wrist Resonance Ring`, gaze dwell, peripheral meridian compass).
+- **VR-first acceptance target:** PSVR2 at 120 Hz and SteamVR's recommended per-eye resolution, plus higher-end OLED headsets. Preserve visual quality; do not silently reduce resolution or scene richness to pass a timing gate. Report actual eye dimensions, refresh rate, compositor involvement, and whether evidence came from a physical headset or an offscreen reference.
+- **Holographic presence:** VR guidance must have real depth, binocular parallax, scene occlusion, and a stable room/world anchor. Moving a flat screen panel into world space is not sufficient. Curved lettering, volumetric nodes, controller rays, and wrist-summoned instruments should behave as things accompanying the viewer in space. Desktop contrast backplates must not leak into VR.
+- **Documentary richness:** Judge each scene against the substance of its narration: clear subject composition, feature-specific structure, meaningful motion and causality, multiple viewpoints, and enough detail to reward inspection. Tier-A counts and pixel differences establish coverage/distinctness, not visual quality, perceived aliveness, or educational effectiveness. Include visual review evidence alongside automated checks.
 
 ---
 

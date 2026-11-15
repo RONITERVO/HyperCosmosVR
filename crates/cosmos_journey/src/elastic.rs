@@ -9,6 +9,7 @@ pub enum JourneyPlayState {
     #[default]
     Inactive,
     Playing,
+    Paused,
     PausedByLeash,
     Completed,
 }

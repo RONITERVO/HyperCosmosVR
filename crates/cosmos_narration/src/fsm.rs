@@ -219,6 +219,11 @@ impl RestNarrationFsm {
         self.smoothed_ray
     }
 
+    /// Holds dwell, focus, and cancellation state while the user operates spatial controls.
+    pub fn snapshot(&self) -> FsmOutput {
+        self.build_output(None, false)
+    }
+
     /// Advances tremor ray filtering, hysteresis lock checks, 0->200->900ms dwell, and 120ms cancel fade.
     pub fn step(&mut self, input: &FsmInput<'_>) -> FsmOutput {
         let dt_sec = input.dt_sec.max(0.0);

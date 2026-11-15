@@ -74,5 +74,5 @@ jobs:
       # proprietary font coverage tests, and full 18,898-MP3 mmap verification (`cosmos_audio`,
       # `real_mmap_catalog_and_audio_pack_verify_all_18898_assets`) require a Discrete DX12 GPU, an OpenXR runtime,
       # local OS/custom fonts, and the optional 1.05 GiB Release audio pack.
-      # Run all 96 tests locally via: cargo test --workspace -- --test-threads=1
+      # Run the full local suite with hardware-aware concurrency via: ./tools/test_local.ps1
 

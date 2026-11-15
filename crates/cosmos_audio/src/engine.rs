@@ -201,6 +201,7 @@ pub enum AudioCommand {
     StopNarration {
         fade_ms: f32,
     },
+    SetNarrationPaused(bool),
     SetNarrationEmitterDir(Vec3),
     SetZoneSound {
         sound: Option<ZoneSoundRecord>,
@@ -249,6 +250,7 @@ pub struct AudioMixer {
     chimes: FeedbackChimeSynth,
     analyzer: OutputAnalyzer,
     narration: Option<ActiveNarration>,
+    narration_paused: bool,
     active_generation: u64,
     last_playback_rate: f32,
     block_mono_voice: [f32; AUDIO_BLOCK_FRAMES],
@@ -274,6 +276,7 @@ impl AudioMixer {
             chimes: FeedbackChimeSynth::new(),
             analyzer: OutputAnalyzer::new(OUTPUT_SAMPLE_RATE as f32),
             narration: None,
+            narration_paused: false,
             active_generation: 0,
             last_playback_rate: 1.0,
             block_mono_voice: [0.0; AUDIO_BLOCK_FRAMES],
@@ -317,6 +320,7 @@ impl AudioMixer {
                         n.fade_step_per_sample = 1.0 / samples;
                     }
                 }
+                AudioCommand::SetNarrationPaused(paused) => self.narration_paused = paused,
                 AudioCommand::SetNarrationEmitterDir(dir) => {
                     if let Some(ref mut n) = self.narration {
                         n.emitter_dir_cam = dir;
@@ -378,7 +382,19 @@ impl AudioMixer {
             let samples = n.clip.samples_48k.as_slice();
             let total_len = samples.len();
 
-            if n.frame_cursor < total_len && !n.finished_reported {
+            if self.narration_paused && !n.fading_out && !n.finished_reported {
+                // Hold the sample cursor and SyncVoice reveal together. Ambient audio keeps
+                // playing; resuming continues this clip rather than decoding it again.
+                clock_snap = PlaybackClockSnapshot {
+                    asset_idx: Some(n.clip.asset_idx),
+                    source_ms: ((n.frame_cursor as f64 / total_len.max(1) as f64)
+                        * n.clip.source_duration_ms as f64)
+                        .round() as u32,
+                    is_speaking: false,
+                    is_finished: false,
+                    playback_rate: n.clip.playback_rate,
+                };
+            } else if n.frame_cursor < total_len && !n.finished_reported {
                 narration_active = true;
                 for dst in self.block_mono_voice.iter_mut() {
                     if n.frame_cursor >= total_len {
@@ -681,6 +697,13 @@ impl AudioEngine {
         let _ = self.cmd_tx.try_send(AudioCommand::StopNarration {
             fade_ms: DEFAULT_STOP_FADE_MS,
         });
+    }
+
+    /// Pauses speech and its word cursor while preserving the current clip position.
+    pub fn set_narration_paused(&self, paused: bool) {
+        let _ = self
+            .cmd_tx
+            .try_send(AudioCommand::SetNarrationPaused(paused));
     }
 
     pub fn set_emitter_direction(&self, emitter_dir_cam: Vec3) {

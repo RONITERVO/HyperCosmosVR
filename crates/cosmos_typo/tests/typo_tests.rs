@@ -631,7 +631,12 @@ fn gpu_mono_and_stereo_multiview_pipeline_render_and_upright_check() {
         region_accent: [0.35, 0.85, 1.25, 3.0],
     };
     let audio_u = AudioUniformsTest {
-        data: [[0.5, 0.2, 0.1, 0.1], [0.5, 0.0, 0.1, 1.0], [0.0; 4], [0.0; 4]],
+        data: [
+            [0.5, 0.2, 0.1, 0.1],
+            [0.5, 0.0, 0.1, 1.0],
+            [0.0; 4],
+            [0.0; 4],
+        ],
     };
 
     let frame_buf = device.create_buffer(&wgpu::BufferDescriptor {
@@ -771,151 +776,171 @@ fn gpu_mono_and_stereo_multiview_pipeline_render_and_upright_check() {
         mapped_at_creation: false,
     });
 
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("typo_test_encoder"),
-    });
-
-    {
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("mono_typo_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &mono_c_view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &mono_d_view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0.0), // Reversed-Z far = 0.0
-                    store: wgpu::StoreOp::Discard,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
+    // World text, full near-depth occlusion, then foreground controls against that same occluder.
+    for (depth, foreground) in [(0.0, false), (1.0, false), (1.0, true)] {
+        renderer.set_foreground_start(foreground.then_some((0, 0)));
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("typo_test_encoder"),
         });
-        renderer.render(&mut pass, Some(&group0_bg), false);
-    }
 
-    {
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("stereo_typo_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &stereo_c_view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &stereo_d_view,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(0.0),
-                    store: wgpu::StoreOp::Discard,
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("mono_typo_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &mono_c_view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &mono_d_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(depth), // Reversed-Z far = 0.0
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
                 }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: std::num::NonZeroU32::new(0b11),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            renderer.render(&mut pass, Some(&group0_bg), false);
+        }
+
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("stereo_typo_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &stereo_c_view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &stereo_d_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(depth),
+                        store: wgpu::StoreOp::Discard,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: std::num::NonZeroU32::new(0b11),
+            });
+            renderer.render(&mut pass, Some(&group0_bg), true);
+        }
+
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &mono_color,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &readback,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(row_bytes),
+                    rows_per_image: Some(h),
+                },
+            },
+            wgpu::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1,
+            },
+        );
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &stereo_color,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &readback,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: layer_bytes,
+                    bytes_per_row: Some(row_bytes),
+                    rows_per_image: Some(h),
+                },
+            },
+            wgpu::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 2,
+            },
+        );
+
+        queue.submit(Some(encoder.finish()));
+
+        let slice = readback.slice(..);
+        let (tx, rx) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |r| {
+            let _ = tx.send(r);
         });
-        renderer.render(&mut pass, Some(&group0_bg), true);
-    }
+        let _ = device.poll(wgpu::PollType::wait_indefinitely());
+        rx.recv().unwrap().expect("readback map should succeed");
 
-    encoder.copy_texture_to_buffer(
-        wgpu::TexelCopyTextureInfo {
-            texture: &mono_color,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
-        wgpu::TexelCopyBufferInfo {
-            buffer: &readback,
-            layout: wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(row_bytes),
-                rows_per_image: Some(h),
-            },
-        },
-        wgpu::Extent3d {
-            width: w,
-            height: h,
-            depth_or_array_layers: 1,
-        },
-    );
-    encoder.copy_texture_to_buffer(
-        wgpu::TexelCopyTextureInfo {
-            texture: &stereo_color,
-            mip_level: 0,
-            origin: wgpu::Origin3d::ZERO,
-            aspect: wgpu::TextureAspect::All,
-        },
-        wgpu::TexelCopyBufferInfo {
-            buffer: &readback,
-            layout: wgpu::TexelCopyBufferLayout {
-                offset: layer_bytes,
-                bytes_per_row: Some(row_bytes),
-                rows_per_image: Some(h),
-            },
-        },
-        wgpu::Extent3d {
-            width: w,
-            height: h,
-            depth_or_array_layers: 2,
-        },
-    );
-
-    queue.submit(Some(encoder.finish()));
-
-    let slice = readback.slice(..);
-    let (tx, rx) = std::sync::mpsc::channel();
-    slice.map_async(wgpu::MapMode::Read, move |r| {
-        let _ = tx.send(r);
-    });
-    let _ = device.poll(wgpu::PollType::wait_indefinitely());
-    rx.recv().unwrap().expect("readback map should succeed");
-
-    let mapped = slice.get_mapped_range().expect("mapped range should succeed");
-    let count_bright = |layer_idx: usize, y_range: std::ops::Range<u32>| -> usize {
-        let base = layer_idx * layer_bytes as usize;
-        let mut count = 0usize;
-        for y in y_range {
-            for x in 0..w {
-                let off = base + ((y * w + x) * 8) as usize;
-                let r = f16_bits_to_f32(u16::from_le_bytes([mapped[off], mapped[off + 1]]));
-                if r > 0.5 {
-                    count += 1;
+        let mapped = slice
+            .get_mapped_range()
+            .expect("mapped range should succeed");
+        let count_bright = |layer_idx: usize, y_range: std::ops::Range<u32>| -> usize {
+            let base = layer_idx * layer_bytes as usize;
+            let mut count = 0usize;
+            for y in y_range {
+                for x in 0..w {
+                    let off = base + ((y * w + x) * 8) as usize;
+                    let r = f16_bits_to_f32(u16::from_le_bytes([mapped[off], mapped[off + 1]]));
+                    if r > 0.5 {
+                        count += 1;
+                    }
                 }
             }
+            count
+        };
+
+        // In GPU render: top half of 'T' (y in 40..120) has wide horizontal crossbar;
+        // lower half of glyph (y in 136..200) has narrow vertical stem -> top has significantly more pixels!
+        let mono_top = count_bright(0, 40..120);
+        let mono_bot = count_bright(0, 136..200);
+        let stereo_l_top = count_bright(1, 40..120);
+        let stereo_l_bot = count_bright(1, 136..200);
+        let stereo_r_top = count_bright(2, 40..120);
+        let stereo_r_bot = count_bright(2, 136..200);
+
+        println!(
+            "GPU MSDF 'T' pixels -> mono(top={mono_top}, bot={mono_bot}), stereoL(top={stereo_l_top}, bot={stereo_l_bot}), stereoR(top={stereo_r_top}, bot={stereo_r_bot})"
+        );
+        if depth == 1.0 && !foreground {
+            assert_eq!(
+                [
+                    mono_top,
+                    mono_bot,
+                    stereo_l_top,
+                    stereo_l_bot,
+                    stereo_r_top,
+                    stereo_r_bot
+                ],
+                [0; 6]
+            );
+        } else {
+            assert!(mono_top > 100 && mono_bot > 30 && mono_top > mono_bot + 30);
+            assert!(stereo_l_top > 100 && stereo_l_bot > 30 && stereo_l_top > stereo_l_bot + 30);
+            assert!(stereo_r_top > 100 && stereo_r_bot > 30 && stereo_r_top > stereo_r_bot + 30);
         }
-        count
-    };
 
-    // In GPU render: top half of 'T' (y in 40..120) has wide horizontal crossbar;
-    // lower half of glyph (y in 136..200) has narrow vertical stem -> top has significantly more pixels!
-    let mono_top = count_bright(0, 40..120);
-    let mono_bot = count_bright(0, 136..200);
-    let stereo_l_top = count_bright(1, 40..120);
-    let stereo_l_bot = count_bright(1, 136..200);
-    let stereo_r_top = count_bright(2, 40..120);
-    let stereo_r_bot = count_bright(2, 136..200);
-
-    println!(
-        "GPU MSDF 'T' pixels -> mono(top={mono_top}, bot={mono_bot}), stereoL(top={stereo_l_top}, bot={stereo_l_bot}), stereoR(top={stereo_r_top}, bot={stereo_r_bot})"
-    );
-    assert!(mono_top > 100 && mono_bot > 30 && mono_top > mono_bot + 30);
-    assert!(stereo_l_top > 100 && stereo_l_bot > 30 && stereo_l_top > stereo_l_bot + 30);
-    assert!(stereo_r_top > 100 && stereo_r_bot > 30 && stereo_r_top > stereo_r_bot + 30);
-
-    drop(mapped);
-    readback.unmap();
+        drop(mapped);
+        readback.unmap();
+    }
 }
 
 #[test]

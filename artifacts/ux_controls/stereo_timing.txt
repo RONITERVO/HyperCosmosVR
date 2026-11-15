@@ -1,0 +1,6 @@
+DX12 stereo reference: 2048x2048 per eye; 64 mm IPD
+Render submission + GPU completion, excluding OpenXR compositor and simulation.
+120 Hz total-frame budget: 8.333 ms. This is not a headset performance certification.
+CPU build: release (optimized).
+Typography hidden: mean=6.186 ms, max=7.089 ms (30 frames)
+Typography visible: mean=6.298 ms, max=7.247 ms (30 frames)

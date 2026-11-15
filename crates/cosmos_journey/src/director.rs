@@ -147,7 +147,7 @@ impl JourneyDirector {
     pub fn is_active(&self) -> bool {
         matches!(
             self.play_state,
-            JourneyPlayState::Playing | JourneyPlayState::PausedByLeash
+            JourneyPlayState::Playing | JourneyPlayState::Paused | JourneyPlayState::PausedByLeash
         )
     }
 
@@ -217,13 +217,16 @@ impl JourneyDirector {
             JourneyPlayState::Completed => {
                 self.start(tree, current_pose, 0);
             }
+            JourneyPlayState::Paused => {
+                // Preserve the active spline, dwell timer, and elastic offset exactly.
+                self.play_state = JourneyPlayState::Playing;
+            }
             JourneyPlayState::PausedByLeash => {
                 self.play_state = JourneyPlayState::Playing;
                 self.override_state.snap_to_follow();
             }
             JourneyPlayState::Playing => {
-                self.save_bookmark_at_ghost();
-                self.play_state = JourneyPlayState::Inactive;
+                self.play_state = JourneyPlayState::Paused;
             }
         }
     }
@@ -244,14 +247,21 @@ impl JourneyDirector {
         }
     }
 
+    fn seek_play_state(&self) -> JourneyPlayState {
+        match self.play_state {
+            JourneyPlayState::Paused | JourneyPlayState::PausedByLeash => JourneyPlayState::Paused,
+            _ => JourneyPlayState::Playing,
+        }
+    }
+
     pub fn next_beat(&mut self, tree: &SectorTree, current_pose: &ScalePose64) -> bool {
         if self.active_idx + 1 < self.flat_beats.len() {
-            self.play_state = JourneyPlayState::Playing;
+            self.play_state = self.seek_play_state();
             self.override_state.snap_to_follow();
             self.enter_beat(tree, current_pose, self.active_idx + 1);
             true
         } else if self.manifest.loop_journey {
-            self.play_state = JourneyPlayState::Playing;
+            self.play_state = self.seek_play_state();
             self.override_state.snap_to_follow();
             self.enter_beat(tree, current_pose, 0);
             true
@@ -262,7 +272,7 @@ impl JourneyDirector {
 
     pub fn prev_beat(&mut self, tree: &SectorTree, current_pose: &ScalePose64) -> bool {
         let target_idx = self.active_idx.saturating_sub(1);
-        self.play_state = JourneyPlayState::Playing;
+        self.play_state = self.seek_play_state();
         self.override_state.snap_to_follow();
         self.enter_beat(tree, current_pose, target_idx);
         true
@@ -276,7 +286,7 @@ impl JourneyDirector {
             .enumerate()
             .find(|(_, b)| b.chapter_idx > cur_ch)
         {
-            self.play_state = JourneyPlayState::Playing;
+            self.play_state = self.seek_play_state();
             self.override_state.snap_to_follow();
             self.enter_beat(tree, current_pose, idx);
             true
@@ -294,7 +304,7 @@ impl JourneyDirector {
             .enumerate()
             .find(|(_, b)| b.chapter_idx == target_ch)
         {
-            self.play_state = JourneyPlayState::Playing;
+            self.play_state = self.seek_play_state();
             self.override_state.snap_to_follow();
             self.enter_beat(tree, current_pose, idx);
             true
@@ -367,6 +377,17 @@ impl JourneyDirector {
         };
 
         if !self.is_active() {
+            return out;
+        }
+
+        if self.play_state == JourneyPlayState::Paused {
+            out.desired_camera_pose = Some(
+                self.override_state
+                    .compose_camera_pose(tree, &self.ghost_pose),
+            );
+            out.ghost_pose = Some(self.ghost_pose);
+            out.active_chapter_title = Some(self.active_chapter().title.clone());
+            out.active_caption_hint = self.active_beat().caption_hint.clone();
             return out;
         }
 

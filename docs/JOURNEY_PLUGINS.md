@@ -21,6 +21,12 @@ Story-Journeys can be added in **three ways** without modifying renderer, shader
 
 ## 2. Launching & Controls
 
+The spatial welcome offers **Start highlights**, **Explore freely**, and **How to explore**. Help also offers the full Odyssey. `--autoplay-journey` skips the welcome and shows the selected tour's controls immediately.
+
+While touring, controls show the chapter, stop count, and **Previous / Pause / Next / Explore** actions. In VR they form a room-anchored holographic instrument summoned through the wrist interaction, with volumetric nodes and curved lettering. They use real scene depth and stay fixed when the wearer turns or leans; there are no VR backplates or camera-following transport bars. Pause freezes the current camera spline, dwell timer, speech position, and SyncVoice captions. Resume continues that same clip and motion phase. Changing stops while paused stays paused and discards the old clip. Explore exits at the current pose; restarting from an exit bookmark begins that beat again. Completed tours offer Restart.
+
+`F1` or the wrist ring's `HELP` bead opens guidance. Opening help and losing desktop/VR focus pause an active tour; closing help or returning focus requires an explicit Resume. The guide is English/Finnish (`L` / wrist language beads). Desktop controls have contrast backplates and foreground rendering for close-ups. VR uses ordinary physical occlusion. Headless content-gallery captures omit interactive controls.
+
 ### CLI Flags
 ```bash
 # Auto-play default Grand Cosmic Odyssey on launch (VR or Desktop)
@@ -34,14 +40,15 @@ cargo run --release -p cosmos_app -- --journey "hypercosmos://journey?hcj=v1....
 
 ### Diegetic 3D Wrist Resonance Ring Controls
 Open the Wrist Ring in VR (`palm-up gaze`) or Desktop (`Right-Hold` or `Tab`) to access five additional outer lower-arc pearls:
-- **`STORY`** (`PLAY / PAUSE`): Starts or pauses the active Story-Journey (resuming from saved bookmark when re-enabled).
+- **`STORY`** (`PLAY / PAUSE`): Starts, pauses, or resumes the active Story-Journey.
 - **`NEXT`**: Advances to the next Story-Journey beat.
 - **`+WPT`**: Snapshots the current 6-DoF pose, logarithmic scale `scale_exp`, and focused target as a keyframe waypoint.
 - **`TRACE`**: Toggles continuous live flight recording (runs 4D logarithmic-scale Ramer–Douglas–Peucker decimation upon finishing).
 - `SAVE / SHARE` Pearl (`Ctrl+S` / `F9`): Exports recorded waypoints into `user_journeys/<id>.hcj.json` + `user_journeys/<id>.share.txt` and copies the `hypercosmos://` URI to the Windows clipboard.
 
 ### Desktop Keyboard Shortcuts
-- `J`: Toggle Story-Journey play / pause (resume from bookmark)
+- `J`: Start or toggle Story-Journey play / pause; `Space` pauses/resumes an active tour or restarts a completed one.
+- `F1`: Open/close help. `Escape`: close help, exit the current tour, or open help during free exploration. Close the window or use `Alt+F4` to quit.
 - `N` / `PageDown`: Next beat (`Shift+N` / `Shift+PageDown`: next chapter)
 - `P` / `PageUp`: Previous beat (`Shift+P` / `Shift+PageUp`: previous chapter)
 - `R`: Capture manual 3D waypoint (`Shift+R`: toggle live trace recording)

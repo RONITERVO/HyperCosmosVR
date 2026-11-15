@@ -65,7 +65,8 @@ fn parse_args() -> CliArgs {
                        cosmos_app --headless-render <out_dir> [--benchmark-sweep] [--width W] [--height H]\n\
                      Controls (Desktop): Hover scan focus, Scroll dive, Left-drag orbit, F+Mouse free-look,\n\
                        WASD/QE 6DoF, Right-Hold/Tab Wrist Resonance Ring, [ / ] speed, L locale EN/FI, Home reset,\n\
-                       J story play/pause, N/P beat (Shift+N/P chapter), R/+WPT, Shift+R live trace, Ctrl+S/F9 export, Enter/Backspace/Esc FOLLOW/EXIT."
+                       F1 help, Space/J tour pause/resume, N/P beat (Shift+N/P chapter), Esc explore/close help,\n\
+                       R/+WPT, Shift+R live trace, Ctrl+S/F9 export, Enter/Backspace FOLLOW/EXIT, Alt+F4 quit."
                 );
                 std::process::exit(0);
             }

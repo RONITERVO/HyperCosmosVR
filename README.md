@@ -162,17 +162,20 @@ cosmos_app.exe [OPTIONS]
 
 ## Controls (Desktop & VR)
 
+Start with **Start highlights**, **Explore freely**, or **How to explore**. VR guidance is a room-anchored holographic instrument with curved lettering and volumetric controls; tour controls appear when summoned through the wrist. Desktop shows the chapter, stop count, and **Previous / Pause / Next / Explore** actions. Pause holds both camera motion and speech; Resume continues from the same point. [UX changes and verification](artifacts/ux_controls/README.md).
+
 | Action | Desktop Controls | VR (OpenXR 6DoF + Hand Tracking) |
 | :--- | :--- | :--- |
+| **Help / Tour Selection** | `F1` or click **How to explore**; `L` switches English/Finnish | Point and select; wrist `HELP` bead reopens guidance |
 | **6DoF Space Flight** | `W`/`S` forward/back · `A`/`D` strafe · `E`/`Q` up/down · `Z`/`C` roll · `Shift` boost | Thumbstick locomotion + two-hand pinch scale-dive |
 | **Look / Orbit** | Hold `F` or `Left` / `Right` mouse drag | Natural HMD head orientation & gaze |
 | **Logarithmic Scale Dive** | Mouse `Scroll` (zooms continuously toward cursor ray) | Two-hand span gesture or grip-pull along focus ray |
 | **Trigger Narration** | Come to rest on any cosmic feature (`900 ms` dwell) | Gaze or hand ray dwell (`900 ms`) |
 | **3D Wrist Resonance Ring** | Hold `Right Mouse` or press `Tab` (`[`/`]` or `-`/`=` speed, `L` EN/FI) | Turn non-dominant palm upward (`r = 7.5 cm` spatial ring) |
-| **Story-Journey Autopilot** | `J` play/pause/resume · `N`/`P` (`PageDown`/`PageUp`) next/prev beat · `Shift+N`/`Shift+P` chapter · `Enter` follow rail · `Backspace`/`Escape` exit to free-flight | Touch outer `STORY` / `NEXT` wrist beads · turn head freely `360°` · push thumbstick to explore (magnetic spring pull + peripheral `FOLLOW`/`EXIT` pearls; `B` button exits) |
+| **Story-Journey Autopilot** | `J` start/play/pause · `Space` pause/resume · `N`/`P` (`PageDown`/`PageUp`) next/prev beat · `Shift+N`/`Shift+P` chapter · `Enter` follow rail · `Backspace`/`Escape` exit to free-flight | Select spatial tour controls or `STORY` / `NEXT` wrist beads · turn head freely `360°` · push thumbstick to explore (magnetic spring pull + peripheral `FOLLOW`/`EXIT` pearls; `B` button exits) |
 | **Record & Share 3D Tours** | `R` snapshot waypoint · `Shift+R` toggle live trace recording · `Ctrl+S` / `F9` export `.hcj.json` + `.share.txt` + clipboard URI | Touch outer `+WPT`, `TRACE`, and `SHARE` beads on Wrist Resonance Ring |
 | **Return to Earth Orbit** | `Home` (continuous spline fly-back) | Touch central Earth pearl on Wrist Ring |
-| **Exit** | `Escape` (exits active Story-Journey first, then closes window) | Exit via OpenXR system menu |
+| **Exit** | Close window / `Alt+F4`; `Escape` closes help, exits the tour, or opens help | Exit via OpenXR system menu |
 
 ---
 
@@ -230,7 +233,7 @@ cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
 cargo test -p cosmos_spatial topology
 cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
 
-# Full local verification suite (99 tests across all 11 crates; requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
+# Full local verification suite (104 tests across all 11 crates; requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
 # Parallel correctness tests; isolated cache timings and frame benchmarks.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/test_local.ps1
 ```

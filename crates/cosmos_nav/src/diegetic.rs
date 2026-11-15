@@ -26,6 +26,7 @@ pub enum BeadKind {
     RecordWaypoint,
     ToggleLiveTrace,
     SaveShareJourney,
+    Help,
 }
 
 impl BeadKind {
@@ -83,6 +84,7 @@ pub enum DiegeticAction {
     RecordJourneyWaypoint,
     ToggleJourneyLiveTrace,
     ExportRecordedJourney,
+    ToggleHelp,
 }
 
 /// Summon trigger mode for the diegetic 3D Orbital / Wrist Resonance Ring.
@@ -189,7 +191,7 @@ impl Default for WristResonanceRing {
             live_trace_active: false,
             recorded_waypoint_count: 0,
             hovered_bead_id: None,
-            beads: Vec::with_capacity(17),
+            beads: Vec::with_capacity(18),
         };
         ring.rebuild_beads(0.0);
         ring
@@ -438,6 +440,19 @@ impl WristResonanceRing {
                 dt_sec,
             );
         }
+        self.push_bead(
+            BeadSpec {
+                id: 25,
+                kind: BeadKind::Help,
+                local_pos: Vec3::new(0.0, 0.045 * scale, 0.0),
+                radius: 0.011 * scale,
+                selected: false,
+                color_hdr: [0.55, 1.55, 1.95],
+                label: "HELP",
+            },
+            &prev_hover,
+            dt_sec,
+        );
     }
 
     fn push_bead(&mut self, spec: BeadSpec, prev_hover: &[(u32, f32)], dt_sec: f32) {
@@ -545,6 +560,7 @@ impl WristResonanceRing {
                 Some(DiegeticAction::ToggleJourneyLiveTrace)
             }
             BeadKind::SaveShareJourney => Some(DiegeticAction::ExportRecordedJourney),
+            BeadKind::Help => Some(DiegeticAction::ToggleHelp),
         }
     }
 }
@@ -648,7 +664,7 @@ mod tests {
     #[test]
     fn wrist_ring_has_exact_playback_rates_locales_and_home() {
         let ring = WristResonanceRing::default();
-        assert_eq!(ring.beads.len(), 17);
+        assert_eq!(ring.beads.len(), 18);
 
         let rates: Vec<f32> = ring
             .beads
@@ -826,6 +842,7 @@ mod tests {
             (BeadKind::RecordWaypoint, DiegeticAction::RecordJourneyWaypoint),
             (BeadKind::ToggleLiveTrace, DiegeticAction::ToggleJourneyLiveTrace),
             (BeadKind::SaveShareJourney, DiegeticAction::ExportRecordedJourney),
+            (BeadKind::Help, DiegeticAction::ToggleHelp),
         ];
         for (kind, expected) in cases {
             let pos = ring

@@ -38,6 +38,7 @@ use glam::{DVec3, Vec3};
 use crate::assets::{
     build_ambient_label_inputs, resolve_focus_for_visible, UniverseAssets,
 };
+use crate::guide::{GuideAction, GuideContext, GuideFrame, GuidePage, TourContext};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum SegmentPhase {
@@ -105,6 +106,7 @@ pub struct FramePacket {
     pub hovered_entity_id: Option<u64>,
     pub fsm_state: FsmStateKind,
     pub haptic_pulse: Option<(f32, i64, f32)>,
+    pub guide: GuideFrame,
 }
 
 /// Complete real-time simulation orchestrator shared by OpenXR VR, Desktop HDR, and Headless modes.
@@ -133,6 +135,22 @@ pub struct UniverseRuntime {
     prev_fsm_kind: FsmStateKind,
     prev_hovered_bead: Option<u32>,
     active_peripheral_prompt: Option<PeripheralPromptVisual>,
+    pub guide_page: GuidePage,
+    guide_enabled: bool,
+    guide_is_vr: bool,
+    guide_hovered: Option<GuideAction>,
+    guide_pointer_captured: bool,
+    guide_pointer_ray: Option<(Vec3, Vec3)>,
+    guide_haptic: Option<(f32, i64, f32)>,
+    desktop_control_gesture: bool,
+    vr_control_gesture: bool,
+    narration_paused: bool,
+    vr_tracking_head: Vec3,
+    vr_tracking_origin: Option<Vec3>,
+    vr_tracking_orientation: glam::Quat,
+    vr_rig_orientation: glam::Quat,
+    vr_hologram_anchor: Option<(Vec3, glam::Quat)>,
+    vr_ring_visible: bool,
 }
 
 fn signature_zone_slug(experience_id: u8) -> Option<&'static str> {
@@ -226,7 +244,229 @@ impl UniverseRuntime {
             prev_fsm_kind: FsmStateKind::Moving,
             prev_hovered_bead: None,
             active_peripheral_prompt: None,
+            guide_page: GuidePage::Hidden,
+            guide_enabled: false,
+            guide_is_vr: false,
+            guide_hovered: None,
+            guide_pointer_captured: false,
+            guide_pointer_ray: None,
+            guide_haptic: None,
+            desktop_control_gesture: false,
+            vr_control_gesture: false,
+            narration_paused: false,
+            vr_tracking_head: Vec3::ZERO,
+            vr_tracking_origin: None,
+            vr_tracking_orientation: glam::Quat::IDENTITY,
+            vr_rig_orientation: glam::Quat::IDENTITY,
+            vr_hologram_anchor: None,
+            vr_ring_visible: false,
         })
+    }
+
+    /// Enables first-use guidance in an interactive session; deterministic gallery captures
+    /// remain opt-in so they exercise the same content framing as before.
+    pub fn enable_spatial_guide(&mut self, is_vr: bool) {
+        self.guide_enabled = true;
+        self.guide_is_vr = is_vr;
+        self.guide_page = if self.is_journey_active() {
+            GuidePage::Hidden
+        } else {
+            GuidePage::Welcome
+        };
+        self.sync_narration_pause();
+    }
+
+    /// Losing desktop focus releases input and pauses the tour; returning never resumes
+    /// camera motion or speech until the user explicitly chooses Resume.
+    pub fn pause_for_focus_loss(&mut self) {
+        self.flight.linear_vel_cam = DVec3::ZERO;
+        self.flight.angular_vel_rad = DVec3::ZERO;
+        self.flight.scale_vel = 0.0;
+        self.desktop_control_gesture = false;
+        if self
+            .journey_director
+            .as_ref()
+            .is_some_and(|d| d.play_state() == JourneyPlayState::Playing)
+        {
+            self.toggle_journey_play_pause();
+        }
+    }
+
+    pub fn guide_frame(&self, camera: &RenderCamera) -> GuideFrame {
+        if !self.guide_enabled {
+            return GuideFrame::default();
+        }
+        if self.guide_is_vr && self.guide_page == GuidePage::Hidden && self.wrist_ring.open_alpha <= 0.1
+        {
+            return GuideFrame::default();
+        }
+        let tour = self
+            .journey_director
+            .as_ref()
+            .filter(|d| d.is_active() || d.play_state() == JourneyPlayState::Completed)
+            .map(|d| TourContext {
+                title: d.manifest().title.pick(self.locale),
+                chapter: d.active_chapter().title.pick(self.locale),
+                stop: d.active_beat_index() + 1,
+                total: d.total_beats(),
+                paused: matches!(
+                    d.play_state(),
+                    JourneyPlayState::Paused | JourneyPlayState::PausedByLeash
+                ),
+                at_end: d.play_state() == JourneyPlayState::Completed,
+            });
+        let ring_hint = self.wrist_ring.hovered_bead_id.map(|id| match id {
+            0 => "Return to Earth",
+            1 => "Translate into English",
+            2 => "Käännös suomeksi",
+            10..=18 => "Narration playback speed",
+            20 => "Play / pause the selected tour",
+            21 => "Next stop on the tour",
+            22 => "Record this viewpoint",
+            23 => "Start / stop recording your flight",
+            24 => "Save your recorded journey",
+            _ => "How to explore",
+        });
+        let mut frame = GuideFrame::build(
+            GuideContext {
+                page: self.guide_page,
+                locale: self.locale,
+                is_vr: self.guide_is_vr,
+                tour,
+                ring_hint,
+            },
+            camera,
+        );
+        frame.hovered = self.guide_hovered;
+        if self.guide_is_vr {
+            frame.pointer_ray = self.guide_pointer_ray;
+            frame.hologram_alpha = if self.guide_page == GuidePage::Hidden {
+                self.wrist_ring.open_alpha
+            } else {
+                1.0
+            };
+        }
+        if self.guide_is_vr
+            && let Some((position, orientation)) = self.vr_hologram_anchor
+        {
+            frame.hologram = Some(crate::hologram::HologramPose {
+                origin: self.vr_rig_orientation * (position - self.vr_tracking_head),
+                orientation: self.vr_rig_orientation * orientation,
+            });
+        }
+        frame
+    }
+
+    /// Locate the captured hologram in the current eye-relative render space.
+    /// Its tracking-space pose stays fixed when the wearer turns or leans.
+    pub fn update_vr_tracking(&mut self, head: Vec3, orientation: glam::Quat, rig: glam::Quat) {
+        self.vr_tracking_origin.get_or_insert(head);
+        self.vr_tracking_head = head;
+        self.vr_tracking_orientation = orientation;
+        self.vr_rig_orientation = rig;
+        if self.vr_hologram_anchor.is_none() {
+            self.reanchor_vr_guide();
+        }
+    }
+
+    fn reanchor_vr_guide(&mut self) {
+        self.vr_hologram_anchor = Some((self.vr_tracking_head, self.vr_tracking_orientation));
+    }
+
+    fn tracked_render_pose(&self) -> cosmos_math::ScalePose64 {
+        let mut pose = self.flight.pose;
+        if let Some(origin) = self.vr_tracking_origin {
+            let displacement = self.vr_rig_orientation * (self.vr_tracking_head - origin);
+            let _ = pose.translate_render_units(displacement.as_dvec3(), &self.spatial.tree);
+        }
+        pose
+    }
+
+    pub fn toggle_spatial_help(&mut self) {
+        if self.guide_page == GuidePage::Hidden {
+            self.reanchor_vr_guide();
+            if self
+                .journey_director
+                .as_ref()
+                .is_some_and(|d| d.play_state() == JourneyPlayState::Playing)
+            {
+                self.toggle_journey_play_pause();
+            }
+            self.guide_page = GuidePage::Help;
+        } else {
+            self.guide_page = GuidePage::Hidden;
+        }
+        self.sync_narration_pause();
+    }
+
+    pub fn perform_guide_action(&mut self, action: GuideAction) {
+        match action {
+            GuideAction::Highlights | GuideAction::Odyssey => {
+                let id = if action == GuideAction::Highlights {
+                    "cosmic_highlights_tour"
+                } else {
+                    "grand_cosmic_odyssey"
+                };
+                if let Err(err) = self.activate_journey(id, true) {
+                    eprintln!("[HyperCosmosVR] Unable to start tour: {err}");
+                    return;
+                }
+                self.guide_page = GuidePage::Hidden;
+            }
+            GuideAction::Explore => {
+                self.journey_confirm_exit();
+                self.guide_page = GuidePage::Hidden;
+            }
+            GuideAction::Help => {
+                self.toggle_spatial_help();
+                self.guide_page = GuidePage::Help;
+            }
+            GuideAction::CloseHelp => self.guide_page = GuidePage::Hidden,
+            GuideAction::ToggleTour => self.toggle_journey_play_pause(),
+            GuideAction::Previous => self.journey_prev_beat(),
+            GuideAction::Next => self.journey_next_beat(),
+            GuideAction::Home => self.trigger_home(),
+        }
+        self.sync_narration_pause();
+    }
+
+    fn sync_narration_pause(&mut self) {
+        let paused = (self.guide_enabled && self.guide_page != GuidePage::Hidden)
+            || self.journey_director.as_ref().is_some_and(|d| {
+                matches!(
+                    d.play_state(),
+                    JourneyPlayState::Paused | JourneyPlayState::PausedByLeash
+                )
+            });
+        if paused != self.narration_paused {
+            self.audio.set_narration_paused(paused);
+            self.narration_paused = paused;
+        }
+    }
+
+    fn step_guide_pointer(
+        &mut self,
+        camera: &RenderCamera,
+        origin: Vec3,
+        direction: Vec3,
+        select: bool,
+    ) -> bool {
+        let frame = self.guide_frame(camera);
+        let hovered = frame.hit_test(camera, origin, direction);
+        if self.guide_is_vr && hovered.is_some() && hovered != self.guide_hovered {
+            self.guide_haptic = Some((0.15, 8_000_000, 180.0));
+        }
+        self.guide_hovered = hovered;
+        self.guide_pointer_ray = Some((origin, direction));
+        let captured = frame.captures_pointer(camera, origin, direction);
+        self.guide_pointer_captured = captured;
+        if select && let Some(action) = self.guide_hovered {
+            if self.guide_is_vr {
+                self.guide_haptic = Some((0.4, 20_000_000, 210.0));
+            }
+            self.perform_guide_action(action);
+        }
+        captured
     }
 
     /// Loads (or replaces) the active Story-Journey by id, `.hcj.json` path, or `hypercosmos://` URI.
@@ -240,6 +480,9 @@ impl UniverseRuntime {
         }
         self.wrist_ring.journey_active = director.is_active();
         self.journey_director = Some(director);
+        self.audio.stop_narration();
+        self.active_session = None;
+        self.memory.invalidate_pending();
         Ok(())
     }
 
@@ -247,6 +490,12 @@ impl UniverseRuntime {
         self.journey_director
             .as_ref()
             .is_some_and(|d| d.is_active())
+    }
+
+    pub fn has_tour_controls(&self) -> bool {
+        self.journey_director
+            .as_ref()
+            .is_some_and(|d| d.play_state() != JourneyPlayState::Inactive)
     }
 
     pub fn is_journey_paused_by_leash(&self) -> bool {
@@ -260,6 +509,7 @@ impl UniverseRuntime {
     }
 
     pub fn toggle_journey_play_pause(&mut self) {
+        self.guide_page = GuidePage::Hidden;
         if let Some(ref mut dir) = self.journey_director {
             dir.toggle_play_pause(&self.spatial.tree, &self.flight.pose);
             self.wrist_ring.journey_active = dir.is_active();
@@ -267,34 +517,61 @@ impl UniverseRuntime {
                 self.active_peripheral_prompt = None;
             }
         }
+        self.sync_narration_pause();
     }
 
     pub fn journey_next_beat(&mut self) {
+        let mut changed = false;
         if let Some(ref mut dir) = self.journey_director {
-            dir.next_beat(&self.spatial.tree, &self.flight.pose);
+            changed = dir.next_beat(&self.spatial.tree, &self.flight.pose);
             self.wrist_ring.journey_active = dir.is_active();
         }
+        if changed {
+            self.clear_tour_narration();
+        }
+        self.sync_narration_pause();
     }
 
     pub fn journey_prev_beat(&mut self) {
+        let mut changed = false;
         if let Some(ref mut dir) = self.journey_director {
-            dir.prev_beat(&self.spatial.tree, &self.flight.pose);
+            changed = dir.prev_beat(&self.spatial.tree, &self.flight.pose);
             self.wrist_ring.journey_active = dir.is_active();
         }
+        if changed {
+            self.clear_tour_narration();
+        }
+        self.sync_narration_pause();
     }
 
     pub fn journey_next_chapter(&mut self) {
+        let mut changed = false;
         if let Some(ref mut dir) = self.journey_director {
-            dir.next_chapter(&self.spatial.tree, &self.flight.pose);
+            changed = dir.next_chapter(&self.spatial.tree, &self.flight.pose);
             self.wrist_ring.journey_active = dir.is_active();
         }
+        if changed {
+            self.clear_tour_narration();
+        }
+        self.sync_narration_pause();
     }
 
     pub fn journey_prev_chapter(&mut self) {
+        let mut changed = false;
         if let Some(ref mut dir) = self.journey_director {
-            dir.prev_chapter(&self.spatial.tree, &self.flight.pose);
+            changed = dir.prev_chapter(&self.spatial.tree, &self.flight.pose);
             self.wrist_ring.journey_active = dir.is_active();
         }
+        if changed {
+            self.clear_tour_narration();
+        }
+        self.sync_narration_pause();
+    }
+
+    fn clear_tour_narration(&mut self) {
+        self.audio.stop_narration();
+        self.active_session = None;
+        self.memory.invalidate_pending();
     }
 
     pub fn journey_confirm_follow(&mut self) {
@@ -306,13 +583,20 @@ impl UniverseRuntime {
 
     pub fn journey_confirm_exit(&mut self) {
         if let Some(ref mut dir) = self.journey_director
-            && dir.is_active()
+            && dir.play_state() != JourneyPlayState::Inactive
         {
             let detached = dir.exit_to_free_flight(&self.spatial.tree);
             self.flight.pose = detached;
             self.wrist_ring.journey_active = false;
             self.active_peripheral_prompt = None;
+            self.audio.stop_narration();
+            self.active_session = None;
+            self.memory.invalidate_pending();
+            self.flight.linear_vel_cam = DVec3::ZERO;
+            self.flight.angular_vel_rad = DVec3::ZERO;
+            self.flight.scale_vel = 0.0;
         }
+        self.sync_narration_pause();
     }
 
     /// Records the current 6DoF camera+scale pose and focused target as a Story-Journey waypoint.
@@ -550,6 +834,9 @@ impl UniverseRuntime {
 
     /// Triggers smooth continuous spline hyper-flight back to Earth Low Orbit (`u = +6.6`).
     pub fn trigger_home(&mut self) {
+        self.journey_confirm_exit();
+        self.guide_page = GuidePage::Hidden;
+        self.sync_narration_pause();
         let _ = self.flight.start_home_flight(&self.spatial);
     }
 
@@ -567,6 +854,39 @@ impl UniverseRuntime {
         width: u32,
         height: u32,
     ) -> FramePacket {
+        let orient = self.flight.pose.orient.as_quat();
+        let guide_captured = self.step_guide_pointer(
+            camera_for_pick,
+            Vec3::ZERO,
+            orient * hover_ray_cam,
+            click_just_pressed,
+        );
+        let mut preview_ring = self.wrist_ring.clone();
+        preview_ring.step(
+            &WristSummonInput {
+                cam_pos: orient * Vec3::new(-0.34, -0.09, -0.02),
+                cam_rot: orient,
+                desktop_right_hold: right_hold_ring,
+                desktop_tab_just_pressed: tab_just_pressed,
+                pointer_origin: Some(Vec3::ZERO),
+                pointer_dir: Some(orient * hover_ray_cam),
+                ..Default::default()
+            },
+            0.0,
+        );
+        if !desktop_input.left_drag_active {
+            self.desktop_control_gesture = false;
+        }
+        if click_just_pressed && (guide_captured || preview_ring.hovered_bead_id.is_some()) {
+            self.desktop_control_gesture = true;
+        }
+        let mut safe_input = desktop_input.clone();
+        if self.desktop_control_gesture {
+            safe_input.left_drag_active = false;
+            safe_input.mouse_delta_rad = glam::DVec2::ZERO;
+        }
+        let desktop_input = &safe_input;
+        let click_just_pressed = click_just_pressed && !guide_captured;
         let visible_pre = self
             .spatial
             .query_visible(
@@ -691,10 +1011,40 @@ impl UniverseRuntime {
         width: u32,
         height: u32,
     ) -> FramePacket {
+        let guide_captured = self.step_guide_pointer(
+            vr_camera,
+            wrist_input.pointer_origin.unwrap_or(Vec3::ZERO),
+            wrist_input.pointer_dir.unwrap_or(vr_camera.cam_forward),
+            wrist_input.select_triggered,
+        );
+        let mut safe_wrist = wrist_input.clone();
+        safe_wrist.select_triggered &= !guide_captured;
+        let mut preview_ring = self.wrist_ring.clone();
+        let mut probe = safe_wrist.clone();
+        probe.select_triggered = false;
+        preview_ring.step(&probe, 0.0);
+        if vr_input.trigger_pull <= 0.1 {
+            self.vr_control_gesture = false;
+        }
+        if (guide_captured || preview_ring.hovered_bead_id.is_some())
+            && (wrist_input.select_triggered || vr_input.trigger_pull > 0.1)
+        {
+            self.vr_control_gesture = true;
+        }
+        let mut safe_flight = vr_input.clone();
+        if self.vr_control_gesture {
+            safe_flight.trigger_pull = 0.0;
+        }
+        let vr_input = &safe_flight;
+        let wrist_input = &safe_wrist;
+        if vr_input.home_pressed {
+            self.trigger_home();
+        }
+        let render_pose = self.tracked_render_pose();
         let visible_pre = self
             .spatial
             .query_visible(
-                &self.flight.pose,
+                &render_pose,
                 vr_camera.eyes[0].view_proj,
                 0.05_f32.to_radians(),
                 Some(512),
@@ -949,7 +1299,7 @@ impl UniverseRuntime {
         wrist_input: &WristSummonInput,
         ray_cam: Vec3,
         _extra_ang: f32,
-        _vr_hint: Option<&glam::Quat>,
+        vr_hint: Option<&glam::Quat>,
         dt_sec: f32,
         width: u32,
         height: u32,
@@ -962,7 +1312,7 @@ impl UniverseRuntime {
         self.scale_meridian
             .step(self.flight.pose.scale_exp, self.flight.scale_vel, dt);
 
-        let mut haptic_pulse: Option<(f32, i64, f32)> = None;
+        let mut haptic_pulse = self.guide_haptic.take();
         if let Some(action) = self.wrist_ring.step(wrist_input, dt) {
             match action {
                 DiegeticAction::SetPlaybackRate(rate) => {
@@ -1003,6 +1353,7 @@ impl UniverseRuntime {
                     let _ = self.export_recorded_journey_interactive();
                     haptic_pulse = Some((0.75, 45_000_000, 175.0));
                 }
+                DiegeticAction::ToggleHelp => self.toggle_spatial_help(),
             }
         }
         if self.wrist_ring.hovered_bead_id != self.prev_hovered_bead
@@ -1011,12 +1362,25 @@ impl UniverseRuntime {
             haptic_pulse = haptic_pulse.or(Some((0.25, 14_000_000, 260.0)));
         }
         self.prev_hovered_bead = self.wrist_ring.hovered_bead_id;
+        let ring_visible = self.wrist_ring.open_alpha > 0.1;
+        if self.guide_is_vr && ring_visible && !self.vr_ring_visible {
+            self.reanchor_vr_guide();
+        }
+        self.vr_ring_visible = ring_visible;
+        self.sync_narration_pause();
 
+        // OpenXR eye matrices are head-centered. Apply room-scale head translation
+        // to the world query/render pose once, without feeding it to tour steering.
+        let render_pose = if vr_hint.is_some() {
+            self.tracked_render_pose()
+        } else {
+            self.flight.pose
+        };
         // 2) Spatial octree frustum query.
         let visible = self
             .spatial
             .query_visible(
-                &self.flight.pose,
+                &render_pose,
                 camera.eyes[0].view_proj,
                 0.05_f32.to_radians(),
                 Some(512),
@@ -1043,22 +1407,29 @@ impl UniverseRuntime {
             .as_ref()
             .is_some_and(|s| s.phase == SegmentPhase::Completed);
 
-        let fsm_out = self.fsm.step(&FsmInput {
-            raw_ray_dir_cam: ray_cam,
-            linear_speed: if verification_override.is_some() {
-                0.0
-            } else {
-                self.flight.linear_speed() as f32
-            },
-            scale_speed: if verification_override.is_some() {
-                0.0
-            } else {
-                self.flight.scale_vel.abs() as f32
-            },
-            dt_sec: dt,
-            candidates: &candidates,
-            narration_finished: session_finished,
-        });
+        let controls_focused = self.narration_paused
+            || self.guide_pointer_captured
+            || self.wrist_ring.hovered_bead_id.is_some();
+        let fsm_out = if controls_focused && verification_override.is_none() {
+            self.fsm.snapshot()
+        } else {
+            self.fsm.step(&FsmInput {
+                raw_ray_dir_cam: ray_cam,
+                linear_speed: if verification_override.is_some() {
+                    0.0
+                } else {
+                    self.flight.linear_speed() as f32
+                },
+                scale_speed: if verification_override.is_some() {
+                    0.0
+                } else {
+                    self.flight.scale_vel.abs() as f32
+                },
+                dt_sec: dt,
+                candidates: &candidates,
+                narration_finished: session_finished,
+            })
+        };
 
         let now_kind = fsm_out.state.kind();
         if now_kind == FsmStateKind::Locked && self.prev_fsm_kind != FsmStateKind::Locked {
@@ -1069,7 +1440,7 @@ impl UniverseRuntime {
         let journey_playing_rail = self
             .journey_director
             .as_ref()
-            .is_some_and(|d| d.play_state() == JourneyPlayState::Playing);
+            .is_some_and(|d| d.is_active());
 
         if fsm_out.should_cancel_audio && verification_override.is_none() && !journey_playing_rail {
             self.audio.stop_narration();
@@ -1098,7 +1469,7 @@ impl UniverseRuntime {
                 sess.surface_dist_m = Some((vis.pose.distance_render_units as f32).max(0.4));
             }
             let dir_world = sess.anchor_pos_cam.normalize_or(Vec3::NEG_Z);
-            let dir_head = cam_orient.conjugate() * dir_world;
+            let dir_head = camera_basis_quat(camera).conjugate() * dir_world;
             self.audio.set_emitter_direction(dir_head);
         }
 
@@ -1116,6 +1487,12 @@ impl UniverseRuntime {
         // 4) Build BilingualNarrationSpec (plus optional diegetic bead/meridian MSDF labels).
         let mut narration_spec =
             self.build_bilingual_spec(&fsm_out, active_experience_id, verification_override);
+        if self.guide_enabled
+            && self.guide_page != GuidePage::Hidden
+            && verification_override.is_none()
+        {
+            narration_spec = None;
+        }
         if let Some(ref mut spec) = narration_spec {
             spec.anchor_world_pos = resolve_narration_card_anchor(
                 &visible,
@@ -1141,6 +1518,11 @@ impl UniverseRuntime {
             self.locale,
         );
         self.append_diegetic_msdf_labels(camera, &mut ambient_inputs);
+        let guide = if verification_override.is_none() {
+            self.guide_frame(camera)
+        } else {
+            GuideFrame::default()
+        };
 
         let cam_basis = CameraBasis {
             eye_center: Vec3::ZERO,
@@ -1160,6 +1542,7 @@ impl UniverseRuntime {
             focused_id,
             camera,
         );
+        blockers.extend(guide.blockers(camera));
         if let Some(ref prompt) = self.active_peripheral_prompt
             && prompt.alpha > 0.05
         {
@@ -1187,11 +1570,12 @@ impl UniverseRuntime {
             self.active_peripheral_prompt.as_ref(),
             &self.journey_recorder,
             &self.spatial.tree,
-            &self.flight.pose,
+            &render_pose,
             &self.atlas,
             camera,
             &mut typo,
         );
+        guide.append_typography(&self.atlas, camera, &mut typo);
 
         // 5) Build RenderSceneFrame (compute, far shell, volumetric heroes, diegetic pearls).
         let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
@@ -1230,7 +1614,7 @@ impl UniverseRuntime {
         let mut scene = self.scene_builder.build(
             &self.spatial,
             &SceneBuildInput {
-                cam_pose: self.flight.pose,
+                cam_pose: render_pose,
                 camera: *camera,
                 viewport_width: width,
                 viewport_height: height,
@@ -1256,7 +1640,7 @@ impl UniverseRuntime {
             self.active_peripheral_prompt.as_ref(),
             &self.journey_recorder,
             &self.spatial.tree,
-            &self.flight.pose,
+            &render_pose,
             camera,
             self.time_sec,
             &mut scene.sprites,
@@ -1270,6 +1654,7 @@ impl UniverseRuntime {
             hovered_entity_id: focused_id,
             fsm_state: now_kind,
             haptic_pulse,
+            guide,
         }
     }
 
@@ -1541,6 +1926,9 @@ impl UniverseRuntime {
     }
 
     fn advance_audio_sequencer(&mut self) {
+        if self.narration_paused {
+            return;
+        }
         let clock = self.audio.playback_clock();
         let Some(mut sess) = self.active_session.take() else {
             return;
@@ -2789,6 +3177,259 @@ mod tests {
     fn test_runtime() -> UniverseRuntime {
         let assets = UniverseAssets::load().expect("load runtime assets");
         UniverseRuntime::new(assets, AudioOutputMode::Headless).expect("init runtime")
+    }
+
+    fn guide_test_step(
+        rt: &mut UniverseRuntime,
+        action: Option<GuideAction>,
+        drag: bool,
+    ) -> FramePacket {
+        let cam = RenderCamera::mono(
+            rt.flight.pose.orient.as_quat(),
+            72.0_f32.to_radians(),
+            16.0 / 9.0,
+            DEFAULT_DESKTOP_NEAR_RENDER_UNITS,
+        );
+        let ray = action
+            .map(|action| {
+                let frame = rt.guide_frame(&cam);
+                let b = frame
+                    .buttons
+                    .iter()
+                    .find(|b| b.action == action)
+                    .expect("visible action");
+                Vec3::new(b.rect.az_center.tan(), b.rect.el_center.tan(), -1.0).normalize()
+            })
+            .unwrap_or(Vec3::NEG_Z);
+        rt.step_desktop_frame(
+            &DesktopFlightInput {
+                left_drag_active: drag,
+                mouse_delta_rad: if drag {
+                    glam::DVec2::new(0.4, 0.2)
+                } else {
+                    glam::DVec2::ZERO
+                },
+                ..Default::default()
+            },
+            ray,
+            false,
+            false,
+            action.is_some(),
+            &cam,
+            0.05,
+            1280,
+            720,
+        )
+    }
+
+    #[test]
+    fn guide_tour_pause_resume_help_skip_and_explore_preserve_intent() {
+        let mut rt = test_runtime();
+        rt.enable_spatial_guide(false);
+        assert_eq!(rt.guide_page, GuidePage::Welcome);
+        guide_test_step(&mut rt, Some(GuideAction::Highlights), true);
+        assert!(rt.is_journey_active());
+        assert!(
+            rt.journey_director
+                .as_ref()
+                .unwrap()
+                .override_state()
+                .is_zero(),
+            "click must not orbit"
+        );
+        for _ in 0..100 {
+            guide_test_step(&mut rt, None, false);
+        }
+        assert!(
+            rt.active_session.is_some(),
+            "tour must start real narration"
+        );
+        guide_test_step(&mut rt, Some(GuideAction::ToggleTour), false);
+        let frozen_pose = rt.flight.pose;
+        let frozen_clock = rt.audio.playback_clock();
+        let beat = rt.journey_director.as_ref().unwrap().active_beat_index();
+        let segment = rt.active_session.as_ref().unwrap().seg_idx;
+        for _ in 0..120 {
+            guide_test_step(&mut rt, None, false);
+        }
+        assert_eq!(rt.flight.pose, frozen_pose);
+        assert_eq!(rt.audio.playback_clock().source_ms, frozen_clock.source_ms);
+        assert_eq!(rt.active_session.as_ref().unwrap().seg_idx, segment);
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().active_beat_index(),
+            beat
+        );
+        guide_test_step(&mut rt, Some(GuideAction::ToggleTour), false);
+        guide_test_step(&mut rt, None, false);
+        assert!(rt.audio.playback_clock().source_ms > frozen_clock.source_ms);
+        assert_ne!(rt.flight.pose, frozen_pose);
+        rt.toggle_spatial_help();
+        assert_eq!(rt.guide_page, GuidePage::Help);
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().play_state(),
+            JourneyPlayState::Paused
+        );
+        guide_test_step(&mut rt, Some(GuideAction::CloseHelp), false);
+        assert!(
+            rt.narration_paused,
+            "closing help must not restart motion or speech"
+        );
+        guide_test_step(&mut rt, Some(GuideAction::Next), false);
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().active_beat_index(),
+            beat + 1
+        );
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().play_state(),
+            JourneyPlayState::Paused
+        );
+        assert!(
+            rt.active_session.is_none(),
+            "skip must discard the previous clip"
+        );
+        guide_test_step(&mut rt, Some(GuideAction::Previous), false);
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().active_beat_index(),
+            beat
+        );
+        guide_test_step(&mut rt, Some(GuideAction::ToggleTour), false);
+        rt.pause_for_focus_loss();
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().play_state(),
+            JourneyPlayState::Paused
+        );
+        let before_exit = rt.flight.pose;
+        guide_test_step(&mut rt, Some(GuideAction::Explore), true);
+        assert!(!rt.is_journey_active());
+        assert_eq!(
+            rt.flight.pose, before_exit,
+            "Explore click must not drag the camera"
+        );
+        assert!(!rt.narration_paused);
+        assert_eq!(rt.guide_page, GuidePage::Hidden);
+    }
+
+    #[test]
+    fn vr_guide_trigger_is_consumed_until_release() {
+        let mut rt = test_runtime();
+        rt.enable_spatial_guide(true);
+        let cam = RenderCamera::mono(
+            glam::Quat::IDENTITY,
+            90.0_f32.to_radians(),
+            1.0,
+            DEFAULT_DESKTOP_NEAR_RENDER_UNITS,
+        );
+        let frame = rt.guide_frame(&cam);
+        let b = frame
+            .buttons
+            .iter()
+            .find(|b| b.action == GuideAction::Explore)
+            .unwrap();
+        let origin = Vec3::new(0.25, -0.15, 0.1);
+        let target = frame.hologram.unwrap().button_center(b);
+        let mut hologram_text = TypoFrameOutput::default();
+        frame.append_typography(&rt.atlas, &cam, &mut hologram_text);
+        assert!(
+            hologram_text.foreground_start.is_none(),
+            "VR must use physical scene depth"
+        );
+        assert!(
+            hologram_text
+                .glyphs
+                .iter()
+                .all(|g| g.ink_params[3] != cosmos_typo::GlyphInkMode::ControlBackdrop as u8 as f32),
+            "VR must have no flat backplates"
+        );
+        assert!(
+            hologram_text.tethers.len() > 400,
+            "controls must have volumetric strokes"
+        );
+        rt.update_vr_tracking(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        let before = rt.step_vr_frame(
+            &VrFlightInput::default(),
+            &WristSummonInput::default(),
+            &cam,
+            Vec3::NEG_Z,
+            0.0,
+            0.016,
+            800,
+            800,
+        );
+        let lean = Vec3::new(0.2, 0.0, 0.0);
+        rt.update_vr_tracking(lean, glam::Quat::from_rotation_y(0.7), glam::Quat::IDENTITY);
+        let after = rt.step_vr_frame(
+            &VrFlightInput::default(),
+            &WristSummonInput::default(),
+            &cam,
+            Vec3::NEG_Z,
+            0.0,
+            0.016,
+            800,
+            800,
+        );
+        let hero_center = |packet: &FramePacket| {
+            let hero = packet
+                .scene
+                .heroes_surface
+                .iter()
+                .max_by(|a, b| a.pos_radius[3].total_cmp(&b.pos_radius[3]))
+                .expect("Earth surface");
+            Vec3::from_array([hero.pos_radius[0], hero.pos_radius[1], hero.pos_radius[2]])
+        };
+        assert!(
+            (hero_center(&before) - hero_center(&after) - lean).length() < 1e-4,
+            "room-scale leaning must change the world view as well as the hologram"
+        );
+        let moved = rt.guide_frame(&cam);
+        let h = moved.hologram.unwrap();
+        let moved_button = moved
+            .buttons
+            .iter()
+            .find(|b| b.action == GuideAction::Explore)
+            .unwrap();
+        assert!(
+            (h.button_center(moved_button) + lean - target).length() < 1e-5,
+            "head movement must not drag the hologram"
+        );
+        assert_eq!(
+            h.orientation,
+            glam::Quat::IDENTITY,
+            "head turns must not rotate the hologram"
+        );
+        rt.update_vr_tracking(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        let mut wrist = WristSummonInput {
+            pointer_origin: Some(origin),
+            pointer_dir: Some((target - origin).normalize()),
+            select_triggered: true,
+            ..Default::default()
+        };
+        let mut flight = VrFlightInput {
+            trigger_pull: 1.0,
+            dominant_hand_forward_cam: DVec3::NEG_Z,
+            ..Default::default()
+        };
+        let initial = rt.flight.pose;
+        for _ in 0..8 {
+            let packet = rt.step_vr_frame(&flight, &wrist, &cam, Vec3::NEG_Z, 0.0, 0.05, 800, 800);
+            assert!(
+                packet.typo.foreground_start.is_none(),
+                "hidden VR guidance must retain world depth"
+            );
+            wrist.select_triggered = false;
+        }
+        assert_eq!(rt.guide_page, GuidePage::Hidden);
+        assert_eq!(
+            rt.flight.pose, initial,
+            "holding the selection trigger must not thrust"
+        );
+        flight.trigger_pull = 0.0;
+        rt.step_vr_frame(&flight, &wrist, &cam, Vec3::NEG_Z, 0.0, 0.05, 800, 800);
+        flight.trigger_pull = 1.0;
+        rt.step_vr_frame(&flight, &wrist, &cam, Vec3::NEG_Z, 0.0, 0.05, 800, 800);
+        assert_ne!(
+            rt.flight.pose, initial,
+            "a new trigger gesture must still fly"
+        );
     }
 
     #[test]

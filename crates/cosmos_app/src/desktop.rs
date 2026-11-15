@@ -18,6 +18,7 @@ use winit::window::{Window, WindowAttributes, WindowId};
 
 use crate::assets::UniverseAssets;
 use crate::engine::{LaunchJourneyConfig, UniverseRuntime};
+use crate::guide::{GuideAction, GuidePage};
 
 struct GpuSurfaceState {
     window: Arc<Window>,
@@ -49,6 +50,7 @@ impl DesktopApp {
         let shaders_dir = assets.shaders_dir.clone();
         let mut runtime = UniverseRuntime::new(assets, AudioOutputMode::Auto)?;
         journey_cfg.apply(&mut runtime)?;
+        runtime.enable_spatial_guide(false);
         Ok(Self {
             assets_shaders_dir: shaders_dir,
             runtime,
@@ -164,6 +166,8 @@ impl DesktopApp {
             &pkt.typo.glyphs,
             &pkt.typo.tethers,
         );
+        gpu.text_renderer
+            .set_foreground_start(pkt.typo.foreground_start);
 
         let target_format = gpu.config.format;
         gpu.renderer.render_frame(
@@ -189,7 +193,7 @@ impl ApplicationHandler for DesktopApp {
         }
         let attrs = WindowAttributes::default()
             .with_title("HyperCosmosVR — Desktop HDR (RTX 5070)")
-            .with_inner_size(PhysicalSize::new(1600, 900));
+            .with_inner_size(PhysicalSize::new(1280, 720));
         let window = match event_loop.create_window(attrs) {
             Ok(w) => Arc::new(w),
             Err(e) => {
@@ -322,6 +326,16 @@ impl ApplicationHandler for DesktopApp {
     ) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Focused(false) => {
+                self.pressed_keys.clear();
+                self.left_down = false;
+                self.right_down = false;
+                self.left_click_edge = false;
+                self.tab_just_pressed = false;
+                self.scroll_accum = 0.0;
+                self.mouse_delta = DVec2::ZERO;
+                self.runtime.pause_for_focus_loss();
+            }
             WindowEvent::Resized(new_size) => {
                 if let Some(ref mut gpu) = self.gpu
                     && new_size.width > 0
@@ -375,11 +389,17 @@ impl ApplicationHandler for DesktopApp {
                                 || self.pressed_keys.contains(&KeyCode::ControlRight);
                             match code {
                                 KeyCode::Escape => {
-                                    if self.runtime.is_journey_active() {
-                                        self.runtime.journey_confirm_exit();
+                                    if self.runtime.guide_page != GuidePage::Hidden {
+                                        self.runtime.perform_guide_action(GuideAction::CloseHelp);
+                                    } else if self.runtime.has_tour_controls() {
+                                        self.runtime.perform_guide_action(GuideAction::Explore);
                                     } else {
-                                        event_loop.exit();
+                                        self.runtime.toggle_spatial_help();
                                     }
+                                }
+                                KeyCode::F1 => self.runtime.toggle_spatial_help(),
+                                KeyCode::Space if self.runtime.has_tour_controls() => {
+                                    self.runtime.toggle_journey_play_pause()
                                 }
                                 KeyCode::Tab => self.tab_just_pressed = true,
                                 KeyCode::KeyL => self.runtime.toggle_locale(),
