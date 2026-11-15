@@ -328,6 +328,28 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                 | "replication"
                 | "mutacion"
                 | "mutation"
+                | "dna"
+                | "celula"
+                | "cell"
+                | "membrana"
+                | "membrane"
+                | "metabolismo"
+                | "metabolism"
+                | "enzima"
+                | "enzyme"
+                | "herencia"
+                | "heredity"
+                | "fotosintesis"
+                | "photosynthesis"
+                | "mitochondrion"
+                | "chloroplast"
+                | "endosimbiosis"
+                | "endosymbiosis"
+                | "meiosis"
+                | "desarrollo"
+                | "development"
+                | "ecosistema"
+                | "ecosystem"
         ) {
             mask |= 0x08;
         }
@@ -436,6 +458,17 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                     | "feedback"
                     | "homeostasis"
                     | "autoorganizacion"
+                    | "neuron"
+                    | "synapse"
+                    | "axonal"
+                    | "reflejo"
+                    | "reflex"
+                    | "plasticidad"
+                    | "plasticity"
+                    | "percepcion"
+                    | "perception"
+                    | "conciencia"
+                    | "consciousness"
             )
         {
             mask |= 0x20;
@@ -1293,6 +1326,13 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "autoorganizacion", "catalizador", "catalyst", "autocatalitico", "autocatalytic",
     "replicacion", "replication", "mutacion", "mutation", "hidrotermal", "hydrothermal",
     "arn", "rna",
+    // Life: cellular processes and the transition to nervous systems (Exp 16).
+    "dna", "celula", "cell", "membrana", "membrane", "metabolismo", "metabolism",
+    "enzima", "enzyme", "herencia", "heredity", "fotosintesis", "photosynthesis",
+    "mitochondrion", "chloroplast", "endosimbiosis", "endosymbiosis", "meiosis",
+    "desarrollo", "development", "ecosistema", "ecosystem", "neuron", "synapse",
+    "axonal", "reflejo", "reflex", "plasticidad", "plasticity", "percepcion", "perception",
+    "conciencia", "consciousness",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {
@@ -1571,6 +1611,57 @@ mod tests {
             .to_path_buf();
         let hcvb = root.join("assets").join("baked").join("universe_catalog.hcvb");
         UniverseCatalog::open(&hcvb, None).expect("baked universe_catalog.hcvb must open")
+    }
+
+    #[test]
+    fn life_catalog_features_keep_their_indices_and_bilingual_cues() {
+        let catalog = load_real_catalog();
+        let resolver = TargetResolver::default();
+        let zones = catalog.zones(16);
+        assert_eq!(zones.len(), 19);
+        let mut features_seen = 0;
+        for (z, zone) in zones.iter().enumerate() {
+            for f in 0..catalog.features(zone).len() {
+                let plan = resolver
+                    .resolve(
+                        &catalog,
+                        &TargetFocus::CatalogItem {
+                            experience_id: 16,
+                            zone_index: z as u16,
+                            feature_index: Some(f as u16),
+                            is_macro_zoomed_out: false,
+                        },
+                    )
+                    .unwrap();
+                let item = plan
+                    .segments
+                    .iter()
+                    .position(|s| s.role == SegmentRole::Item)
+                    .unwrap();
+                let snap = plan.documentary_snapshot(Some(item), 0.68, 0.92);
+                assert_eq!(snap.active_zone_index, z as u16);
+                assert_eq!(snap.active_feature_index, f as u16);
+                features_seen += 1;
+            }
+        }
+        assert_eq!(features_seen, 153);
+        for (spanish, english, mask) in [
+            ("célula", "cell", 0x08),
+            ("fotosíntesis", "photosynthesis", 0x08),
+            ("endosimbiosis", "endosymbiosis", 0x08),
+            ("sinapsis", "synapse", 0x20),
+            ("plasticidad", "plasticity", 0x20),
+            ("conciencia", "consciousness", 0x20),
+        ] {
+            for word in [spanish, english] {
+                let normalized = normalize_ascii_lower(word);
+                assert!(DOMAIN_CUE_KEYWORDS.contains(&normalized.as_str()));
+                assert_ne!(
+                    encode_cue_tags_mask(&[format!("kw:{normalized}")]) & mask,
+                    0
+                );
+            }
+        }
     }
 
     #[test]

@@ -2848,6 +2848,155 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
     }
 }
 
+#[test]
+fn life_all_zones_features_and_overviews_render_distinctly() {
+    use cosmos_render::DocumentaryFocusState;
+    use cosmos_render::doc_stages::{is_zone_migrated_tier_a, resolve_zone_shader_vid};
+
+    let index = build_default_universe_index();
+    let eye = DVec3::new(-0.95, 0.82, 3.80);
+    let cam = RenderCamera::mono(
+        Quat::from_rotation_arc(Vec3::NEG_Z, (-eye).normalize().as_vec3()),
+        72.0_f32.to_radians(),
+        1.0,
+        0.02,
+    );
+    let mut renderer = CosmosRenderer::init_desktop(256, 256).expect("Life DX12 init");
+    let capture_dir =
+        std::env::var_os("HYPERCOSMOS_LIFE_CAPTURE_DIR").map(std::path::PathBuf::from);
+    if let Some(dir) = &capture_dir {
+        std::fs::create_dir_all(dir).expect("Life capture directory");
+    }
+    let count_diff = |a: &[u8], b: &[u8]| {
+        a.as_chunks::<4>()
+            .0
+            .iter()
+            .zip(b.as_chunks::<4>().0.iter())
+            .filter(|(a, b)| (0..3).any(|ch| a[ch].abs_diff(b[ch]) >= 4))
+            .count()
+    };
+    let mut zone_overviews = Vec::new();
+    let mut feature_count = 0;
+    for zone in 0u16..19 {
+        assert!(is_zone_migrated_tier_a(16, zone));
+        let n_features = if zone == 18 { 9 } else { 8 };
+        let mut renders = Vec::new();
+        // u16::MAX packs to 255 (overview); Z18 F8 must remain feature 8.
+        for feat in (0u16..n_features).chain(std::iter::once(u16::MAX)) {
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::LIFE_BIOSPHERE, eye, -1.0, DQuat::IDENTITY),
+                cam,
+                256,
+                256,
+            );
+            input.active_experience_id = 16;
+            input.particle_budget = 0;
+            input.documentary = DocumentaryFocusState {
+                active_zone_index: zone,
+                active_feature_index: feat,
+                narration_cue_progress: 0.68,
+                narration_active_weight: 0.92,
+                zone_accent_rgb: [0.28, 1.20, 0.70],
+                cue_tags_mask: 0x08,
+                ..Default::default()
+            };
+            assert_eq!(
+                resolve_zone_shader_vid(16, &input.documentary),
+                2600 + u32::from(zone)
+            );
+            let mut scene = UniverseSceneBuilder::new().build(&index, &input);
+            assert_eq!(scene.compute.counts[0], if zone >= 15 { 7 } else { 6 });
+            assert_eq!(
+                scene.dispatch_field_grid,
+                if matches!(zone, 9 | 10) {
+                    Some(0)
+                } else {
+                    None
+                }
+            );
+            let hero = scene
+                .heroes_volume
+                .iter()
+                .find(|h| h.kind_tags[1] == 2600 + u32::from(zone))
+                .expect("canonical Life stage");
+            assert_eq!(hero.kind_tags[0], 8);
+            assert_eq!((hero.kind_tags[2] >> 16) & 0xff, u32::from(feat.min(255)));
+            let expected_companion = match zone {
+                4 => Some(3770),
+                7 => Some(3771),
+                12 => Some(3772),
+                15 => Some(3773),
+                _ => None,
+            };
+            let companions: Vec<_> = scene
+                .heroes_surface
+                .iter()
+                .map(|h| h.kind_tags[1])
+                .collect();
+            assert_eq!(
+                companions,
+                expected_companion.into_iter().collect::<Vec<_>>()
+            );
+
+            // Compare the primary geometry alone: changing particle state or companion
+            // rotation must not make otherwise identical feature stages pass.
+            scene.heroes_surface.clear();
+            let px = renderer
+                .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
+                .expect("Life feature render");
+            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            assert!(
+                void_px * 10_000 >= 256 * 256 * 5091,
+                "Life Z{zone:02} F{feat}: OLED void {void_px}/65536 below 50.91%"
+            );
+            assert!(
+                lit_px >= 450,
+                "Life Z{zone:02} F{feat}: only {lit_px} lit pixels"
+            );
+            assert!(
+                !px.as_chunks::<4>().0.iter().any(|c| c[..3].contains(&255)),
+                "Life Z{zone:02} F{feat}: clipped highlight channel"
+            );
+            if let Some(dir) = &capture_dir {
+                let name = if feat == u16::MAX {
+                    format!("z{zone:02}_overview.png")
+                } else {
+                    format!("z{zone:02}_f{feat}.png")
+                };
+                image::save_buffer(dir.join(name), &px, 256, 256, image::ColorType::Rgba8)
+                    .expect("save Life verification capture");
+            }
+            if feat == u16::MAX {
+                zone_overviews.push(px);
+            } else {
+                feature_count += 1;
+                renders.push(px);
+            }
+        }
+        for i in 0..renders.len() {
+            for j in i + 1..renders.len() {
+                let diff = count_diff(&renders[i], &renders[j]);
+                assert!(
+                    diff >= 120,
+                    "Life Z{zone:02} F{i}/F{j}: only {diff} distinct pixels"
+                );
+            }
+        }
+    }
+    assert_eq!(feature_count, 153);
+    // Catch the old modulo-five aliasing even between nonadjacent zones.
+    for i in 0..zone_overviews.len() {
+        for j in i + 1..zone_overviews.len() {
+            let diff = count_diff(&zone_overviews[i], &zone_overviews[j]);
+            assert!(
+                diff >= 400,
+                "Life overview Z{i:02}/Z{j:02}: only {diff} distinct pixels"
+            );
+        }
+    }
+    assert!(!is_zone_migrated_tier_a(16, 19));
+}
+
 trait BindGroupLayoutTestExt {
     fn size_check_not_needed(&self) -> bool {
         true

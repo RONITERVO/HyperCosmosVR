@@ -977,6 +977,48 @@ fn shade_doc_solar_planet_surface(
         return (surf_c * (ndotl * 1.04 + 0.04) + rim_c * fresnel * 0.44) * 0.76 * inst.color_a.a;
     }
 
+    if (vid >= 3770u && vid <= 3773u) {
+        // Canonical Act IV Exp 16 Life Companions (`3770..=3773`)
+        let feat_f = select(0.0, f32(doc_feat(inst)), doc_feat(inst) < 9u);
+        let spin_p = doc_rot_y(p_surf, time * 0.14 + feat_f * 0.40);
+        let lon_a = atan2(spin_p.z, spin_p.x);
+        var surf_c = inst.color_a.rgb * 0.55;
+        var rim_c = inst.color_b.rgb * 0.95;
+        if (vid == 3770u) {
+            // Z04 heredity: RNA polymerase globe wrapped by a single-strand transcript groove
+            let groove = exp(-abs(sin(lon_a * 2.0 + spin_p.y * 9.0 - time * 0.6)) * 9.0);
+            let pocket = smoothstep(0.55, 0.85, spin_p.x);
+            surf_c = mix(vec3<f32>(0.10, 0.22, 0.42), vec3<f32>(0.34, 0.62, 1.02), 0.5 + 0.5 * spin_p.y)
+                   + vec3<f32>(1.02, 0.46, 0.92) * groove * 0.62
+                   + vec3<f32>(0.98, 0.78, 0.28) * pocket * 0.30;
+            rim_c = vec3<f32>(0.82, 0.48, 1.08);
+        } else if (vid == 3771u) {
+            // Z07 complex cells: engulfed alpha-proteobacterium endosymbiont with folded cristae
+            let cristae = exp(-abs(sin(spin_p.x * 13.0 + sin(spin_p.y * 6.0) * 0.8)) * 8.0);
+            surf_c = mix(vec3<f32>(0.40, 0.14, 0.08), vec3<f32>(1.02, 0.52, 0.20), cristae * 0.85)
+                   + vec3<f32>(0.24, 0.62, 0.92) * smoothstep(0.75, 0.98, abs(spin_p.y)) * 0.32;
+            rim_c = vec3<f32>(1.04, 0.62, 0.26);
+        } else if (vid == 3772u) {
+            // Z12 ecosystems: miniature biosphere globe (ocean / canopy / desert / ice bands)
+            let lat = spin_p.y;
+            let land = smoothstep(-0.05, 0.25, snoise3(spin_p * 3.2));
+            var biome = mix(vec3<f32>(0.06, 0.26, 0.62), vec3<f32>(0.18, 0.74, 0.30), land);
+            biome = mix(biome, vec3<f32>(0.84, 0.66, 0.32), land * smoothstep(0.32, 0.05, abs(lat)) * 0.65);
+            biome = mix(biome, vec3<f32>(0.78, 0.88, 0.96), smoothstep(0.72, 0.88, abs(lat)));
+            let trophic = exp(-abs(lat - 0.18 * sin(lon_a * 3.0 + time * 0.5)) * 26.0);
+            surf_c = biome + vec3<f32>(1.02, 0.84, 0.30) * trophic * 0.38;
+            rim_c = vec3<f32>(0.42, 0.88, 1.08);
+        } else {
+            // 3773u: Z15 nervous: peripheral sensory-motor reflex loop sphere with travelling spike band
+            let band = exp(-abs(fract(lon_a / 6.2831853 + time * 0.22) - 0.5) * 18.0);
+            let myelin = step(0.55, fract(spin_p.y * 6.0)) * 0.18;
+            surf_c = vec3<f32>(0.08, 0.24, 0.48) + vec3<f32>(0.22, 0.62, 1.02) * myelin
+                   + vec3<f32>(1.04, 0.86, 0.30) * band * 0.70;
+            rim_c = vec3<f32>(0.36, 0.86, 1.10);
+        }
+        return (surf_c * (ndotl * 1.04 + 0.04) + rim_c * fresnel * 0.44) * 0.76 * inst.color_a.a;
+    }
+
     if (vid == 12u) {
         // App 01 Physical Material Spheres OR Red/Black Dwarf Cooling Remnants
         let m_mode = doc_submode(inst);

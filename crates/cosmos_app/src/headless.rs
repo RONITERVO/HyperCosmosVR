@@ -537,7 +537,8 @@ fn canonical_showcase_shots() -> Vec<ShowcaseShot> {
             0.68,
             None,
             8,
-        ),
+        )
+        .with_zone(5),
         ShowcaseShot::new(
             "18b_life_dna_cell.png",
             SectorId::LIFE_BIOSPHERE,
