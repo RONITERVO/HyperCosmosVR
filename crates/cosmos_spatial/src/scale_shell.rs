@@ -175,7 +175,14 @@ impl CosmosSpatialIndex {
         let active_shells: Vec<&ScaleShell> = self
             .shells
             .iter()
-            .filter(|s| s.is_active_for_scale(camera.scale_exp) && !s.octree.is_empty())
+            .filter(|s| {
+                // The physical Solar world retains its owner during close
+                // free flight. Changing navigation units cannot remove its
+                // bodies from queries while the renderer still draws them.
+                let solar_owner = camera.sector_id == SectorId::SOLAR_SYSTEM
+                    && s.sector_id == SectorId::SOLAR_SYSTEM;
+                (solar_owner || s.is_active_for_scale(camera.scale_exp)) && !s.octree.is_empty()
+            })
             .collect();
 
         let shells_active = active_shells.len();
@@ -372,12 +379,36 @@ impl CosmosSpatialIndex {
             return self.navigation_pose_for_documentary_stage(entity.experience_id, view_dir_from_entity, false);
         }
         let sector = self.tree.get(entity.sector_id)?;
-        let dir = view_dir_from_entity.try_normalize().unwrap_or(DVec3::Z);
-        let cam_u = (entity.scale_exp + 0.55).clamp(sector.scale_exp - 2.0, sector.scale_exp + 1.5);
-        let radius_at_cam_u = entity.radius_m * 10.0_f64.powf(-cam_u);
-        let dist_cam_units = (radius_at_cam_u * 2.6).clamp(1.2, 6.0);
-        let sector_per_cam = 10.0_f64.powf(cam_u - sector.scale_exp);
-        let cam_local = entity.local_pos + dir * (dist_cam_units * sector_per_cam);
+        let mut dir = view_dir_from_entity.try_normalize().unwrap_or(DVec3::Z);
+        let physical_solar_body = entity.experience_id == 4
+            && entity.kind == crate::octree::EntityKind::CelestialBody
+            && !matches!(entity.zone_index, 5 | 10);
+        if physical_solar_body && entity.zone_index != 0 {
+            // A fixed heliocentric light needs a sunward observer. Retain the
+            // requested direction only as an azimuth hint around a 35-degree
+            // phase angle, showing illuminated relief and a visible terminator.
+            let sunward = (-entity.local_pos).try_normalize().unwrap_or(DVec3::NEG_X);
+            let tangent = (dir - sunward * dir.dot(sunward)).try_normalize()
+                .or_else(|| sunward.cross(DVec3::Y).try_normalize())
+                .unwrap_or(DVec3::X);
+            let phase = 35.0_f64.to_radians();
+            dir = sunward * phase.cos() + tangent * phase.sin();
+        }
+        let (cam_u, distance_sector) = if physical_solar_body {
+            // Tiny planets and the Sun share one sector, not one camera unit.
+            // Clamping every observer to the sector's scale makes Mercury and
+            // Pluto vanish when their real radii replace teaching bounds.
+            let cam_u = entity.radius_m.max(1.0).log10() + 0.55;
+            // Include the ring systems in a whole-body observation.
+            let radii = match entity.zone_index { 7 => 5.0, 8 => 4.0, _ => 3.0 };
+            (cam_u, entity.radius_m * radii * 10.0_f64.powf(-sector.scale_exp))
+        } else {
+            let cam_u = (entity.scale_exp + 0.55).clamp(sector.scale_exp - 2.0, sector.scale_exp + 1.5);
+            let radius_at_cam_u = entity.radius_m * 10.0_f64.powf(-cam_u);
+            let dist_cam_units = (radius_at_cam_u * 2.6).clamp(1.2, 6.0);
+            (cam_u, dist_cam_units * 10.0_f64.powf(cam_u - sector.scale_exp))
+        };
+        let cam_local = entity.local_pos + dir * distance_sector;
         let fwd = (-dir).normalize_or(DVec3::NEG_Z);
         let right = fwd.cross(DVec3::Y).try_normalize().unwrap_or(DVec3::X);
         let up = right.cross(fwd).normalize();

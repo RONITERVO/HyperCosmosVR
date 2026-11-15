@@ -12,6 +12,11 @@ const COMMON_OLED_WGSL: &str = include_str!("../../../shaders/common_oled.wgsl")
 const COMPUTE_UNIVERSE_WGSL: &str = include_str!("../../../shaders/compute_universe.wgsl");
 const FAR_SHELL_WGSL: &str = include_str!("../../../shaders/far_shell.wgsl");
 const DOC_COMMON_WGSL: &str = include_str!("../../../shaders/doc_common.wgsl");
+const HERO_DOC_SUN_WGSL: &str = include_str!("../../../shaders/hero_doc_sun.wgsl");
+const HERO_SOLAR_INTERIOR_WGSL: &str = include_str!("../../../shaders/hero_solar_interior.wgsl");
+const HERO_SOLAR_CORONA_WGSL: &str = include_str!("../../../shaders/hero_solar_corona.wgsl");
+const SOLAR_PLASMA_WGSL: &str = include_str!("../../../shaders/solar_plasma.wgsl");
+const SOLAR_HERO_WGSL: &str = include_str!("../../../shaders/solar_hero.wgsl");
 const HERO_DOC_COSMOS_WGSL: &str = include_str!("../../../shaders/hero_doc_cosmos.wgsl");
 const HERO_DOC_MATTER_MIND_WGSL: &str = include_str!("../../../shaders/hero_doc_matter_mind.wgsl");
 const HERO_DOC_CIV_HORIZON_WGSL: &str =
@@ -52,6 +57,22 @@ fn concat_hero_shaders() -> String {
     out
 }
 
+fn concat_solar_plasma_shaders() -> String {
+    [
+        COMMON_OLED_WGSL,
+        DOC_COMMON_WGSL,
+        HERO_DOC_SUN_WGSL,
+        HERO_SOLAR_INTERIOR_WGSL,
+        SOLAR_PLASMA_WGSL,
+    ]
+    .join("\n")
+}
+
+fn concat_solar_hero_shaders() -> String {
+    [COMMON_OLED_WGSL, DOC_COMMON_WGSL, HERO_DOC_SUN_WGSL,
+        HERO_SOLAR_INTERIOR_WGSL, HERO_SOLAR_CORONA_WGSL, SOLAR_HERO_WGSL].join("\n")
+}
+
 fn create_shader(device: &wgpu::Device, label: &str, src: &str) -> wgpu::ShaderModule {
     let full = concat_with_prelude(src);
     device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -81,6 +102,14 @@ pub struct PipelineBank {
     pub hero_surface_stereo: wgpu::RenderPipeline,
     pub hero_volume_mono: wgpu::RenderPipeline,
     pub hero_volume_stereo: wgpu::RenderPipeline,
+    pub solar_surface_mono: wgpu::RenderPipeline,
+    pub solar_surface_stereo: wgpu::RenderPipeline,
+    pub solar_corona_mono: wgpu::RenderPipeline,
+    pub solar_corona_stereo: wgpu::RenderPipeline,
+    pub solar_plasma_mono: wgpu::RenderPipeline,
+    pub solar_plasma_stereo: wgpu::RenderPipeline,
+    pub solar_absorption_mono: wgpu::RenderPipeline,
+    pub solar_absorption_stereo: wgpu::RenderPipeline,
 
     pub particle_mono: wgpu::RenderPipeline,
     pub particle_stereo: wgpu::RenderPipeline,
@@ -103,6 +132,9 @@ pub struct PipelineBank {
     pub earth_maps_tex: wgpu::Texture,
     pub earth_maps_view: wgpu::TextureView,
     pub earth_maps_samp: wgpu::Sampler,
+    pub solar_noise_tex: wgpu::Texture,
+    pub solar_noise_view: wgpu::TextureView,
+    pub solar_noise_sampler: wgpu::Sampler,
     pub linear_clamp_samp: wgpu::Sampler,
     pub point_clamp_samp: wgpu::Sampler,
 }
@@ -236,6 +268,22 @@ impl PipelineBank {
                 wgpu::BindGroupLayoutEntry {
                     binding: 6,
                     visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 7,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D3,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 8,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
                 },
@@ -378,46 +426,114 @@ impl PipelineBank {
             bind_group_layouts: &[Some(&shared_frame_bgl), Some(&hero_bgl)],
             immediate_size: 0,
         });
-        let hero_surface_mono = build_hero_pipeline(
-            device,
-            &hero_layout,
-            &hero_shader,
-            "vs_main",
-            "fs_hero_surface",
-            true,
-            wgpu::BlendState::REPLACE,
-            None,
-        );
-        let hero_surface_stereo = build_hero_pipeline(
-            device,
-            &hero_layout,
-            &hero_shader,
-            "vs_stereo",
-            "fs_hero_surface",
-            true,
-            wgpu::BlendState::REPLACE,
-            STEREO_MULTIVIEW_MASK,
-        );
-        let hero_volume_mono = build_hero_pipeline(
-            device,
-            &hero_layout,
-            &hero_shader,
-            "vs_main",
-            "fs_hero_volume",
-            false,
-            wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING,
-            None,
-        );
-        let hero_volume_stereo = build_hero_pipeline(
-            device,
-            &hero_layout,
-            &hero_shader,
-            "vs_stereo",
-            "fs_hero_volume",
-            false,
-            wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING,
-            STEREO_MULTIVIEW_MASK,
-        );
+        let solar_plasma_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("solar_plasma_modular.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(concat_solar_plasma_shaders().into()),
+        });
+        let solar_hero_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("solar_hero_modular.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(concat_solar_hero_shaders().into()),
+        });
+        // DXC compilation dominates cold start. Independent shader families
+        // compile concurrently, while each mono/stereo pair stays sequential
+        // so wgpu's DX12 fragment cache avoids duplicate expensive compiles.
+        let ((hero_surface_mono, hero_surface_stereo),
+            (hero_volume_mono, hero_volume_stereo),
+            (solar_plasma_mono, solar_plasma_stereo, solar_absorption_mono, solar_absorption_stereo),
+            (solar_surface_mono, solar_surface_stereo, solar_corona_mono, solar_corona_stereo)) =
+        std::thread::scope(|scope| {
+            let surfaces = scope.spawn(|| {
+                let hero_surface_mono = build_hero_pipeline(
+                    device,
+                    &hero_layout,
+                    &hero_shader,
+                    "vs_main",
+                    "fs_hero_surface",
+                    true,
+                    wgpu::BlendState::REPLACE,
+                    None,
+                );
+                let hero_surface_stereo = build_hero_pipeline(
+                    device,
+                    &hero_layout,
+                    &hero_shader,
+                    "vs_stereo",
+                    "fs_hero_surface",
+                    true,
+                    wgpu::BlendState::REPLACE,
+                    STEREO_MULTIVIEW_MASK,
+                );
+                (hero_surface_mono, hero_surface_stereo)
+            });
+            let volumes = scope.spawn(|| {
+                let hero_volume_mono = build_hero_pipeline(
+                    device,
+                    &hero_layout,
+                    &hero_shader,
+                    "vs_main",
+                    "fs_hero_volume",
+                    false,
+                    wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING,
+                    None,
+                );
+                let hero_volume_stereo = build_hero_pipeline(
+                    device,
+                    &hero_layout,
+                    &hero_shader,
+                    "vs_stereo",
+                    "fs_hero_volume",
+                    false,
+                    wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING,
+                    STEREO_MULTIVIEW_MASK,
+                );
+                (hero_volume_mono, hero_volume_stereo)
+            });
+
+            // Resolved field-aligned solar strands share the hero storage binding,
+            // but generate their six proxy vertices directly from the segment ID.
+            let plasma = scope.spawn(|| {
+                let solar_plasma_mono = build_solar_plasma_pipeline(
+                    device,
+                    &hero_layout,
+                    &solar_plasma_shader,
+                    "vs_solar_plasma",
+                    "fs_solar_plasma",
+                    None,
+                );
+                let solar_plasma_stereo = build_solar_plasma_pipeline(
+                    device,
+                    &hero_layout,
+                    &solar_plasma_shader,
+                    "vs_solar_plasma_stereo",
+                    "fs_solar_plasma",
+                    STEREO_MULTIVIEW_MASK,
+                );
+                let solar_absorption_mono = build_solar_plasma_pipeline(
+                    device, &hero_layout, &solar_plasma_shader,
+                    "vs_solar_absorption", "fs_solar_absorption", None,
+                );
+                let solar_absorption_stereo = build_solar_plasma_pipeline(
+                    device, &hero_layout, &solar_plasma_shader,
+                    "vs_solar_absorption_stereo", "fs_solar_absorption", STEREO_MULTIVIEW_MASK,
+                );
+                (solar_plasma_mono, solar_plasma_stereo, solar_absorption_mono, solar_absorption_stereo)
+            });
+            let solar = scope.spawn(|| {
+                let surface_mono = build_hero_pipeline(device, &hero_layout, &solar_hero_shader,
+                    "vs_solar_hero", "fs_solar_surface", true, wgpu::BlendState::REPLACE, None);
+                let surface_stereo = build_hero_pipeline(device, &hero_layout, &solar_hero_shader,
+                    "vs_solar_hero_stereo", "fs_solar_surface", true, wgpu::BlendState::REPLACE, STEREO_MULTIVIEW_MASK);
+                let corona_mono = build_hero_pipeline(device, &hero_layout, &solar_hero_shader,
+                    "vs_solar_hero", "fs_solar_corona", false, wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING, None);
+                let corona_stereo = build_hero_pipeline(device, &hero_layout, &solar_hero_shader,
+                    "vs_solar_hero_stereo", "fs_solar_corona", false, wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING, STEREO_MULTIVIEW_MASK);
+                (surface_mono, surface_stereo, corona_mono, corona_stereo)
+            });
+            (surfaces.join().expect("surface pipeline initialization failed"),
+                volumes.join().expect("volume pipeline initialization failed"),
+                plasma.join().expect("solar plasma pipeline initialization failed"),
+                solar.join().expect("dedicated solar pipeline initialization failed"))
+        });
 
         // Instanced Sprites & Advected Particles
         let sprite_shader = create_shader(device, "instanced_sprites.wgsl", INSTANCED_SPRITES_WGSL);
@@ -621,6 +737,8 @@ impl PipelineBank {
 
         let (earth_maps_tex, earth_maps_view, earth_maps_samp) =
             crate::earth_textures::upload(device, queue)?;
+        let (solar_noise_tex, solar_noise_view, solar_noise_sampler) =
+            crate::solar_noise::create_lattice(device, queue);
         Ok(Self {
             shared_frame_bgl,
             compute_bgl,
@@ -637,6 +755,14 @@ impl PipelineBank {
             hero_surface_stereo,
             hero_volume_mono,
             hero_volume_stereo,
+            solar_surface_mono,
+            solar_surface_stereo,
+            solar_corona_mono,
+            solar_corona_stereo,
+            solar_plasma_mono,
+            solar_plasma_stereo,
+            solar_absorption_mono,
+            solar_absorption_stereo,
             particle_mono,
             particle_stereo,
             sprite_mono,
@@ -656,6 +782,9 @@ impl PipelineBank {
             earth_maps_tex,
             earth_maps_view,
             earth_maps_samp,
+            solar_noise_tex,
+            solar_noise_view,
+            solar_noise_sampler,
             linear_clamp_samp,
             point_clamp_samp,
         })
@@ -833,6 +962,51 @@ fn build_hero_pipeline(
     })
 }
 
+fn build_solar_plasma_pipeline(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    vs_entry: &str,
+    fs_entry: &str,
+    multiview_mask: Option<NonZeroU32>,
+) -> wgpu::RenderPipeline {
+    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some(vs_entry),
+        layout: Some(layout),
+        vertex: wgpu::VertexState {
+            module: shader,
+            entry_point: Some(vs_entry),
+            compilation_options: Default::default(),
+            buffers: &[],
+        },
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            cull_mode: None,
+            ..Default::default()
+        },
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: DEPTH_FORMAT,
+            depth_write_enabled: Some(false),
+            depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
+            stencil: Default::default(),
+            bias: Default::default(),
+        }),
+        multisample: Default::default(),
+        fragment: Some(wgpu::FragmentState {
+            module: shader,
+            entry_point: Some(fs_entry),
+            compilation_options: Default::default(),
+            targets: &[Some(wgpu::ColorTargetState {
+                format: HDR_SCENE_FORMAT,
+                blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+        }),
+        multiview_mask,
+        cache: None,
+    })
+}
+
 fn build_sprite_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
@@ -928,7 +1102,12 @@ mod shader_validation {
     /// the large DX12 pipelines. This also runs on CI machines without a GPU.
     #[test]
     fn every_shader_parses_and_validates_without_a_gpu() {
-        let mut sources = vec![("documentary hero", concat_hero_shaders())];
+        let mut sources = vec![
+            ("documentary hero", concat_hero_shaders()),
+            ("solar plasma", concat_solar_plasma_shaders()),
+            ("solar hero", concat_solar_hero_shaders()),
+            ("solar noise lattice", crate::solar_noise::shader_source()),
+        ];
         for (label, source) in [
             ("compute", COMPUTE_UNIVERSE_WGSL),
             ("sky", FAR_SHELL_WGSL),
@@ -949,3 +1128,7 @@ mod shader_validation {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "solar_blend_tests.rs"]
+mod solar_blend_tests;

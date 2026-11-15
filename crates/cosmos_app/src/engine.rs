@@ -47,6 +47,33 @@ enum SegmentPhase {
     Completed,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SolarObservationMode {
+    Interior,
+    VisibleComposite,
+    VisibleDetail,
+    Euv,
+}
+
+impl SolarObservationMode {
+    fn disclosure(self, locale: Locale) -> &'static str {
+        match (self, locale) {
+            (Self::Interior, Locale::FiFi) => "Sisäleikkaus · kaavamainen kuljetus",
+            (Self::Interior, Locale::EsEs) => "Corte interior · transporte esquemático",
+            (Self::Interior, _) => "Interior cutaway · schematic transport",
+            (Self::VisibleComposite, Locale::FiFi) => "Näkyvä valo + havainnollistava plasma",
+            (Self::VisibleComposite, Locale::EsEs) => "Luz visible + plasma ilustrativo",
+            (Self::VisibleComposite, _) => "Visible light + illustrative plasma",
+            (Self::VisibleDetail, Locale::FiFi) => "Näkyvä valo + havainnollistava plasma\nTehostettu kontrasti",
+            (Self::VisibleDetail, Locale::EsEs) => "Luz visible + plasma ilustrativo\nContraste realzado",
+            (Self::VisibleDetail, _) => "Visible light + illustrative plasma\nContrast enhanced",
+            (Self::Euv, Locale::FiFi) => "EUV-kehä · vääräväri",
+            (Self::Euv, Locale::EsEs) => "Atmósfera EUV · falso color",
+            (Self::Euv, _) => "EUV atmosphere · false color",
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 struct ActiveNarrationSession {
     target: TargetIdentity,
@@ -150,6 +177,7 @@ pub struct UniverseRuntime {
     vr_tracking_orientation: glam::Quat,
     vr_rig_orientation: glam::Quat,
     vr_hologram_anchor: Option<(Vec3, glam::Quat)>,
+    solar_observation_anchor: Option<(SolarObservationMode, Vec3, glam::Quat)>,
     vr_ring_visible: bool,
 }
 
@@ -259,6 +287,7 @@ impl UniverseRuntime {
             vr_tracking_orientation: glam::Quat::IDENTITY,
             vr_rig_orientation: glam::Quat::IDENTITY,
             vr_hologram_anchor: None,
+            solar_observation_anchor: None,
             vr_ring_visible: false,
         })
     }
@@ -373,11 +402,38 @@ impl UniverseRuntime {
         self.vr_hologram_anchor = Some((self.vr_tracking_head, self.vr_tracking_orientation));
     }
 
-    fn tracked_render_pose(&self, physical_earth: bool) -> cosmos_math::ScalePose64 {
+    fn append_solar_observation_disclosure(&mut self, mode: Option<SolarObservationMode>, out: &mut TypoFrameOutput) {
+        let Some(mode) = mode else {
+            self.solar_observation_anchor = None;
+            return;
+        };
+        if self.solar_observation_anchor.is_some_and(|(previous, _, _)| previous != mode) {
+            self.solar_observation_anchor = None;
+        }
+        let vr = self.guide_is_vr;
+        let (_, position, orientation) = *self.solar_observation_anchor.get_or_insert_with(|| {
+            if vr {
+                (mode, self.vr_tracking_head, self.vr_tracking_orientation)
+            } else {
+                (mode, Vec3::ZERO, self.flight.pose.orient.as_quat())
+            }
+        });
+        let pose = if vr {
+            crate::hologram::HologramPose {
+                origin: self.vr_rig_orientation * (position - self.vr_tracking_head),
+                orientation: self.vr_rig_orientation * orientation,
+            }
+        } else {
+            crate::hologram::HologramPose { origin: Vec3::ZERO, orientation }
+        };
+        pose.append_observation_label(mode.disclosure(self.locale), &self.atlas, out);
+    }
+
+    fn tracked_render_pose(&self, physical_environment: bool) -> cosmos_math::ScalePose64 {
         let mut pose = self.flight.pose;
         if let Some(origin) = self.vr_tracking_origin {
             let displacement = self.vr_rig_orientation * (self.vr_tracking_head - origin);
-            let observer_units_per_meter = if physical_earth {
+            let observer_units_per_meter = if physical_environment {
                 10.0_f64.powf(-pose.scale_exp)
             } else {
                 1.0
@@ -396,6 +452,9 @@ impl UniverseRuntime {
             // frame; navigation releases ownership when it changes sector.
             if cosmos_render::universe_scene::earth_environment_is_physical(&self.flight.pose, 3) {
                 return Some(3);
+            }
+            if self.flight.pose.sector_id == SectorId::SOLAR_SYSTEM {
+                return Some(4);
             }
             let director = self.journey_director.as_ref().filter(|director| director.is_active())?;
             match director.active_beat().target {
@@ -913,11 +972,14 @@ impl UniverseRuntime {
         }
         let desktop_input = &safe_input;
         let click_just_pressed = click_just_pressed && !guide_captured;
-        let visible_pre = self
+        let physical_for_pick = cosmos_render::universe_scene::environment_is_physical(
+            &self.flight.pose, self.active_experience_for_frame(&[], None));
+        let mut visible_pre = self
             .spatial
             .query_visible(
                 &self.flight.pose,
-                camera_for_pick.eyes[0].view_proj,
+                cosmos_render::universe_scene::spatial_query_view_projection(camera_for_pick,
+                    &self.flight.pose, physical_for_pick),
                 0.05_f32.to_radians(),
                 Some(512),
             )
@@ -925,8 +987,11 @@ impl UniverseRuntime {
             .unwrap_or_default();
 
         let cam_orient_pre = self.flight.pose.orient.as_quat();
-        let focus_entity_pre =
-            pick_best_entity_along_ray(&visible_pre, cam_orient_pre * hover_ray_cam, 6.0);
+        let active_experience = self.active_experience_for_frame(&visible_pre, None);
+        cosmos_render::universe_scene::restore_physical_body_query_positions(
+            &self.spatial, &self.flight.pose, active_experience, physical_for_pick, &mut visible_pre);
+        let focus_entity_pre = pick_best_entity_along_ray(&visible_pre,
+            cam_orient_pre * hover_ray_cam, 6.0, &self.flight.pose, active_experience);
         let focus_target = focus_entity_pre
             .map(|vis| {
                 let pt_cam = cam_orient_pre.conjugate().as_dquat() * vis.pose.pos.as_dvec3();
@@ -1013,7 +1078,8 @@ impl UniverseRuntime {
                 .spatial
                 .query_visible(
                     &self.flight.pose,
-                    next_camera.cyclopean_view_projection(),
+                    cosmos_render::universe_scene::spatial_query_view_projection(&next_camera,
+                        &self.flight.pose, physical_for_pick),
                     0.05_f32.to_radians(),
                     Some(256),
                 )
@@ -1069,15 +1135,16 @@ impl UniverseRuntime {
         let untracked_visible = self.spatial.query_visible(
             &self.flight.pose, vr_camera.cyclopean_view_projection(), 0.05_f32.to_radians(), Some(512),
         ).map(|q| q.visible).unwrap_or_default();
-        let physical_earth = cosmos_render::universe_scene::earth_environment_is_physical(
+        let physical_environment = cosmos_render::universe_scene::environment_is_physical(
             &self.flight.pose, self.active_experience_for_frame(&untracked_visible, None),
         );
-        let render_pose = self.tracked_render_pose(physical_earth);
-        let visible_pre = self
+        let render_pose = self.tracked_render_pose(physical_environment);
+        let mut visible_pre = self
             .spatial
             .query_visible(
                 &render_pose,
-                vr_camera.cyclopean_view_projection(),
+                cosmos_render::universe_scene::spatial_query_view_projection(vr_camera,
+                    &render_pose, physical_environment),
                 0.05_f32.to_radians(),
                 Some(512),
             )
@@ -1085,8 +1152,11 @@ impl UniverseRuntime {
             .unwrap_or_default();
 
         let cam_orient_pre = self.flight.pose.orient.as_quat();
-        let focus_entity_pre =
-            pick_best_entity_along_ray(&visible_pre, cam_orient_pre * aim_ray_cam, 6.0);
+        let active_experience = self.active_experience_for_frame(&visible_pre, None);
+        cosmos_render::universe_scene::restore_physical_body_query_positions(
+            &self.spatial, &render_pose, active_experience, physical_environment, &mut visible_pre);
+        let focus_entity_pre = pick_best_entity_along_ray(&visible_pre,
+            cam_orient_pre * aim_ray_cam, 6.0, &render_pose, active_experience);
         let focus_target = focus_entity_pre
             .map(|vis| {
                 let pt_cam = cam_orient_pre.conjugate().as_dquat() * vis.pose.pos.as_dvec3();
@@ -1223,16 +1293,22 @@ impl UniverseRuntime {
         self.active_session = None;
         self.audio.stop_narration();
 
-        let visible = self
+        let physical = cosmos_render::universe_scene::environment_is_physical(
+            &self.flight.pose, self.active_experience_for_frame(&[], preferred_exp_id));
+        let mut visible = self
             .spatial
             .query_visible(
                 &self.flight.pose,
-                camera.cyclopean_view_projection(),
+                cosmos_render::universe_scene::spatial_query_view_projection(camera, &self.flight.pose, physical),
                 0.05_f32.to_radians(),
                 Some(512),
             )
             .map(|q| q.visible)
             .unwrap_or_default();
+
+        let active_experience = self.active_experience_for_frame(&visible, preferred_exp_id);
+        cosmos_render::universe_scene::restore_physical_body_query_positions(
+            &self.spatial, &self.flight.pose, active_experience, physical, &mut visible);
 
         if let Some(exp_id) = preferred_exp_id
             && (preferred_zone_index.is_some() || preferred_feature_index.is_some())
@@ -1280,7 +1356,8 @@ impl UniverseRuntime {
         let cam_orient = camera_basis_quat(camera);
         let sector_pref =
             preferred_exp_id.or_else(|| sector_experience_preference(self.flight.pose.sector_id));
-        let candidates = build_focus_candidates_filtered(&visible, cam_orient, sector_pref, preferred_exp_id);
+        let candidates = build_focus_candidates_filtered(&visible, cam_orient, sector_pref,
+            preferred_exp_id, &self.flight.pose, active_experience);
         let ray = aim_ray_cam.normalize_or(Vec3::NEG_Z);
 
         // Drive RestNarrationFsm cleanly across 10 x 100ms stationary steps (crossing 200ms -> 900ms lock!).
@@ -1404,11 +1481,13 @@ impl UniverseRuntime {
         // Resolve the experience and its unit policy from the untracked flight
         // anchor. A lean across Earth's surface cannot switch the scene's units.
         let mut render_pose = self.flight.pose;
+        let physical_for_query = cosmos_render::universe_scene::environment_is_physical(
+            &render_pose, self.active_experience_for_frame(&[], verification_override.map(|o| o.active_experience_id)));
         let mut visible = self
             .spatial
             .query_visible(
                 &render_pose,
-                camera.cyclopean_view_projection(),
+                cosmos_render::universe_scene::spatial_query_view_projection(camera, &render_pose, physical_for_query),
                 0.05_f32.to_radians(),
                 Some(512),
             )
@@ -1419,15 +1498,18 @@ impl UniverseRuntime {
         let active_experience_id = self.active_experience_for_frame(
             &visible, verification_override.map(|o| o.active_experience_id),
         );
-        let physical_earth_units = cosmos_render::universe_scene::earth_environment_is_physical(
+        let physical_environment_units = cosmos_render::universe_scene::environment_is_physical(
             &self.flight.pose, active_experience_id,
         );
         if vr_hint.is_some() {
-            render_pose = self.tracked_render_pose(physical_earth_units);
+            render_pose = self.tracked_render_pose(physical_environment_units);
             visible = self.spatial.query_visible(
-                &render_pose, camera.cyclopean_view_projection(), 0.05_f32.to_radians(), Some(512),
+                &render_pose, cosmos_render::universe_scene::spatial_query_view_projection(camera,
+                    &render_pose, physical_environment_units), 0.05_f32.to_radians(), Some(512),
             ).map(|q| q.visible).unwrap_or_default();
         }
+        cosmos_render::universe_scene::restore_physical_body_query_positions(
+            &self.spatial, &render_pose, active_experience_id, physical_environment_units, &mut visible);
 
         // Update zone drone synth gently when changing active cosmic experience/zone.
         self.sync_zone_ambient_audio(active_experience_id, &visible);
@@ -1437,7 +1519,8 @@ impl UniverseRuntime {
         let sector_pref =
             forced_exp.or_else(|| sector_experience_preference(self.flight.pose.sector_id));
         let candidates =
-            build_focus_candidates_filtered(&visible, cam_orient, sector_pref, forced_exp);
+            build_focus_candidates_filtered(&visible, cam_orient, sector_pref, forced_exp,
+                &render_pose, active_experience_id);
         let session_finished = self
             .active_session
             .as_ref()
@@ -1521,6 +1604,14 @@ impl UniverseRuntime {
         }
 
         // 4) Build BilingualNarrationSpec (plus optional diegetic bead/meridian MSDF labels).
+        let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
+        let documentary = self.build_documentary_focus_state(
+            active_experience_id,
+            &fsm_out,
+            &visible,
+            &audio_uniforms,
+            verification_override,
+        );
         let mut narration_spec =
             self.build_bilingual_spec(&fsm_out, active_experience_id, verification_override);
         if self.guide_enabled
@@ -1536,13 +1627,21 @@ impl UniverseRuntime {
                 spec.anchor_world_pos,
                 verification_override,
             );
-            if physical_earth_units {
+            if physical_environment_units {
                 let meters_per_unit = 10.0_f64.powf(render_pose.scale_exp) as f32;
-                if let Some(earth_center) = self.spatial.find_experience_anchor(3).and_then(|entity| {
+                let owner = if active_experience_id == 3 {
+                    self.spatial.find_experience_anchor(3)
+                } else {
+                    self.spatial.find_zone_entity(4, documentary.active_zone_index)
+                };
+                if let Some(center) = owner.and_then(|entity| {
                     cosmos_render::universe_scene::physical_entity_position_m(&self.spatial, &render_pose, entity)
                 }) {
-                    spec.anchor_world_pos = earth_center;
-                    spec.surface_distance_m = Some((earth_center.length() - 6_371_000.0).max(0.0));
+                    let radius = if active_experience_id == 3 { 6_371_000.0 } else {
+                        cosmos_spatial::solar_body_radius_m(documentary.active_zone_index).unwrap_or(0.0) as f32
+                    };
+                    spec.anchor_world_pos = center;
+                    spec.surface_distance_m = Some((center.length() - radius).max(0.0));
                 } else {
                     spec.anchor_world_pos *= meters_per_unit;
                     spec.surface_distance_m = spec.surface_distance_m.map(|distance| distance * meters_per_unit);
@@ -1557,14 +1656,6 @@ impl UniverseRuntime {
         } else {
             fsm_out.state.target().map(|t| t.entity_id)
         };
-        let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
-        let documentary = self.build_documentary_focus_state(
-            active_experience_id,
-            &fsm_out,
-            &visible,
-            &audio_uniforms,
-            verification_override,
-        );
         let mut ambient_inputs = build_ambient_label_inputs(
             &self.catalog,
             &visible,
@@ -1574,7 +1665,12 @@ impl UniverseRuntime {
             focused_id,
             self.locale,
         );
-        if physical_earth_units {
+        if cosmos_render::universe_scene::is_close_solar_observer(&self.flight.pose, active_experience_id) {
+            // Narrative and user-requested holograms remain available, but
+            // catalog labels are not objects floating inside the solar plasma.
+            ambient_inputs.clear();
+        }
+        if physical_environment_units {
             let meters_per_unit = 10.0_f64.powf(render_pose.scale_exp) as f32;
             for label in &mut ambient_inputs {
                 // Glyph vergence remains in its comfort band, while its tether
@@ -1642,6 +1738,21 @@ impl UniverseRuntime {
             camera,
             &mut typo,
         );
+        // This describes the observing instrument, not the lesson content.
+        // Both manual selection and journey targets use the same shader mode.
+        // Append before desktop foreground UI so these glyphs retain scene depth.
+        let observing_mode = if verification_override.is_none() && active_experience_id == 4
+            && documentary.active_zone_index == 0
+        {
+            match documentary.active_feature_index {
+                0 => Some(SolarObservationMode::Interior),
+                1 | 2 => Some(SolarObservationMode::VisibleDetail),
+                3 | 4 => Some(SolarObservationMode::Euv),
+                255 | u16::MAX => Some(SolarObservationMode::VisibleComposite),
+                _ => None,
+            }
+        } else { None };
+        self.append_solar_observation_disclosure(observing_mode, &mut typo);
         guide.append_typography(&self.atlas, camera, &mut typo);
 
         // 5) Build RenderSceneFrame (compute, far shell, volumetric heroes, diegetic pearls).
@@ -1673,7 +1784,7 @@ impl UniverseRuntime {
             &self.spatial,
             &SceneBuildInput {
                 cam_pose: render_pose,
-                physical_earth_units: Some(physical_earth_units),
+                physical_environment_units: Some(physical_environment_units),
                 camera: *camera,
                 viewport_width: width,
                 viewport_height: height,
@@ -1808,6 +1919,18 @@ impl UniverseRuntime {
             };
             (focus, anchor_pos, None)
         };
+
+        if let Some(v) = vis
+            && v.experience_id == 4 && v.kind == EntityKind::CelestialBody
+        {
+            // Body records carry feature_index=0 as indexing metadata. Looking
+            // at the whole Sun requests its overview, not the core cutaway.
+            // Explicit feature nodes and menu/tour target selectors stay exact.
+            focus = TargetFocus::CatalogItem {
+                experience_id: 4, zone_index: v.zone_index,
+                feature_index: None, is_macro_zoomed_out: true,
+            };
+        }
 
         // Generic ExperienceAnchor targets default to zone_index 0 (often a transition gate in
         // Apps 05..14); steer them to each experience's signature core zone instead unless a caller
@@ -2093,13 +2216,14 @@ impl UniverseRuntime {
     ) -> DocumentaryFocusState {
         // The flagship's visual sequence belongs to its authored beat, not to
         // the current audio sentence. It remains intact with muted/missing audio.
-        if active_experience_id == 3 && verification_override.is_none()
+        if matches!(active_experience_id, 3 | 4) && verification_override.is_none()
             && let Some(director) = self.journey_director.as_ref().filter(|d| {
                 d.is_active() && d.manifest().id == "cosmic_highlights_tour"
             })
-            && let BeatTargetSelector::CatalogZone { experience_id: 3, zone_index, feature_index, .. } = director.active_beat().target
+            && let BeatTargetSelector::CatalogZone { experience_id, zone_index, feature_index, .. } = director.active_beat().target
+            && experience_id == active_experience_id
         {
-            let zone = self.catalog.zones(3).get(zone_index as usize);
+            let zone = self.catalog.zones(active_experience_id).get(zone_index as usize);
             return DocumentaryFocusState {
                 active_zone_index: zone_index,
                 active_feature_index: feature_index.unwrap_or(u16::MAX),
@@ -2181,7 +2305,8 @@ impl UniverseRuntime {
             .target()
             .filter(|t| t.experience_id == active_experience_id);
         if hovered_target.is_none() && verification_override.is_none()
-            && cosmos_render::universe_scene::earth_environment_is_physical(&self.flight.pose, active_experience_id)
+            && (cosmos_render::universe_scene::earth_environment_is_physical(&self.flight.pose, active_experience_id)
+                || cosmos_render::universe_scene::is_close_solar_observer(&self.flight.pose, active_experience_id))
         {
             // Invisible catalog selectors are not a request to turn on field,
             // weather or surface teaching overlays in the natural opening view.
@@ -2216,8 +2341,12 @@ impl UniverseRuntime {
             .unwrap_or(u16::MAX);
         let active_feature_index = verification_override
             .and_then(|o| o.force_feature_index)
-            .or_else(|| hovered_target.map(|t| t.feature_index))
-            .or_else(|| fallback_vis.map(|v| v.feature_index))
+            .or_else(|| hovered_target.and_then(|t| {
+                (active_experience_id != 4 || hovered_vis.is_some_and(|v| v.kind == EntityKind::FeatureNode))
+                    .then_some(t.feature_index)
+            }))
+            .or_else(|| fallback_vis.filter(|v| active_experience_id != 4 || v.kind == EntityKind::FeatureNode)
+                .map(|v| v.feature_index))
             .unwrap_or(u16::MAX);
 
         let zones = self.catalog.zones(active_experience_id);
@@ -2554,23 +2683,40 @@ fn infer_active_experience(pose: &cosmos_math::ScalePose64, visible: &[VisibleEn
     }
 }
 
-fn pick_best_entity_along_ray(
-    visible: &[VisibleEntity],
+fn physical_body_angular_radius(vis: &VisibleEntity, physical: bool, active_experience: u8) -> Option<f32> {
+    if !physical || vis.experience_id != active_experience || vis.kind != EntityKind::CelestialBody {
+        return None;
+    }
+    let distance = vis.pose.pos.length();
+    let ratio = vis.pose.rel_scale / distance;
+    Some(if ratio >= 1.0 { std::f32::consts::PI } else { ratio.clamp(0.0, 1.0).asin() })
+}
+
+fn pick_best_entity_along_ray<'a>(
+    visible: &'a [VisibleEntity],
     ray_world: Vec3,
     max_angle_deg: f32,
-) -> Option<&VisibleEntity> {
+    observer: &cosmos_math::ScalePose64,
+    active_experience: u8,
+) -> Option<&'a VisibleEntity> {
     let ray = ray_world.normalize_or(Vec3::NEG_Z);
     let max_rad = max_angle_deg.to_radians();
     let mut best: Option<(&VisibleEntity, f32)> = None;
 
     for vis in visible {
+        if !cosmos_render::universe_scene::solar_observer_allows_entity(observer, active_experience, vis) {
+            continue;
+        }
         let len = vis.pose.pos.length();
-        if len < 1e-4 {
+        let physical = cosmos_render::universe_scene::environment_is_physical(observer, active_experience);
+        if !len.is_finite() || len <= if physical { 0.0 } else { 1e-4 } {
             continue;
         }
         let dir = vis.pose.pos / len;
         let theta = dir.dot(ray).clamp(-1.0, 1.0).acos();
-        let eff_cone = max_rad.max(vis.pose.angular_rad * 0.5 + 0.03);
+        let radius = physical_body_angular_radius(vis, physical, active_experience)
+            .unwrap_or(vis.pose.angular_rad * 0.5);
+        let eff_cone = max_rad.max(radius + 0.03);
         if theta > eff_cone {
             continue;
         }
@@ -2672,10 +2818,14 @@ fn push_entity_blocker(
         && entity.experience_id == 4
         && entity.zone_index == 7
     {
-        // Saturn's tilted Cassini/Encke rings extend ~2.25x past the planet globe radius.
+        // The ring proxy is 2.25 times the surface proxy, whose solid sphere is
+        // at local radius .84. Project its actual bound; angular_rad stores a
+        // full diameter, and a fixed angular cap can uncover nearby rings.
+        let radius_over_distance = entity.pose.rel_scale
+            / (entity.pose.distance_render_units as f32).max(1e-6);
         (
-            (entity.pose.angular_rad * 2.65).clamp(0.14, 0.44) + 3.2_f32.to_radians(),
-            (entity.pose.angular_rad * 1.55).clamp(0.10, 0.32) + 3.0_f32.to_radians(),
+            (radius_over_distance * 2.25 / 0.84).clamp(0.0, 1.0).asin() + 3.2_f32.to_radians(),
+            (radius_over_distance * 1.55).clamp(0.0, 1.0).asin() + 3.0_f32.to_radians(),
         )
     } else if entity.kind == EntityKind::ExperienceAnchor
         && matches!(
@@ -3060,6 +3210,8 @@ fn build_focus_candidates_filtered(
     cam_orient: glam::Quat,
     sector_exp_pref: Option<u8>,
     required_exp: Option<u8>,
+    observer: &cosmos_math::ScalePose64,
+    active_experience: u8,
 ) -> Vec<FocusCandidate> {
     let inv_orient = cam_orient.conjugate();
     let max_take = if sector_exp_pref.is_some() { 256 } else { 96 };
@@ -3067,10 +3219,12 @@ fn build_focus_candidates_filtered(
         visible
             .iter()
             .filter(|v| filter_exp.is_none_or(|e| v.experience_id == e))
+            .filter(|v| cosmos_render::universe_scene::solar_observer_allows_entity(observer, active_experience, v))
             .take(max_take)
             .filter_map(|v| {
                 let len = v.pose.pos.length();
-                if len < 1e-4 {
+                let physical = cosmos_render::universe_scene::environment_is_physical(observer, active_experience);
+                if !len.is_finite() || len <= if physical { 0.0 } else { 1e-4 } {
                     return None;
                 }
                 if matches!(sector_exp_pref, Some(1 | 2)) && Some(v.experience_id) != sector_exp_pref
@@ -3095,7 +3249,11 @@ fn build_focus_candidates_filtered(
                 Some(FocusCandidate {
                     entity_id: v.id,
                     dir_cam: inv_orient * (v.pose.pos / len),
-                    angular_radius_deg: v.pose.angular_rad.to_degrees(),
+                    // The index stores full approximate diameters. A physical
+                    // sphere's true tangent cone must not select empty sky
+                    // beyond its limb; retain legacy targeting for other scenes.
+                    angular_radius_deg: physical_body_angular_radius(v, physical, active_experience)
+                        .unwrap_or(v.pose.angular_rad).to_degrees(),
                     salience_tier: tier_w,
                     visibility_weight: (v.salience_score * pref_mul).clamp(0.1, 8.0),
                     experience_id: v.experience_id,
@@ -3530,6 +3688,190 @@ mod tests {
         expected.translate_render_units(lean.as_dvec3(), &rt.spatial.tree).unwrap();
         assert!(tracked.local_pos.distance(expected.local_pos) < 1e-12,
             "forced experiences must use the same explicit unit policy for tracking and scene assembly");
+        for scale in [6.5, 8.8, 11.2] {
+            rt.flight.pose = ScalePose64::new(SectorId::SOLAR_SYSTEM,
+                DVec3::new(0.0, 0.0, 0.006), scale, DQuat::IDENTITY);
+            let physical = cosmos_render::universe_scene::environment_is_physical(&rt.flight.pose, 4);
+            assert!(physical);
+            let tracked = rt.tracked_render_pose(physical);
+            let meters = (tracked.local_pos - rt.flight.pose.local_pos)
+                * 10.0_f64.powf(cosmos_spatial::SOLAR_SECTOR_SCALE_EXP);
+            assert!(meters.distance(lean.as_dvec3()) < 1e-5,
+                "a tracked head movement near the Sun remains measured in meters");
+        }
+    }
+
+    #[test]
+    fn solar_highlights_preserve_physical_owner_and_visuals_without_audio() {
+        let mut rt = test_runtime();
+        rt.activate_journey("cosmic_highlights_tour", true).unwrap();
+        let chapter = rt.journey_director.as_ref().unwrap().manifest().chapters[1].clone();
+        let solar: Vec<_> = chapter.beats.iter().enumerate().filter(|(_, beat)| {
+            matches!(beat.target, BeatTargetSelector::CatalogZone { experience_id: 4, zone_index: 0, .. })
+        }).collect();
+        assert_eq!(solar.len(), 6);
+        for (index, beat) in solar {
+            let pose = beat.pose.to_pose64(&beat.beat_id).unwrap();
+            rt.journey_director.as_mut().unwrap().start(&rt.spatial.tree, &pose, index + 6);
+            rt.flight.pose = pose;
+            rt.active_session = None;
+            for turn in [0.0, std::f32::consts::PI] {
+                let rotation = pose.orient.as_quat() * glam::Quat::from_rotation_y(turn);
+                let mut camera = RenderCamera::mono(rotation, 72.0_f32.to_radians(), 1.0, 0.002);
+                camera.is_stereo = true;
+                let packet = rt.step_common(&camera, &WristSummonInput::default(), Vec3::NEG_Z,
+                    0.0, Some(&pose.orient.as_quat()), 1.0 / 120.0, 384, 384, None);
+                assert_eq!(packet.active_experience_id, 4, "{} must remain a Solar observation", beat.beat_id);
+                let sun = packet.scene.heroes_surface.iter().find(|hero| hero.kind_tags[1] == 1400).unwrap();
+                assert!((sun.pos_radius[3] * 0.84 - cosmos_spatial::SUN_RADIUS_M as f32).abs() < 256.0);
+                let expected = if let BeatTargetSelector::CatalogZone { feature_index, .. } = beat.target {
+                    u32::from(feature_index.unwrap_or(u16::MAX)) & 0xff
+                } else { unreachable!() };
+                assert_eq!((sun.kind_tags[2] >> 16) & 0xff, expected,
+                    "Sun visuals are authored by the observation, not the narration sentence");
+                assert_eq!(packet.scene.particle_draw_count, 0);
+            }
+        }
+        assert_eq!(rt.active_experience_for_frame(&[], Some(18)), 18);
+        rt.journey_confirm_exit();
+        assert_eq!(rt.active_experience_for_frame(&[], None), 4,
+            "free exploration keeps the same Sun even after the authored tour ends");
+        let sun = rt.spatial.iter_entities().find(|entity| entity.experience_id == 4
+            && entity.kind == EntityKind::CelestialBody && entity.zone_index == 0).unwrap();
+        let pose = rt.spatial.navigation_pose_for_entity(sun, DVec3::Z).unwrap().0;
+        rt.flight.pose = pose;
+        let camera = RenderCamera::mono(pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02);
+        let visible = rt.spatial.query_visible(&pose, camera.cyclopean_view_projection(), 0.001, None).unwrap().visible;
+        let hover = FsmOutput {
+            state: cosmos_narration::FsmState::Settling { elapsed_ms: 100.0,
+                target: TargetIdentity { entity_id: sun.id, experience_id: 4, zone_index: 0, feature_index: 0 } },
+            dwell_progress: 0.0, smoothed_ray_dir_cam: Vec3::NEG_Z, ray_angular_deg_per_sec: 0.0,
+            start_narration_for: None, should_cancel_audio: false, cancel_fade_remaining_ms: 0.0,
+            cancel_fade_alpha: 0.0,
+        };
+        rt.active_session = None;
+        let doc = rt.build_documentary_focus_state(4, &hover, &visible, &RenderAudioUniforms::default(), None);
+        assert_eq!(doc.active_zone_index, 0);
+        assert_eq!(doc.active_feature_index, u16::MAX,
+            "hovering the Sun itself cannot silently request an interior cutaway");
+    }
+
+    #[test]
+    fn solar_navigation_focus_uses_real_depth_after_far_shell_projection() {
+        let mut index = cosmos_spatial::build_default_universe_index();
+        let sun_id = 999_411;
+        index.insert_entity(cosmos_spatial::SpatialEntity {
+            id: sun_id, experience_id: 4, zone_index: 0, feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM, local_pos: DVec3::ZERO,
+            orient: DQuat::IDENTITY, radius_m: cosmos_spatial::SUN_RADIUS_M,
+            scale_exp: cosmos_spatial::SUN_RADIUS_M.log10(), kind: EntityKind::CelestialBody,
+            salience_weight: 1.0,
+        }).unwrap();
+        let expected_distance_m = 3.0 * cosmos_spatial::SUN_RADIUS_M;
+        let pose = ScalePose64::new(SectorId::SOLAR_SYSTEM,
+            DVec3::Z * expected_distance_m * 10.0_f64.powf(-cosmos_spatial::SOLAR_SECTOR_SCALE_EXP),
+            0.0, DQuat::IDENTITY);
+        let camera = RenderCamera::mono(glam::Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
+        let mut visible = index.query_visible(&pose,
+            cosmos_render::universe_scene::spatial_query_view_projection(&camera, &pose, true),
+            0.001, None).unwrap().visible;
+        let proxy = visible.iter().find(|v| v.id == sun_id).unwrap();
+        assert!(proxy.pose.is_far_shell, "fixture must exercise the index's distant proxy");
+        assert!((proxy.pose.pos.length() - cosmos_math::FAR_SHELL_PROXY_RADIUS).abs() < 0.001);
+        let angular_radius = physical_body_angular_radius(proxy, true, 4).unwrap();
+        cosmos_render::universe_scene::restore_physical_body_query_positions(&index, &pose, 18, false, &mut visible);
+        assert!(visible.iter().find(|v| v.id == sun_id).unwrap().pose.is_far_shell,
+            "an explicit nonphysical experience override keeps normalized query semantics");
+        cosmos_render::universe_scene::restore_physical_body_query_positions(&index, &pose, 4, true, &mut visible);
+        let sun = pick_best_entity_along_ray(&visible, Vec3::NEG_Z, 6.0, &pose, 4).unwrap();
+        assert_eq!(sun.id, sun_id);
+        assert!(!sun.pose.is_far_shell);
+        assert!((physical_body_angular_radius(sun, true, 4).unwrap() - angular_radius).abs() < 1e-6);
+        let focus = FocusTarget::from_visible(sun, None);
+        assert!((focus.focus_point_cam.length() - expected_distance_m).abs() < 256.0,
+            "focal scroll and orbit need the actual Sun center, not a 5km proxy");
+        assert!((focus.bounding_radius_render_units - cosmos_spatial::SUN_RADIUS_M).abs() < 64.0);
+        assert!((focus.distance_render_units - (expected_distance_m - cosmos_spatial::SUN_RADIUS_M * 0.25)).abs() < 256.0,
+            "magnetic throttle must use the same physical depth as navigation");
+    }
+
+    #[test]
+    fn solar_free_roam_ray_focus_matches_the_visible_body_in_desktop_and_vr() {
+        fn step(rt: &mut UniverseRuntime, vr: bool) -> FramePacket {
+            let camera = RenderCamera::mono(rt.flight.pose.orient.as_quat(),
+                72.0_f32.to_radians(), 1.0, 0.02);
+            if vr {
+                rt.step_vr_frame(&VrFlightInput::default(), &WristSummonInput::default(),
+                    &camera, Vec3::NEG_Z, 0.0, 0.05, 384, 384)
+            } else {
+                rt.step_desktop_frame(&DesktopFlightInput::default(), Vec3::NEG_Z,
+                    false, false, false, &camera, 0.05, 384, 384)
+            }
+        }
+        let mut assets = UniverseAssets::load().expect("load runtime assets");
+        // This regression exercises real picking, narration selection and scene
+        // assembly. Keep their headless audio clock, but leave HRTF resampling
+        // and convolution to the dedicated audio tests instead of paying their
+        // full debug initialization and DSP cost in every navigation scenario.
+        assets.hrir_path = PathBuf::new();
+        let mut rt = UniverseRuntime::new(assets, AudioOutputMode::Headless).unwrap();
+        for (vr, scale) in [(false, 0.0), (true, 0.0), (false, 4.0), (true, 4.0),
+            (false, 8.8), (true, 8.8), (false, 13.5), (true, 13.5)] {
+            rt.journey_confirm_exit();
+            rt.fsm = RestNarrationFsm::new(FsmConfig::default());
+            rt.active_session = None;
+            rt.flight.pose = ScalePose64::new(SectorId::SOLAR_SYSTEM,
+                DVec3::Z*3.0*cosmos_spatial::SUN_RADIUS_M*10.0_f64.powf(-cosmos_spatial::SOLAR_SECTOR_SCALE_EXP),
+                scale, DQuat::IDENTITY);
+            let sun_id = rt.spatial.find_zone_entity(4, 0).unwrap().id;
+            let mut focused = false;
+            for _ in 0..30 {
+                let packet = step(&mut rt, vr);
+                assert_eq!(packet.active_experience_id, 4);
+                if let Some(id) = packet.hovered_entity_id {
+                    assert_eq!(id, sun_id, "invisible selectors cannot intercept a ray aimed at the Sun");
+                    focused = true;
+                }
+                let sun = packet.scene.heroes_surface.iter().find(|h| h.kind_tags[1] == 1400).unwrap();
+                assert_eq!((sun.kind_tags[2]>>16)&0xff, 255,
+                    "resting on the whole Sun cannot request its core cutaway");
+            }
+            assert!(focused, "the rendered Sun remains an implicit narration target");
+            assert_eq!(rt.active_session.as_ref().unwrap().plan.feature_index, None);
+
+            // The Sun is partly in view, but the gaze ray lies outside its
+            // 19.47-degree tangent cone at three radii. A full diameter used as
+            // the focus radius incorrectly selects the Sun through this sky.
+            rt.flight.pose.orient = DQuat::from_rotation_y(30.0_f64.to_radians());
+            rt.fsm = RestNarrationFsm::new(FsmConfig::default());
+            rt.active_session = None;
+            for _ in 0..30 {
+                let packet = step(&mut rt, vr);
+                assert!(packet.hovered_entity_id.is_none(), "empty sky beside the limb cannot start narration");
+            }
+
+            // Look directly at a real indexed feature that is deliberately not
+            // rendered in this physical observation. It must not catch a ray.
+            let hidden = rt.spatial.find_feature_entity(4, 0, 0).unwrap().local_pos;
+            let direction = (hidden-rt.flight.pose.local_pos).normalize();
+            rt.flight.pose.orient = DQuat::from_rotation_arc(DVec3::NEG_Z, direction);
+            rt.fsm = RestNarrationFsm::new(FsmConfig::default());
+            rt.active_session = None;
+            for _ in 0..30 {
+                let packet = step(&mut rt, vr);
+                assert_eq!(packet.active_experience_id, 4);
+                assert!(packet.hovered_entity_id.is_none(), "an invisible catalog feature cannot start narration");
+            }
+            assert!(rt.active_session.is_none());
+
+            // Explicit target selection bypasses implicit visibility filtering.
+            let camera = RenderCamera::mono(rt.flight.pose.orient.as_quat(),
+                72.0_f32.to_radians(), 1.0, 0.02);
+            rt.settle_and_start_target_narration(&camera, Vec3::NEG_Z, Some(4), Some(0), Some(0));
+            assert_eq!(rt.active_session.as_ref().unwrap().plan.feature_index, Some(0));
+            rt.settle_and_start_target_narration(&camera, Vec3::NEG_Z, Some(4), Some(0), Some(3));
+            assert_eq!(rt.active_session.as_ref().unwrap().plan.feature_index, Some(3));
+        }
     }
 
     #[test]
@@ -3553,6 +3895,84 @@ mod tests {
             let state = rt.build_documentary_focus_state(3, &idle, &visible, &RenderAudioUniforms::default(), None);
             assert_eq!((state.active_zone_index, state.active_feature_index), expected,
                 "authored Earth beat must survive absent/muted audio");
+        }
+    }
+
+    #[test]
+    fn solar_observation_disclosures_are_room_anchored_without_flat_panels() {
+        let mut rt = test_runtime();
+        rt.enable_spatial_guide(true);
+        rt.guide_page = GuidePage::Hidden;
+        rt.update_vr_tracking(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        rt.activate_journey("cosmic_highlights_tour", true).unwrap();
+        let director = rt.journey_director.as_mut().unwrap();
+        let (index, pose) = director.manifest().flatten_beats().iter()
+            .enumerate().find_map(|(i, (_, _, beat))| (beat.beat_id == "solar_limb_eruption")
+                .then(|| (i, beat.pose.to_pose64(&beat.beat_id).unwrap()))).unwrap();
+        rt.flight.pose = pose;
+        director.start(&rt.spatial.tree, &pose, index);
+        let camera = RenderCamera::mono(pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.002);
+        rt.step_vr_frame(&VrFlightInput::default(), &WristSummonInput::default(),
+            &camera, Vec3::NEG_Z, 0.0, 0.0, 800, 800);
+        assert!(rt.solar_observation_anchor.is_some(),
+            "actual EUV journey mode must disclose its observing filter even with the wrist UI closed");
+        let mut before = TypoFrameOutput::default();
+        rt.append_solar_observation_disclosure(Some(SolarObservationMode::Euv), &mut before);
+        assert!(!before.glyphs.is_empty());
+        assert!(before.foreground_start.is_none());
+        assert!(before.glyphs.iter().all(|g| {
+            let position = Vec3::from_array(g.pos_center[..3].try_into().unwrap());
+            (2.0..3.0).contains(&position.length())
+                && g.ink_params[3] == GlyphInkMode::SpatialAnchor as u8 as f32
+        }), "the disclosure must have comfortable real depth and no foreground backplate");
+        let lean = Vec3::new(0.20, -0.05, 0.03);
+        rt.update_vr_tracking(lean, glam::Quat::from_rotation_y(0.9), glam::Quat::IDENTITY);
+        let mut after = TypoFrameOutput::default();
+        rt.append_solar_observation_disclosure(Some(SolarObservationMode::Euv), &mut after);
+        for (a, b) in before.glyphs.iter().zip(&after.glyphs) {
+            let a_pos = Vec3::from_array(a.pos_center[..3].try_into().unwrap());
+            let b_pos = Vec3::from_array(b.pos_center[..3].try_into().unwrap());
+            assert!((b_pos + lean - a_pos).length() < 1e-5);
+            assert_eq!(a.right_vec, b.right_vec, "head turning must not rotate the label");
+            assert_eq!(a.up_vec, b.up_vec);
+        }
+        let mut inactive = TypoFrameOutput::default();
+        rt.append_solar_observation_disclosure(None, &mut inactive);
+        assert!(inactive.glyphs.is_empty() && rt.solar_observation_anchor.is_none());
+        for locale in [Locale::EnUs, Locale::FiFi, Locale::EsEs] {
+            rt.locale = locale;
+            for mode in [SolarObservationMode::VisibleComposite, SolarObservationMode::VisibleDetail] {
+                let text = mode.disclosure(locale);
+                let illustrative = match locale {
+                    Locale::FiFi => "havainnollistava plasma",
+                    Locale::EsEs => "plasma ilustrativo",
+                    _ => "illustrative plasma",
+                };
+                assert!(text.contains(illustrative), "the visible composite must disclose added plasma in {locale:?}");
+                let mut label = TypoFrameOutput::default();
+                rt.append_solar_observation_disclosure(Some(mode), &mut label);
+                assert!(!label.glyphs.is_empty() && label.foreground_start.is_none());
+                assert!(label.glyphs.iter().all(|g| g.ink_params[3] == GlyphInkMode::SpatialAnchor as u8 as f32));
+            }
+            for (beat_id, expected) in [
+                ("exp04_z000_sun", SolarObservationMode::VisibleComposite),
+                ("solar_energy_interior", SolarObservationMode::Interior),
+                ("solar_granulation_horizon", SolarObservationMode::VisibleDetail),
+                ("solar_active_region", SolarObservationMode::VisibleDetail),
+                ("solar_limb_eruption", SolarObservationMode::Euv),
+                ("solar_escaping_wind", SolarObservationMode::Euv),
+            ] {
+                let director = rt.journey_director.as_mut().unwrap();
+                let (index, pose) = director.manifest().flatten_beats().iter()
+                    .enumerate().find_map(|(i, (_, _, beat))| (beat.beat_id == beat_id)
+                        .then(|| (i, beat.pose.to_pose64(&beat.beat_id).unwrap()))).unwrap();
+                rt.flight.pose = pose;
+                director.start(&rt.spatial.tree, &pose, index);
+                rt.step_vr_frame(&VrFlightInput::default(), &WristSummonInput::default(),
+                    &camera, Vec3::NEG_Z, 0.0, 0.0, 800, 800);
+                assert_eq!(rt.solar_observation_anchor.unwrap().0, expected,
+                    "{beat_id} must disclose its actual observing transform in {locale:?}");
+            }
         }
     }
 
@@ -4042,15 +4462,12 @@ mod tests {
 
         // App 04 Saturn (`zone 7`): blocker extends wide enough horizontally to protect Cassini rings.
         rt.reset_verification_state();
-        let eye = DVec3::new(72.0, 36.0, 207.0);
-        let fwd = (DVec3::new(48.0, 4.0, -20.0) - eye).normalize();
-        let cam_x = fwd.cross(DVec3::Y).normalize();
-        let cam_z = -fwd;
-        let cam_y = cam_z.cross(cam_x).normalize();
-        let rot = DQuat::from_mat3(&glam::DMat3::from_cols(cam_x, cam_y, cam_z)).normalize();
-        rt.flight.pose = ScalePose64::new(SectorId::SOLAR_SYSTEM, eye, 12.8, rot);
+        let saturn_entity = rt.spatial.iter_entities().find(|entity| {
+            entity.experience_id == 4 && entity.kind == EntityKind::CelestialBody && entity.zone_index == 7
+        }).unwrap();
+        rt.flight.pose = rt.spatial.navigation_pose_for_entity(saturn_entity, DVec3::new(0.2, 0.35, 1.0)).unwrap().0;
         let cam_sat = RenderCamera::mono(
-            rot.as_quat(),
+            rt.flight.pose.orient.as_quat(),
             72.0_f32.to_radians(),
             16.0 / 9.0,
             DEFAULT_DESKTOP_NEAR_RENDER_UNITS,
@@ -4072,7 +4489,7 @@ mod tests {
                     && v.kind == EntityKind::CelestialBody
                     && v.zone_index == 7
             })
-            .expect("Saturn visible in 03 showcase pose");
+            .expect("Saturn visible from its physical observation pose");
         let blockers = collect_external_blockers(
             &rt.wrist_ring,
             &vis04,
@@ -4083,7 +4500,8 @@ mod tests {
         assert!(
             blockers
                 .iter()
-                .any(|b| b.half_az > saturn.pose.angular_rad * 2.0),
+                .any(|b| b.half_az > (saturn.pose.rel_scale * 2.25 / 0.84
+                    / saturn.pose.distance_render_units as f32).asin()),
             "expected wide Saturn Cassini ring blocker (planet ang={:.3}, blockers={blockers:?})",
             saturn.pose.angular_rad
         );

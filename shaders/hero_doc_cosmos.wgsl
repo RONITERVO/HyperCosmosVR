@@ -381,48 +381,6 @@ fn shade_doc_solar_planet_surface(
     let fresnel = pow(1.0 - view_dot, 3.6);
     // 04 Solar System Planetary Surfaces & Dwarf/Moon Companions (1400..=1411, 3643..=3651)
 
-    if (vid == 1u || vid == 1400u) {
-        // Z00 Sun (1 / 1400): p-p H->He fusion core cutaway (F0), granulation (F1), bipolar sunspots (F2), corona rim (F3), solar wind streams (F4)
-        let f_core = doc_solar_feat_gate(inst, 0u);
-        let f_gran = doc_solar_feat_gate(inst, 1u);
-        let f_spot = doc_solar_feat_gate(inst, 2u);
-        let f_cor = doc_solar_feat_gate(inst, 3u);
-        let f_wind = doc_solar_feat_gate(inst, 4u);
-
-        let gran = fbm3(p_surf * 13.5 + vec3<f32>(time * 0.14), 4);
-        let cells = abs(snoise3(p_surf * 26.0 + vec3<f32>(0.0, time * 0.25, 0.0)));
-        let gran_lanes = smoothstep(0.04, mix(0.26, 0.14, f_gran), cells);
-        let spot_noise = smoothstep(-0.30, -0.48, fbm3(p_surf * 3.8 + vec3<f32>(0.0, time * 0.03, 0.0), 3));
-        let pair_a = exp(-length(p_surf.xy - vec2<f32>(-0.18, 0.12)) * 22.0) * select(0.0, 1.0, p_surf.z > 0.0);
-        let pair_b = exp(-length(p_surf.xy - vec2<f32>(0.20, -0.08)) * 24.0) * select(0.0, 1.0, p_surf.z > 0.0);
-        let spot = clamp(spot_noise + (pair_a + pair_b) * f_spot, 0.0, 1.0);
-        let temp = mix(5200.0, 2850.0, spot) + gran * 980.0 - (1.0 - gran_lanes) * 650.0;
-        let limb = pow(view_dot, 0.62);
-        let chromo_rim = vec3<f32>(0.98, 0.20, 0.04) * fresnel * (0.68 + 0.92 * f_cor);
-        let cell_contrast = (0.34 + 0.66 * gran_lanes) * mix(1.0, 0.22, spot) * mix(1.0, 0.72, f_cor);
-        var col = blackbody_rgb(temp) * (0.36 + 0.56 * limb + u_audio.levels_a.z * 0.12) * cell_contrast + chromo_rim;
-        let faculae = exp(-abs(length(p_surf.xy - vec2<f32>(0.01, 0.02)) - 0.21) * 32.0) * select(0.0, 1.0, p_surf.z > 0.0);
-        col += vec3<f32>(1.45, 1.15, 0.55) * faculae * 0.65 * f_spot;
-
-        // Equatorial octant H->He core cutaway on F0
-        if (f_core > 0.01 && p_surf.x > 0.0 && p_surf.y > -0.04 && p_surf.z > 0.0) {
-            let cut_d = min(p_surf.x / max(abs(v_dir.x), 0.18), (p_surf.y + 0.04) / max(abs(v_dir.y), 0.18));
-            let r_in = clamp(length(p_surf - v_dir * min(cut_d, 0.72)), 0.0, 1.0);
-            let core_glow = blackbody_rgb(12500.0) * 1.15 * smoothstep(0.42, 0.12, r_in);
-            let rad_zone = vec3<f32>(1.35, 0.86, 0.22) * smoothstep(0.75, 0.34, r_in) * smoothstep(0.20, 0.42, r_in);
-            let seam = exp(-min(abs(p_surf.x), abs(p_surf.y + 0.04)) * 38.0);
-            col = mix(col, core_glow + rad_zone + vec3<f32>(1.45, 0.95, 0.40) * seam * 0.55, f_core * 0.95);
-        }
-
-        // Parker coronal-hole wind plumes on F4
-        if (f_wind > 0.01) {
-            let hole = smoothstep(0.42, 0.88, abs(p_surf.y));
-            let wind_arc = pow(0.5 + 0.5 * sin(atan2(p_surf.z, p_surf.x) * 8.0 - time * 2.2), 4.0) * (0.28 + 0.72 * hole);
-            col += vec3<f32>(0.42, 1.05, 1.55) * wind_arc * (0.35 + 0.65 * fresnel) * f_wind * 0.90;
-        }
-        return col * min(inst.color_a.a, 0.92);
-    }
-
     if (vid == 1405u || (vid == 3u && doc_submode(inst) == 5u)) {
         // Z05 Asteroid Belt — Ceres with cratered dark carbonaceous basalt & Occator carbonate salt domes
         let f_occator = doc_solar_feat_gate(inst, 0u);
@@ -3170,19 +3128,7 @@ fn raymarch_doc_cosmos_macro(
         if (r < 0.94) {
             var neb_col = mix(inst.color_a.rgb, inst.color_b.rgb, 0.5);
             var dens: f32 = 0.0;
-            if (vid == 4u || vid == 1400u) {
-                let az = atan2(p.z, p.x);
-                let is_can_sun = vid == 1400u;
-                let f_loops = select(1.0, doc_feat_focus(inst, 3u), is_can_sun);
-                let f_wind = select(1.0, doc_feat_focus(inst, 4u), is_can_sun);
-                if (r > 0.38 && r < 0.92) {
-                    let loop_arc = exp(-abs(r - 0.56 - 0.14 * sin(p.x * 7.5 + time * 0.4) * cos(p.z * 6.5)) * 28.0);
-                    let flare = pow(max(0.0, snoise3(p * 7.0 + vec3<f32>(time * 0.25))), 3.0);
-                    let parker = pow(max(0.0, sin(az * 7.0 - r * 11.0 + time * 0.85)), 5.0) * smoothstep(0.42, 0.72, r) * (1.0 - smoothstep(0.75, 0.92, r));
-                    dens = (loop_arc * (0.20 + 0.95 * flare) * f_loops + parker * 0.34 * f_wind) * (1.0 - smoothstep(0.68, 0.92, r));
-                    neb_col = mix(vec3<f32>(1.15, 0.42, 0.10), vec3<f32>(1.55, 0.85, 0.28), max(flare, parker * 0.75));
-                }
-            } else if (vid == 3647u) {
+            if (vid == 3647u) {
                 // Enceladus (Exp 04 Z07 F4) South-Polar Cryovolcanic Ice Plumes
                 if (p.y < -0.10 && r < 0.94) {
                     let plume_r = length(p.xz);

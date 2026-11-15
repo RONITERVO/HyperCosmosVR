@@ -1,0 +1,222 @@
+{
+  "source_run": "target/solar_native_final",
+  "hardware": "NVIDIA GeForce RTX5070",
+  "measurement": "CPU submission plus GPU wait, static synthetic stereo, no headset or compositor",
+  "frames_per_view": 120,
+  "simulation_range_sec": [
+    30,
+    33.96666666666667
+  ],
+  "synthetic_capture_hz": 30,
+  "video_encoding_active": false,
+  "gpu_profile_requested": true,
+  "stills": [
+    {
+      "beat": "exp04_z000_sun",
+      "source": "target/solar_native_final/exp04_z000_sun/eye0_0119.png",
+      "file": "exp04_z000_sun_native_eye0.png",
+      "sha256": "7a730ddbe685176fff73e4a6603256ecd874dff3de54275d2570fb0897d7f1c0",
+      "bytes": 3266654,
+      "eye": 0,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "frame": 119,
+      "simulation_sec": 33.96666666666667
+    },
+    {
+      "beat": "solar_energy_interior",
+      "source": "target/solar_native_final/solar_energy_interior/eye0_0119.png",
+      "file": null,
+      "sha256": "b65c77b4fe54f5f4b26b6eba7298630cf4b67e8673029cb67a270f3a21e626b8",
+      "bytes": 13760029,
+      "eye": 0,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "frame": 119,
+      "simulation_sec": 33.96666666666667
+    },
+    {
+      "beat": "solar_granulation_horizon",
+      "source": "target/solar_native_final/solar_granulation_horizon/eye0_0119.png",
+      "file": "solar_granulation_horizon_native_crop.png",
+      "sha256": "5dbb134c35ea993ae6b93d1c555b402a8197f7020852cea32e6452740ee2f2c7",
+      "bytes": 22965360,
+      "eye": 0,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "frame": 119,
+      "simulation_sec": 33.96666666666667,
+      "crop_rect_xyxy_exclusive": [
+        1100,
+        2200,
+        2124,
+        3224
+      ],
+      "crop_size": [
+        1024,
+        1024
+      ],
+      "crop_sha256": "7c92918e2f3195be7ded2497dec31f5a523a85703c3cf54e9ab9e2df862d7a39",
+      "transform": "1:1 original RGBA pixels; no resizing or color adjustment; PNG lossless."
+    },
+    {
+      "beat": "solar_active_region",
+      "source": "target/solar_native_final/solar_active_region/eye0_0119.png",
+      "file": "solar_active_region_native_crop.png",
+      "sha256": "3fec517de07d81f8de4ab38ae79789963ee6dd23274361c825a16b0c100247c3",
+      "bytes": 18817971,
+      "eye": 0,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "frame": 119,
+      "simulation_sec": 33.96666666666667,
+      "crop_rect_xyxy_exclusive": [
+        800,
+        2150,
+        1824,
+        3174
+      ],
+      "crop_size": [
+        1024,
+        1024
+      ],
+      "crop_sha256": "2c5db5970d3ee204af24563915142fe8249d6ad7f1875e6ed1a21bdfda952fd9",
+      "transform": "1:1 original RGBA pixels; no resizing or color adjustment; PNG lossless."
+    },
+    {
+      "beat": "solar_limb_eruption",
+      "source": "target/solar_native_final/solar_limb_eruption/eye0_0119.png",
+      "file": "solar_limb_eruption_native_crop.png",
+      "sha256": "a29ebae26adb135a1deb9f6cd8b08c5ca4715a59f6939b707a2128ce244fc31a",
+      "bytes": 15389134,
+      "eye": 0,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "frame": 119,
+      "simulation_sec": 33.96666666666667,
+      "crop_rect_xyxy_exclusive": [
+        1100,
+        2350,
+        2124,
+        3374
+      ],
+      "crop_size": [
+        1024,
+        1024
+      ],
+      "crop_sha256": "99924b12fa1cddcf8d0c5e59cca567e85f1a9ca65958deca5ff30db62054d05d",
+      "transform": "1:1 original RGBA pixels; no resizing or color adjustment; PNG lossless."
+    },
+    {
+      "beat": "solar_escaping_wind",
+      "source": "target/solar_native_final/solar_escaping_wind/eye0_0119.png",
+      "file": null,
+      "sha256": "ad096500cadf2775937d5f41683f0d9b18a3aeac19d2df951a6e3a81ad5c310c",
+      "bytes": 5905882,
+      "eye": 0,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "frame": 119,
+      "simulation_sec": 33.96666666666667
+    }
+  ],
+  "contact": {
+    "file": "native_contact.png",
+    "source": "All six original renderer PNGs, resized for compact review; the full macro PNG is a byte-identical copy and three detail crops preserve exact original pixels.",
+    "sha256": "22da479624ef82f31b1171b126e80c168c4cd15febe0c14647a90d173786de62"
+  },
+  "native_headset_status": "Out-of-sandbox OpenXR probe failed at xrCreateInstance with InstanceCreationFailed (unexpected runtime error); no native session/compositor measurements.",
+  "capture_log": {
+    "file": "native_reference_capture.txt",
+    "sha256": "ba19312bde6d947a6e1eb47bbc4fc7f5f461a82de563ebab07cbd0fbaacffd2e",
+    "source": "target/solar_native_final/capture.txt",
+    "source_sha256": "ba19312bde6d947a6e1eb47bbc4fc7f5f461a82de563ebab07cbd0fbaacffd2e",
+    "transformation": "UTF-8 without BOM; line endings canonicalized to LF."
+  },
+  "reference_1440": {
+    "source": "target/solar_1440_reference/capture.txt",
+    "file": "reference_1440_capture.txt",
+    "sha256": "35f14acb0f4a25858d3a3dcfb383b2bb919b845018ee9d22307b80b781213b1d",
+    "eye_dimensions": [
+      2560,
+      1440
+    ],
+    "vertical_fov_deg": 72,
+    "horizontal_fov_deg": 104.504864,
+    "frames_per_view": 120,
+    "simulation_range_sec": [
+      30,
+      33.96666666666667
+    ],
+    "motion": "Static",
+    "profile": true,
+    "video": false,
+    "comparability": "Different aspect ratio, horizontal field of view and pixel count from 3400x3468. Offscreen reference, not native headset cadence.",
+    "source_sha256": "35f14acb0f4a25858d3a3dcfb383b2bb919b845018ee9d22307b80b781213b1d",
+    "transformation": "UTF-8 without BOM; line endings canonicalized to LF."
+  },
+  "temporal_120_capture": {
+    "source": "target/solar_native_120_steps/capture.txt",
+    "file": "temporal_120_capture.txt",
+    "sha256": "f394efc33634351e8cee6d4ef52370d6f630719f62503797b00cf9d5235776a3",
+    "eye_dimensions": [
+      3400,
+      3468
+    ],
+    "beats": [
+      "solar_granulation_horizon",
+      "solar_active_region",
+      "solar_limb_eruption"
+    ],
+    "frames_per_eye_per_beat": 241,
+    "synthetic_capture_hz": 120,
+    "simulation_range_sec": [
+      30,
+      32
+    ],
+    "motion": "Head",
+    "video": true,
+    "review": "Exact 1:1 decoded lossy-video crops, frames 0 through 7, for granules, penumbra, arcade and CME. Coherent translation without obvious sparkle or jumps in these bounded samples; not native cadence or full-cycle proof.",
+    "source_sha256": "f394efc33634351e8cee6d4ef52370d6f630719f62503797b00cf9d5235776a3",
+    "transformation": "UTF-8 without BOM; line endings canonicalized to LF."
+  },
+  "source_freeze_tests": {
+    "source": "target/solar_final_test_log.txt",
+    "file": "final_test_log.txt",
+    "sha256": "ae229d7057b3627a6c03e8a72773a829cdd59c95703540119cabe36f672c4fef",
+    "result": "All local tests passed",
+    "elapsed_seconds": 298.94,
+    "separate_clippy_and_all_experience_sweep": "Passed: workspace all-target Clippy with -D warnings in 3.11 seconds; headless sweep completed 43 PNG captures covering all 25 experiences.",
+    "source_sha256": "2ba99c4af96b8d5e91af6aea3129eb3cbc90583b13cb801264fb039a9b808a6b",
+    "transformation": "UTF-8 without BOM; line endings canonicalized to LF. One environment-only local OpenVR log path redacted; test results and diagnostics otherwise unchanged."
+  },
+  "headless_all_experience_sweep": {
+    "source": "target/solar_all_experiences_final/benchmark_sweep.txt",
+    "file": "benchmark_sweep.txt",
+    "sha256": "34afc858f6a27dc4f4b02d7c6e6a592b518ad409c3cbfd1d12fa9bec7af7956f",
+    "dimensions": [
+      960,
+      540
+    ],
+    "frames": 120,
+    "mean_ms": 1.031,
+    "p99_ms": 2.214,
+    "png_captures": 43,
+    "experiences": 25,
+    "limitation": "Low-resolution desktop reference; no VR visual-quality or performance inference.",
+    "source_sha256": "34afc858f6a27dc4f4b02d7c6e6a592b518ad409c3cbfd1d12fa9bec7af7956f",
+    "transformation": "UTF-8 without BOM; line endings canonicalized to LF."
+  }
+}

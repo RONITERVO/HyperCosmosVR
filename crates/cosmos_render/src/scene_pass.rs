@@ -14,10 +14,75 @@ const DEFAULT_PARTICLE_CAP: usize = 65_536;
 const DEFAULT_HERO_CAP: usize = 512;
 const DEFAULT_SPRITE_CAP: usize = 32_768;
 const FIELD_GRID_DIM: u32 = 256;
+// Must cover all families in solar_plasma_address(): loops, eruptive strands,
+// open funnels, spicules, convective circulation and 512 radiative packet paths.
+const SOLAR_PLASMA_SEGMENT_COUNT: u32 = 122_880;
+
+// Preserve array order and storage indices when splitting dedicated Sun draws
+// from the general lesson shader. In particular, translucent neighbors cannot
+// be regrouped across an intervening instance without changing compositing.
+fn hero_pipeline_batches(heroes: &[HeroVolumeInstance], surface: bool)
+    -> impl Iterator<Item = (std::ops::Range<u32>, bool)> + '_
+{
+    let is_solar = move |hero: &HeroVolumeInstance| {
+        if surface { hero.kind_tags[0] == 1 && matches!(hero.kind_tags[1], 1 | 1400) }
+        else { hero.kind_tags[0] == 3 && matches!(hero.kind_tags[1], 4 | 1400) }
+    };
+    let mut start = 0;
+    std::iter::from_fn(move || {
+        let first = heroes.get(start)?;
+        let solar = is_solar(first);
+        let mut end = start + 1;
+        while end < heroes.len() && is_solar(&heroes[end]) == solar { end += 1; }
+        let range = start as u32..end as u32;
+        start = end;
+        Some((range, solar))
+    })
+}
+
+fn solar_plasma_is_resolved(hero: &HeroVolumeInstance, frame: &FrameUniforms) -> bool {
+    let radius = hero.pos_radius[3] * hero.phys_a[1];
+    let center = glam::Vec3::from_slice(&hero.pos_radius);
+    let width = frame.viewport_params[0];
+    let height = frame.viewport_params[1];
+    let tan_half_fov = (frame.cam_forward[3] * 0.5).tan();
+    if !radius.is_finite() || radius <= 0.0 || !center.is_finite()
+        || width <= 0.0 || height <= 0.0 || !tan_half_fov.is_finite() || tan_half_fov <= 0.0
+    {
+        return true; // Invalid metadata must not silently remove solar detail.
+    }
+    let eye_count = if frame.stereo_params[0] >= 2.0 { 2 } else { 1 };
+    for eye in 0..eye_count {
+        let vp = glam::Mat4::from_cols_array_2d(&frame.view_proj[eye]);
+        let offset = glam::Vec3::from_slice(&frame.eye_offset[eye]);
+        let distance_squared = (center - offset).length_squared();
+        let depth = (vp * center.extend(1.0)).w.abs();
+        if !distance_squared.is_finite() || !depth.is_finite()
+            || distance_squared <= radius * radius || depth <= radius
+        {
+            return true;
+        }
+        // Off-axis perspective magnifies a sphere along the radial direction.
+        // Its major semiaxis is R*sqrt(d²-R²)/(z²-R²), not simply R/d.
+        // Row norms also conservatively cover asymmetric per-eye projections;
+        // the authored FOV is retained as a lower bound on pixel focal length.
+        let projection_x = glam::Vec3::new(vp.x_axis.x, vp.y_axis.x, vp.z_axis.x).length();
+        let projection_y = glam::Vec3::new(vp.x_axis.y, vp.y_axis.y, vp.z_axis.y).length();
+        let focal_pixels = (height * 0.5 / tan_half_fov)
+            .max(width * 0.5 / (tan_half_fov * frame.cam_right[3].max(1e-6)))
+            .max(width * 0.5 * projection_x)
+            .max(height * 0.5 * projection_y);
+        let projected_radius = focal_pixels * radius * (distance_squared - radius * radius).sqrt()
+            / (depth * depth - radius * radius);
+        if projected_radius >= 2.0 { return true; }
+    }
+    false
+}
 
 /// Owns the `Rgba16Float` linear HDR scene target, Reversed-Z depth buffer, compute particle &
 /// 2D ping-pong PDE buffers, and executes Compute + FarShell + Hero + Sprite + Overlay passes.
 pub struct ScenePass {
+    pub(crate) gpu_profile: Option<crate::gpu_profile::GpuProfiler>,
     pub width: u32,
     pub height: u32,
     pub eye_count: u32,
@@ -235,6 +300,7 @@ impl ScenePass {
         );
 
         Self {
+            gpu_profile: crate::gpu_profile::GpuProfiler::new(device),
             width,
             height,
             eye_count,
@@ -466,6 +532,7 @@ impl ScenePass {
         }
 
         // 1) Compute particle advection & optional 2D PDE grid step
+        if let Some(profile) = &self.gpu_profile { encoder.write_timestamp(&profile.queries, 0); }
         if scene.compute.counts[1] > 0 || scene.dispatch_field_grid.is_some() {
             let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("cosmos_compute_pass"),
@@ -532,6 +599,7 @@ impl ScenePass {
             });
 
             // 2a. Far Shell Sky Dome
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 1); }
             rpass.set_pipeline(if is_stereo {
                 &pipelines.far_stereo
             } else {
@@ -540,6 +608,7 @@ impl ScenePass {
             rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
             rpass.set_bind_group(1, &self.far_bg, &[]);
             rpass.draw(0..3, 0..1);
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 2); }
 
             // 2b. Opaque / Depth-Writing Hero Surfaces (Earth cutaway, planets, Kerr black core)
             let hero_surface_bg = if self.field_parity {
@@ -548,37 +617,102 @@ impl ScenePass {
                 &self.hero_surface_bg_a
             };
             if !scene.heroes_surface.is_empty() {
-                rpass.set_pipeline(if is_stereo {
-                    &pipelines.hero_surface_stereo
-                } else {
-                    &pipelines.hero_surface_mono
-                });
                 rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
                 rpass.set_bind_group(1, hero_surface_bg, &[]);
                 rpass.set_vertex_buffer(0, self.cube_vb.slice(..));
                 rpass.set_index_buffer(self.cube_ib.slice(..), wgpu::IndexFormat::Uint16);
-                rpass.draw_indexed(0..36, 0, 0..scene.heroes_surface.len() as u32);
+                for (instances, solar) in hero_pipeline_batches(&scene.heroes_surface, true) {
+                    rpass.set_pipeline(match (solar, is_stereo) {
+                        (true, true) => &pipelines.solar_surface_stereo,
+                        (true, false) => &pipelines.solar_surface_mono,
+                        (false, true) => &pipelines.hero_surface_stereo,
+                        (false, false) => &pipelines.hero_surface_mono,
+                    });
+                    rpass.draw_indexed(0..36, 0, instances);
+                }
             }
 
-            // 2c. Translucent Volumetric Raymarched Heroes (Auroras, Cassini rings, Nebulae, Kerr Lensing, HSL Prism, Cymatic Harp, Lotus)
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 3); }
             let hero_volume_bg = if self.field_parity {
                 &self.hero_volume_bg_b
             } else {
                 &self.hero_volume_bg_a
             };
-            if !scene.heroes_volume.is_empty() {
+            // Cool plasma attenuates the common opaque background first.
+            // Transmittance products commute; hot, optically thin emission is
+            // added only afterward and cannot be darkened by later draw order.
+            for (hero_index, hero) in scene.heroes_volume.iter().enumerate() {
+                if hero.kind_tags[0] != 3
+                    || !matches!(hero.kind_tags[1], 4 | 1400)
+                    || hero.phys_a[1] <= 0.0
+                    || !solar_plasma_is_resolved(hero, &scene.frame)
+                {
+                    continue;
+                }
+                debug_assert!(hero_index < 4096, "solar plasma hero address exceeds 12 bits");
+                let first_segment = (hero_index as u32) << 20;
                 rpass.set_pipeline(if is_stereo {
-                    &pipelines.hero_volume_stereo
+                    &pipelines.solar_absorption_stereo
                 } else {
-                    &pipelines.hero_volume_mono
+                    &pipelines.solar_absorption_mono
                 });
+                rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
+                rpass.set_bind_group(1, hero_volume_bg, &[]);
+                // Only loop rain, prominences and spicules have opacity.
+                // Skip the open-wind and interior packet families entirely.
+                rpass.draw(0..6, first_segment..first_segment + 57_344);
+                rpass.draw(0..6, first_segment + 65_536..first_segment + 98_304);
+            }
+
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 4); }
+            // 2c. Translucent Volumetric Raymarched Heroes (Auroras, Cassini rings, Nebulae, Kerr Lensing, HSL Prism, Cymatic Harp, Lotus)
+            if !scene.heroes_volume.is_empty() {
                 rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
                 rpass.set_bind_group(1, hero_volume_bg, &[]);
                 rpass.set_vertex_buffer(0, self.cube_vb.slice(..));
                 rpass.set_index_buffer(self.cube_ib.slice(..), wgpu::IndexFormat::Uint16);
-                rpass.draw_indexed(0..36, 0, 0..scene.heroes_volume.len() as u32);
+                for (instances, solar) in hero_pipeline_batches(&scene.heroes_volume, false) {
+                    rpass.set_pipeline(match (solar, is_stereo) {
+                        (true, true) => &pipelines.solar_corona_stereo,
+                        (true, false) => &pipelines.solar_corona_mono,
+                        (false, true) => &pipelines.hero_volume_stereo,
+                        (false, false) => &pipelines.hero_volume_mono,
+                    });
+                    rpass.draw_indexed(0..36, 0, instances);
+                }
             }
 
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 5); }
+            // Resolved solar plasma follows the diffuse corona. The high 12 bits
+            // of instance_index identify the same volume hero storage record;
+            // the low 20 bits identify a finite world-space curve segment.
+            for (hero_index, hero) in scene.heroes_volume.iter().enumerate() {
+                if hero.kind_tags[0] != 3
+                    || !matches!(hero.kind_tags[1], 4 | 1400)
+                    || hero.phys_a[1] <= 0.0
+                    || !solar_plasma_is_resolved(hero, &scene.frame)
+                {
+                    continue;
+                }
+                debug_assert!(
+                    hero_index < 4096,
+                    "solar plasma hero address exceeds 12 bits"
+                );
+                let first_segment = (hero_index as u32) << 20;
+                rpass.set_pipeline(if is_stereo {
+                    &pipelines.solar_plasma_stereo
+                } else {
+                    &pipelines.solar_plasma_mono
+                });
+                rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
+                rpass.set_bind_group(1, hero_volume_bg, &[]);
+                rpass.draw(
+                    0..6,
+                    first_segment..first_segment + SOLAR_PLASMA_SEGMENT_COUNT,
+                );
+            }
+
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 6); }
             // 2d. Compute-Advected Particles
             if scene.particle_draw_count > 0 {
                 rpass.set_pipeline(if is_stereo {
@@ -605,6 +739,7 @@ impl ScenePass {
 
             // 2f. 3D MSDF Typography & Tethers (`cosmos_typo`) rendered directly in HDR before Bloom + AgX
             draw_overlay_in_hdr(&mut rpass, is_stereo);
+            if let Some(profile) = &self.gpu_profile { rpass.write_timestamp(&profile.queries, 7); }
         }
     }
 }
@@ -791,6 +926,14 @@ fn make_hero_bg(
                 binding: 6,
                 resource: wgpu::BindingResource::Sampler(&pipelines.earth_maps_samp),
             },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: wgpu::BindingResource::TextureView(&pipelines.solar_noise_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 8,
+                resource: wgpu::BindingResource::Sampler(&pipelines.solar_noise_sampler),
+            },
         ],
     })
 }
@@ -902,4 +1045,57 @@ pub fn seed_particles_for_mode(mode: u32, count: u32, radius_scale: f32) -> Vec<
         });
     }
     out
+}
+
+#[cfg(test)]
+mod solar_lod_tests {
+    use super::*;
+
+    #[test]
+    fn dedicated_sun_batches_preserve_neighbor_order_and_storage_indices() {
+        let hero = |kind, vid| HeroVolumeInstance {
+            kind_tags: [kind, vid, 0, 0], ..bytemuck::Zeroable::zeroed()
+        };
+        let surfaces = [hero(0, 1403), hero(1, 1404), hero(1, 1400), hero(1, 1),
+            hero(4, 7), hero(1, 1400), hero(1, 4)];
+        assert_eq!(hero_pipeline_batches(&surfaces, true).collect::<Vec<_>>(),
+            [(0..2, false), (2..4, true), (4..5, false), (5..6, true), (6..7, false)]);
+        let volumes = [hero(3, 4), hero(2, 4), hero(3, 1400), hero(3, 1), hero(0, 1403)];
+        assert_eq!(hero_pipeline_batches(&volumes, false).collect::<Vec<_>>(),
+            [(0..1, true), (1..2, false), (2..3, true), (3..5, false)]);
+        assert!(hero_pipeline_batches(&[], true).next().is_none());
+    }
+
+    #[test]
+    fn subpixel_sun_skips_strands_but_close_and_oblique_views_keep_detail() {
+        let radius = 695_700_000.0_f32;
+        let mut hero = HeroVolumeInstance {
+            pos_radius: [0.0, 0.0, -149_597_870_700.0, radius * 3.0],
+            phys_a: [0.0, 1.0 / 3.0, 0.0, 0.0],
+            ..bytemuck::Zeroable::zeroed()
+        };
+        let projection = cosmos_math::reversed_z_infinite_perspective_rh(
+            std::f32::consts::FRAC_PI_2, 1.0, 0.02).to_cols_array_2d();
+        let mut frame = FrameUniforms {
+            view_proj: [projection; 2], cam_right: [1.0, 0.0, 0.0, 1.0],
+            viewport_params: [720.0, 720.0, 0.0, 0.0], ..Default::default()
+        };
+        assert!(!solar_plasma_is_resolved(&hero, &frame),
+            "the solar photosphere is under two pixels in radius at this resolution/distance");
+        frame.viewport_params[..2].copy_from_slice(&[1440.0, 1440.0]);
+        assert!(solar_plasma_is_resolved(&hero, &frame),
+            "the same angular Sun is resolved at the larger eye resolution");
+        frame.viewport_params[..2].copy_from_slice(&[720.0, 720.0]);
+        hero.pos_radius[2] = -3.6 * radius;
+        assert!(solar_plasma_is_resolved(&hero, &frame));
+        hero.pos_radius[..3].copy_from_slice(&[400.0 * radius, 0.0, -100.0 * radius]);
+        assert!(solar_plasma_is_resolved(&hero, &frame),
+            "a radius/distance shortcut must not incorrectly cull a magnified oblique projection");
+        hero.pos_radius[..3].copy_from_slice(&[0.0, 0.0, -149_597_870_700.0]);
+        frame.stereo_params[0] = 2.0;
+        frame.view_proj[1][0][0] *= 2.0;
+        frame.view_proj[1][1][1] *= 2.0;
+        assert!(solar_plasma_is_resolved(&hero, &frame),
+            "either eye's narrower projection must retain the shared stereo strand draw");
+    }
 }

@@ -8,6 +8,7 @@
 *.yaml text eol=lf
 *.py text eol=lf
 *.json text eol=lf
+artifacts/solar_presence/*.txt text eol=lf
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
 *.bat text eol=crlf

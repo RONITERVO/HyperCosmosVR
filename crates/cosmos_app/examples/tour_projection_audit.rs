@@ -1,6 +1,7 @@
 //! CPU-only authored-tour framing audit; bounding spheres are not visual quality proof.
 //! Use --odyssey for the complete catalog, --saved for the shipped Highlights,
 //! or --export to regenerate shipped Highlights using the actual runtime index.
+//! Use --manifest <path> to validate and inspect a standalone review journey.
 use cosmos_app::assets::UniverseAssets;
 use cosmos_journey::{
     BeatTargetSelector, CosmicHighlightsPlugin, GrandCosmicOdysseyPlugin, StoryJourneyManifest,
@@ -12,7 +13,13 @@ use glam::Vec3;
 fn main() -> anyhow::Result<()> {
     let assets = UniverseAssets::load()?;
     let args: Vec<_> = std::env::args().collect();
-    let journey = if args.iter().any(|a| a == "--saved") {
+    let external_path = args.iter().position(|a| a == "--manifest")
+        .map(|index| args.get(index + 1)
+            .ok_or_else(|| anyhow::anyhow!("--manifest requires a JSON path")))
+        .transpose()?;
+    let journey = if let Some(path) = external_path {
+        StoryJourneyManifest::from_json_str(&std::fs::read_to_string(path)?)?
+    } else if args.iter().any(|a| a == "--saved") {
         StoryJourneyManifest::from_json_str(&std::fs::read_to_string(
             assets
                 .root
@@ -23,9 +30,10 @@ fn main() -> anyhow::Result<()> {
     } else {
         CosmicHighlightsPlugin.build_manifest(&assets.catalog, &assets.spatial)?
     };
+    journey.validate(Some(&assets.catalog))?;
     if args.iter().any(|a| a == "--export") {
         anyhow::ensure!(
-            !args
+            external_path.is_none() && !args
                 .iter()
                 .any(|a| matches!(a.as_str(), "--odyssey" | "--saved")),
             "export requires built-in Highlights"

@@ -21,6 +21,47 @@ pub fn earth_environment_is_physical(pose: &ScalePose64, experience_id: u8) -> b
         && pose.local_pos.length_squared() >= EARTH_RADIUS_IN_ORBIT_SECTOR.powi(2)
 }
 
+/// Solar observations use meters throughout their owning sector. A distance or
+/// observer-zoom threshold would change stereo scale while freely approaching
+/// the Sun, so the overview and close observations share this policy.
+pub fn environment_is_physical(pose: &ScalePose64, experience_id: u8) -> bool {
+    earth_environment_is_physical(pose, experience_id)
+        || (experience_id == 4 && pose.sector_id == SectorId::SOLAR_SYSTEM)
+}
+
+/// Spatial-index positions are observer-normalized even when the renderer uses
+/// meters. Transform their projection too, including the near plane, so zoom
+/// cannot cull a physical body that remains visible in the rendered scene.
+pub fn spatial_query_view_projection(camera: &RenderCamera, observer: &ScalePose64,
+    physical_environment: bool) -> glam::Mat4 {
+    let projection = camera.cyclopean_view_projection();
+    if physical_environment {
+        projection * glam::Mat4::from_scale(Vec3::splat(10.0_f64.powf(observer.scale_exp) as f32))
+    } else {
+        projection
+    }
+}
+
+/// Local solar observations omit schematic orbital/navigation decoration. This
+/// is based on the observer's location, never on which direction they look.
+pub fn is_close_solar_observer(pose: &ScalePose64, experience_id: u8) -> bool {
+    solar_observer_distance_r(pose, experience_id).is_some_and(|distance| distance < 12.0)
+}
+
+/// Rendering and implicit ray focus share this physical-observation boundary.
+/// Explicit catalog/tour selections do not pass through this visibility policy.
+pub fn solar_observer_allows_entity(pose: &ScalePose64, experience_id: u8, entity: &VisibleEntity) -> bool {
+    !is_close_solar_observer(pose, experience_id)
+        || (entity.experience_id == 4 && entity.kind == EntityKind::CelestialBody && entity.zone_index == 0)
+}
+
+fn solar_observer_distance_r(pose: &ScalePose64, experience_id: u8) -> Option<f64> {
+    (experience_id == 4 && pose.sector_id == SectorId::SOLAR_SYSTEM).then(|| {
+        pose.local_pos.length() * 10.0_f64.powf(cosmos_spatial::SOLAR_SECTOR_SCALE_EXP)
+            / cosmos_spatial::SUN_RADIUS_M
+    })
+}
+
 /// Exact camera-relative physical position for an environment entity or its
 /// semantic annotation, without the navigation index's distant-shell proxy.
 pub fn physical_entity_position_m(
@@ -34,6 +75,42 @@ pub fn physical_entity_position_m(
     let sector_scale = index.tree.get(camera.sector_id)?.scale_exp;
     let position = ((entity_in_camera_sector - camera.local_pos) * 10.0_f64.powf(sector_scale)).as_vec3();
     position.is_finite().then_some(position)
+}
+
+/// Restore physical body query results before navigation consumes their depth.
+/// The index's far-shell proxy preserves angular size, but its artificial 5000
+/// unit distance must not become an orbital pivot or focal-zoom/throttle target
+/// while the renderer displays that same body at its actual physical distance.
+pub fn restore_physical_body_query_positions(
+    index: &CosmosSpatialIndex,
+    observer: &ScalePose64,
+    experience_id: u8,
+    physical_environment: bool,
+    visible: &mut [VisibleEntity],
+) {
+    // Reuse the frame's untracked policy: a tracked lean across a surface must
+    // not change units after the scene and eye transforms have been resolved.
+    if !physical_environment {
+        return;
+    }
+    let inverse_unit_m = 10.0_f64.powf(-observer.scale_exp);
+    for vis in visible {
+        if vis.experience_id != experience_id || vis.kind != EntityKind::CelestialBody
+            || !vis.pose.is_far_shell
+        {
+            continue;
+        }
+        let Some(entity) = index.iter_entities().find(|entity| entity.id == vis.id) else { continue; };
+        let Some(position_m) = physical_entity_position_m(index, observer, entity) else { continue; };
+        let position = (position_m.as_dvec3() * inverse_unit_m).as_vec3();
+        let radius = (entity.radius_m * inverse_unit_m) as f32;
+        if position.is_finite() && radius.is_finite() {
+            vis.pose.pos = position;
+            vis.pose.rel_scale = radius;
+            vis.pose.distance_render_units = position.as_dvec3().length();
+            vis.pose.is_far_shell = false;
+        }
+    }
 }
 
 /// Live documentary zone, feature, cue, and domain telemetry fed from runtime/narration into scene assembly.
@@ -74,7 +151,7 @@ pub struct SceneBuildInput {
     pub cam_pose: ScalePose64,
     /// Per-frame unit policy resolved from the untracked observer and active
     /// experience. Standalone callers may leave this unset for automatic choice.
-    pub physical_earth_units: Option<bool>,
+    pub physical_environment_units: Option<bool>,
     pub camera: RenderCamera,
     pub viewport_width: u32,
     pub viewport_height: u32,
@@ -103,7 +180,7 @@ impl SceneBuildInput {
     ) -> Self {
         Self {
             cam_pose,
-            physical_earth_units: None,
+            physical_environment_units: None,
             camera,
             viewport_width: width.max(1),
             viewport_height: height.max(1),
@@ -123,10 +200,14 @@ impl SceneBuildInput {
         }
     }
 
-    pub fn uses_physical_earth_units(&self) -> bool {
-        self.physical_earth_units.unwrap_or_else(|| {
-            earth_environment_is_physical(&self.cam_pose, self.active_experience_id)
+    pub fn uses_physical_environment_units(&self) -> bool {
+        self.physical_environment_units.unwrap_or_else(|| {
+            environment_is_physical(&self.cam_pose, self.active_experience_id)
         })
+    }
+
+    pub fn is_close_solar_observer(&self) -> bool {
+        is_close_solar_observer(&self.cam_pose, self.active_experience_id)
     }
 }
 
@@ -220,7 +301,20 @@ impl UniverseSceneBuilder {
             region_accent: [accent.x, accent.y, accent.z, input.active_experience_id as f32],
         };
 
-        let far = build_far_shell_uniforms(u_cam, input.active_experience_id, &input.documentary);
+        let mut far = build_far_shell_uniforms(u_cam, input.active_experience_id, &input.documentary);
+        if let Some(distance_r) = solar_observer_distance_r(&input.cam_pose, input.active_experience_id) {
+            // The solar observing filter/exposure makes stars and diffuse
+            // Galactic light negligible. Apply this in production assembly so
+            // native VR and review captures share the same genuinely black sky.
+            // Restore the distant sky gradually as the solar filter/exposure
+            // relaxes outside the observing region, without a free-flight pop.
+            let visibility = smoothstep(12.0, 24.0, distance_r as f32);
+            for weight in &mut far.regime_weights { *weight *= visibility; }
+            far.galaxy_north[3] *= visibility;
+            far.solar_dir[3] *= visibility;
+            far.extra_weights[0] *= visibility;
+            far.extra_weights[1] *= visibility;
+        }
 
         let compute_mode = select_compute_mode(u_cam, input.active_experience_id, &input.documentary);
         let particle_count = input.particle_budget.max(256);
@@ -230,7 +324,7 @@ impl UniverseSceneBuilder {
         let exterior_earth = input.active_experience_id == 3
             && (input.documentary.active_zone_index <= 6
                 || input.documentary.active_zone_index == u16::MAX);
-        let live_particle_count = if exterior_earth { 0 } else { particle_count };
+        let live_particle_count = if exterior_earth || input.is_close_solar_observer() { 0 } else { particle_count };
         let reseed_compute_particles = if live_particle_count == 0 {
             // Seed on the next visible mode, including an exterior-to-interior
             // transition that continues using the same simulation shader.
@@ -278,7 +372,8 @@ impl UniverseSceneBuilder {
             (_, 16) if matches!(input.documentary.active_zone_index, 9 | 10) => Some(0),
             (_, 2) | (8, _) => Some(1),
             // Shared four-curtain azimuth LUT: Earth and the Solar Earth body.
-            (_, 3 | 4) => Some(3),
+            (_, 3) => Some(3),
+            (_, 4) if !input.is_close_solar_observer() => Some(3),
             _ => None,
         };
 
@@ -296,22 +391,32 @@ impl UniverseSceneBuilder {
         let mut heroes_surface = Vec::with_capacity(16);
         let mut heroes_volume = Vec::with_capacity(32);
         let mut sprites = Vec::with_capacity(512);
+        // The physical owner must remain present when looking away or when a
+        // close observer lies below the catalog's normal scale-shell band.
+        let fallback_sun = SpatialEntity {
+            id: u64::MAX, experience_id: 4, zone_index: 0, feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM, local_pos: DVec3::ZERO,
+            orient: DQuat::IDENTITY, radius_m: cosmos_spatial::SUN_RADIUS_M,
+            scale_exp: cosmos_spatial::SUN_RADIUS_M.log10(),
+            kind: EntityKind::CelestialBody, salience_weight: 1.65,
+        };
         let selected_landmark = index.iter_entities().find(|entity| {
-            entity.kind == EntityKind::GalacticLandmark
-                && entity.experience_id == input.active_experience_id
-                && entity.zone_index == input.documentary.active_zone_index
-        });
+            entity.experience_id == input.active_experience_id
+                && entity.zone_index == if input.is_close_solar_observer() { 0 } else { input.documentary.active_zone_index }
+                && matches!(entity.kind, EntityKind::GalacticLandmark | EntityKind::CelestialBody)
+        }).or_else(|| input.is_close_solar_observer().then_some(&fallback_sun));
         let mut selected_landmark_emitted = false;
 
         let min_angular = 0.05_f32.to_radians();
         if let Ok(query) = index.query_visible(
             &input.cam_pose,
-            input.camera.cyclopean_view_projection(),
+            spatial_query_view_projection(&input.camera, &input.cam_pose, input.uses_physical_environment_units()),
             min_angular,
             Some(4096),
         ) {
             for vis in &query.visible {
-                if selected_landmark.is_some() && vis.kind == EntityKind::ExperienceAnchor
+                if selected_landmark.is_some_and(|entity| entity.kind == EntityKind::GalacticLandmark)
+                    && vis.kind == EntityKind::ExperienceAnchor
                     && vis.experience_id == input.active_experience_id
                 {
                     // The selected landmark already renders the full canonical
@@ -362,7 +467,7 @@ impl UniverseSceneBuilder {
             );
         }
 
-        if input.uses_physical_earth_units() {
+        if input.uses_physical_environment_units() {
             // The spatial index remains scale-normalized for robust navigation.
             // Restore physical distance only for environment draw data; the raw
             // OpenXR eye matrices then give a planet its real binocular depth.
@@ -613,10 +718,32 @@ fn emit_visible_entity(
     heroes_volume: &mut Vec<HeroVolumeInstance>,
     sprites: &mut Vec<SpriteInstance>,
 ) {
-    let pos = vis.pose.pos;
-    if !pos.is_finite() || pos.length_squared() < 1e-8 {
+    if !solar_observer_allows_entity(&input.cam_pose, input.active_experience_id, vis) {
+        // In a solar active region the distant catalog, orbital hairlines and
+        // schematic selector markers do not belong to the surrounding plasma.
         return;
     }
+    let mut physical_vis;
+    let vis = if input.uses_physical_environment_units()
+        && vis.experience_id == input.active_experience_id
+        && vis.kind == EntityKind::CelestialBody
+        && let Some(entity) = index.iter_entities().find(|entity| entity.id == vis.id)
+        && let Some(pose) = project_stage_entity(index, entity, input)
+    {
+        physical_vis = vis.clone();
+        physical_vis.pose = pose;
+        &physical_vis
+    } else { vis };
+    let pos = vis.pose.pos;
+    if !pos.is_finite()
+        || (!input.uses_physical_environment_units() && pos.length_squared() < 1e-8)
+    {
+        return;
+    }
+    // Physical positions are still divided by the observer's units here. A
+    // fixed render-unit epsilon would hide the same nearby Sun at large zoom
+    // exponents before meter conversion. Its center can also coincide with an
+    // interior observer; the analytic surface/volume intersections handle that.
     if input.active_experience_id == 3 && vis.experience_id == 3
         && (input.documentary.active_zone_index <= 6
             || input.documentary.active_zone_index == u16::MAX)
@@ -792,7 +919,9 @@ fn project_stage_entity(
         &ScalePose64::new(entity.sector_id, entity.local_pos, entity.scale_exp, entity.orient),
         radius_m,
     ).ok()?;
-    if input.uses_physical_earth_units() && entity.experience_id == 3 && projected.is_far_shell {
+    if input.uses_physical_environment_units()
+        && entity.experience_id == input.active_experience_id && projected.is_far_shell
+    {
         // The physical Earth must retain its true distance, even when the
         // navigation observer is zoomed far below the generic far-shell band.
         let relative = physical_entity_position_m(index, &input.cam_pose, entity)?

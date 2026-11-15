@@ -89,6 +89,15 @@ impl CosmosRenderer {
         &self.scene_pass.shared_frame_bg
     }
 
+    /// Read the most recently submitted frame's developer GPU timestamps.
+    /// Enabled only by HYPERCOSMOS_GPU_PROFILE=1 before renderer initialization.
+    /// This explicitly blocks for readback; call outside timed rendering and
+    /// before submitting another frame. Normal callers receive Ok(None).
+    pub fn read_gpu_profile_ms(&self) -> Result<Option<Vec<(&'static str, f64)>>, RenderError> {
+        self.scene_pass.gpu_profile.as_ref()
+            .map(|profile| profile.read(&self.gpu.device, &self.gpu.queue)).transpose()
+    }
+
     /// Renders a complete cosmic frame into `target_view` (`D2` mono or 2-layer `D2Array` stereo).
     ///
     /// `draw_overlay_in_hdr(&mut rpass, is_stereo)` executes directly inside the `Rgba16Float` HDR
@@ -138,6 +147,7 @@ impl CosmosRenderer {
             scene.post,
         );
 
+        if let Some(profile) = &self.scene_pass.gpu_profile { profile.finish(&mut encoder); }
         self.gpu.queue.submit(Some(encoder.finish()));
     }
 

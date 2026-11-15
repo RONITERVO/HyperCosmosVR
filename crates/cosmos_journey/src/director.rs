@@ -457,7 +457,7 @@ impl JourneyDirector {
                 } else {
                     1.0
                 };
-                let sample = if beat_meta.beat.transition_in.kind == TransitionKind::EarthOrbitArc {
+                let sample = if matches!(beat_meta.beat.transition_in.kind, TransitionKind::EarthOrbitArc | TransitionKind::SolarOrbitArc) {
                     spline.evaluate_without_segment_easing(tree, smoothstep(t as f64))
                 } else {
                     spline.evaluate(tree, smoothstep(t as f64))
@@ -637,12 +637,18 @@ pub fn build_transition_spline(
     }
     let mut from_local = *from;
     from_local.reanchor(tree, to.sector_id)?;
-    if kind == TransitionKind::EarthOrbitArc
+    let earth_arc = kind == TransitionKind::EarthOrbitArc
         && from.sector_id == SectorId::EARTH_ORBIT
         && to.sector_id == SectorId::EARTH_ORBIT
         && from_local.local_pos.length() > 1.01
-        && to.local_pos.length() > 1.01
-    {
+        && to.local_pos.length() > 1.01;
+    let sun_radius = cosmos_spatial::SUN_RADIUS_M * 10.0_f64.powf(-cosmos_spatial::SOLAR_SECTOR_SCALE_EXP);
+    let solar_arc = kind == TransitionKind::SolarOrbitArc
+        && from.sector_id == SectorId::SOLAR_SYSTEM
+        && to.sector_id == SectorId::SOLAR_SYSTEM
+        && from_local.local_pos.length() > sun_radius
+        && to.local_pos.length() > sun_radius;
+    if earth_arc || solar_arc {
         // Interpolate angular position and altitude independently. A chord from
         // daylight to the polar night can otherwise pass through solid Earth.
         // Dense spherical knots keep each short chord close to the orbital arc,
@@ -680,7 +686,7 @@ pub fn build_transition_spline(
             let right = mid_rot * DVec3::X;
             right * 0.38
         }
-        TransitionKind::CatmullRomScaleSpline | TransitionKind::InstantBookmark | TransitionKind::EarthOrbitArc => {
+        TransitionKind::CatmullRomScaleSpline | TransitionKind::InstantBookmark | TransitionKind::EarthOrbitArc | TransitionKind::SolarOrbitArc => {
             let right = mid_rot * DVec3::X;
             right * (0.18 * (from_local.local_pos.distance(to.local_pos)).min(1.8))
         }

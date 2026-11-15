@@ -1,0 +1,97 @@
+{
+  "source_run": "target/solar_release_cycles",
+  "source_coverage": {
+    "views": 6,
+    "eyes": 2,
+    "frames_per_eye_per_view": 1801,
+    "synthetic_hz": 30,
+    "simulation_sec": [
+      0,
+      60
+    ]
+  },
+  "preview": {
+    "file": "solar_observatory_preview.mp4",
+    "eye": 0,
+    "frames": 1800,
+    "duration_sec": 60,
+    "size_bytes": 35042289,
+    "sha256": "965da9ea16b93999f21d5443e6d8a7275cc55766cd0c2eb9ab0340c2487e1b28",
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "width": 1280,
+          "height": 720,
+          "color_range": "tv",
+          "color_space": "bt709",
+          "color_transfer": "iec61966-2-1",
+          "color_primaries": "bt709",
+          "avg_frame_rate": "30/1",
+          "nb_frames": "1800"
+        }
+      ],
+      "format": {
+        "duration": "60.000000",
+        "size": "35042289"
+      }
+    }
+  },
+  "clips": [
+    {
+      "beat": "exp04_z000_sun",
+      "source_start_sec": 12,
+      "source_end_sec_exclusive": 22,
+      "preview_start_sec": 0,
+      "preview_end_sec_exclusive": 10
+    },
+    {
+      "beat": "solar_energy_interior",
+      "source_start_sec": 9,
+      "source_end_sec_exclusive": 19,
+      "preview_start_sec": 10,
+      "preview_end_sec_exclusive": 20
+    },
+    {
+      "beat": "solar_granulation_horizon",
+      "source_start_sec": 20,
+      "source_end_sec_exclusive": 30,
+      "preview_start_sec": 20,
+      "preview_end_sec_exclusive": 30
+    },
+    {
+      "beat": "solar_active_region",
+      "source_start_sec": 12,
+      "source_end_sec_exclusive": 22,
+      "preview_start_sec": 30,
+      "preview_end_sec_exclusive": 40
+    },
+    {
+      "beat": "solar_limb_eruption",
+      "source_start_sec": 24,
+      "source_end_sec_exclusive": 34,
+      "preview_start_sec": 40,
+      "preview_end_sec_exclusive": 50
+    },
+    {
+      "beat": "solar_escaping_wind",
+      "source_start_sec": 12,
+      "source_end_sec_exclusive": 22,
+      "preview_start_sec": 50,
+      "preview_end_sec_exclusive": 60
+    }
+  ],
+  "contact": {
+    "file": "preview_contact.png",
+    "source": "Midpoint frames decoded from lossy eye0 MP4s, resized for contact. Not lossless renderer pixels.",
+    "sha256": "b31f2370a448f399318ed5f3ed953ce53aadb0c6abdc15627823acc65ab99f0a"
+  },
+  "color_note": "Original raw MP4s carry BT.709 matrix/limited range but unknown primaries and transfer despite intended encoder flags. Packaged preview explicitly tags BT.709 primaries and sRGB transfer after concat without transfer conversion. Original renderer PNGs retain lossless output pixels.",
+  "limits": [
+    "Mono excerpts, not stereo/headset acceptance.",
+    "Encoding-active frame timings are not isolated benchmarks.",
+    "No native 120 FPS claim."
+  ],
+  "native_pixel_evidence": "native_reference_manifest.json: full macro plus three 1:1 crops; original six native-size frames remain under target/solar_native_final."
+}

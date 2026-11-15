@@ -372,6 +372,8 @@ pub enum TransitionKind {
     ContinuousOrbitBridge,
     /// Spherical travel around Earth's center without cutting through the planet.
     EarthOrbitArc,
+    /// Spherical travel around the physical Sun, keeping exterior observers outside it.
+    SolarOrbitArc,
     /// Authored cut to the destination on the next playing update, with no travel frames.
     InstantBookmark,
 }

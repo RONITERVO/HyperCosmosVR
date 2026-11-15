@@ -142,6 +142,18 @@ impl HologramPose {
         }
     }
 
+    /// Curved, scene-occluded instrument disclosure without a panel or backplate.
+    pub fn append_observation_label(&self, text: &str, atlas: &MsdfAtlas, out: &mut TypoFrameOutput) {
+        self.lettering(atlas, &GuideLine {
+            text: text.to_owned(),
+            az_deg: -22.0,
+            el_deg: -23.0,
+            height_deg: 1.1,
+            width_deg: 32.0,
+            accent: false,
+        }, 2.35, 0.78, out);
+    }
+
     fn lettering(
         &self,
         atlas: &MsdfAtlas,

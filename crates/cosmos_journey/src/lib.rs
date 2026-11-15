@@ -381,6 +381,111 @@ mod tests {
     }
 
     #[test]
+    fn solar_observations_preserve_landmarks_and_clear_the_photosphere() {
+        let catalog = load_real_catalog();
+        let spatial = build_default_universe_index();
+        let manifest = CosmicHighlightsPlugin.build_manifest(&catalog, &spatial).unwrap();
+        let solar: Vec<_> = manifest.flatten_beats().into_iter()
+            .map(|(_, _, beat)| beat)
+            .filter(|beat| matches!(beat.target, BeatTargetSelector::CatalogZone {
+                experience_id: 4, zone_index: 0, ..
+            })).collect();
+        assert_eq!(solar.len(), 6);
+        let radius = cosmos_spatial::SUN_RADIUS_M * 10.0_f64.powf(-cosmos_spatial::SOLAR_SECTOR_SCALE_EXP);
+        for (index, beat) in solar.iter().enumerate() {
+            let pose = beat.pose.to_pose64(&beat.beat_id).unwrap();
+            assert_eq!(pose.sector_id, SectorId::SOLAR_SYSTEM);
+            assert!(pose.local_pos.length() > radius * 1.05, "{} enters the Sun", beat.beat_id);
+            assert_eq!(beat.motion.kind, MotionProfileKind::StaticHold);
+            assert_eq!(beat.target, BeatTargetSelector::CatalogZone {
+                experience_id: 4, zone_index: 0,
+                feature_index: index.checked_sub(1).map(|i| i as u16),
+                is_macro_zoomed_out: index == 0,
+            });
+            if index > 0 {
+                assert_eq!(beat.transition_in.kind, TransitionKind::SolarOrbitArc);
+            }
+        }
+        for pair in solar.windows(2) {
+            let from = pair[0].pose.to_pose64(&pair[0].beat_id).unwrap();
+            let to = pair[1].pose.to_pose64(&pair[1].beat_id).unwrap();
+            let spline = build_transition_spline(&spatial.tree, &from, &to, TransitionKind::SolarOrbitArc).unwrap();
+            for sample in 0..=512 {
+                let pose = spline.evaluate_without_segment_easing(&spatial.tree, f64::from(sample) / 512.0).unwrap();
+                assert!(pose.local_pos.length() > radius * 1.054,
+                    "{} crosses the close observing floor at {sample}", pair[1].beat_id);
+            }
+        }
+        let latitude = 20.0_f64.to_radians();
+        let center = DVec3::new(0.0, latitude.sin(), latitude.cos());
+        let north = DVec3::new(0.0, latitude.cos(), -latitude.sin());
+        let overview = solar[0].pose.to_pose64("whole solar environment").unwrap();
+        let eye_r = overview.local_pos / radius;
+        let to_view = overview.orient.conjugate();
+        // An independent enclosing box contains family1's complete evolving
+        // prominence/sheath, including its 3.5-sigma material support. The
+        // current 128x65 curve samples at 0/16/24/32/40s span E[-.54,.54],
+        // N[-.12,.15], C[.998,2.744] before support. Test generous corners,
+        // not only a single apex or the centered photosphere's bounding sphere.
+        for aspect in [3400.0 / 3468.0, 1.0, 16.0 / 9.0] {
+            let tan_y = 36.0_f64.to_radians().tan();
+            let tan_x = tan_y * aspect;
+            for east in [-0.65, 0.65] {
+                for poleward in [-0.25, 0.25] {
+                    for outward in [0.94, 2.90] {
+                        let point = DVec3::X * east + north * poleward + center * outward;
+                        let local = to_view * (point - eye_r);
+                        assert!(local.z < 0.0);
+                        assert!((local.x / -local.z / tan_x).abs() < 0.90
+                            && (local.y / -local.z / tan_y).abs() < 0.90,
+                            "whole-Sun observation must retain eruption context with a margin at aspect {aspect}");
+                    }
+                }
+            }
+            let forward = overview.orient * DVec3::NEG_Z;
+            let disc_half_angle = (1.02 / eye_r.length()).asin();
+            let disc_offset = forward.angle_between(-eye_r);
+            assert!(disc_offset + disc_half_angle < tan_x.atan().min(tan_y.atan()) - 3.0_f64.to_radians(),
+                "entire photosphere and chromospheric rim must fit with a margin");
+            assert!(disc_half_angle > 10.0_f64.to_radians(),
+                "whole-Sun context must still show a substantial disc");
+        }
+        let core = solar[1].pose.to_pose64("core").unwrap();
+        assert!(core.local_pos.x > 0.0 && core.local_pos.dot(north) > 0.0 && core.local_pos.dot(center) > 0.0,
+            "interior observer must face the real C/E/N cut opening");
+        let granules = solar[2].pose.to_pose64("granules").unwrap();
+        let forward = granules.orient * DVec3::NEG_Z;
+        let look_angle = forward.angle_between(-granules.local_pos.normalize()).to_degrees();
+        let horizon_angle = (radius / granules.local_pos.length()).asin().to_degrees();
+        assert!((30.0..55.0).contains(&look_angle) && horizon_angle - look_angle < 36.0,
+            "granulation needs inspectable foreground cells and a horizon inside the upper field: {look_angle}/{horizon_angle}");
+        assert!((granules.orient * DVec3::Y).dot(granules.local_pos.normalize()) > 0.5,
+            "radial up must put the photosphere below the observer");
+        for beat in &solar[3..=4] {
+            assert!(beat.motion.min_dwell_sec >= 60.0, "a full coronal event must fit before autoplay advances");
+        }
+        let roots = [-0.055, 0.055].map(|east| (center + DVec3::X * east).normalize() * radius);
+        let active = solar[3].pose.to_pose64("active region").unwrap();
+        let root_separation = (roots[0] - active.local_pos).angle_between(roots[1] - active.local_pos).to_degrees();
+        assert!(root_separation > 25.0,
+            "the bipole must remain visibly separated, not collapse into an edge-on tower: {root_separation}");
+        for index in [3, 4] {
+            let observer = solar[index].pose.to_pose64("coronal observation").unwrap();
+            let forward = observer.orient * DVec3::NEG_Z;
+            for point in [roots[0], roots[1], center * radius * 1.18] {
+                let angle = forward.angle_between(point - observer.local_pos).to_degrees();
+                assert!(angle < 33.0,
+                    "{} must contain both roots and the ordinary arcade inside the 72-degree field: {angle}", solar[index].beat_id);
+            }
+        }
+        let eruption = solar[4].pose.to_pose64("eruption").unwrap();
+        let raised_gaze = eruption.orient * DQuat::from_rotation_x(30.0_f64.to_radians()) * DVec3::NEG_Z;
+        let late_apex = center * radius * 2.60 - eruption.local_pos;
+        assert!(raised_gaze.angle_between(late_apex).to_degrees() < 25.0,
+            "the late eruption must be reachable by a comfortable voluntary upward head turn");
+    }
+
+    #[test]
     fn highlights_earth_to_solar_cut_has_no_intermediate_camera_frame() {
         let catalog = load_real_catalog();
         let spatial = build_default_universe_index();
@@ -463,7 +568,7 @@ mod tests {
             )
             .expect("shipped json validates");
         assert_eq!(manifest.id, "cosmic_highlights_tour");
-        assert_eq!(manifest.total_beats(), 44);
+        assert_eq!(manifest.total_beats(), 48);
         let first = &manifest.chapters[0].beats[0];
         let pose = first.pose.to_pose64(&first.beat_id).unwrap();
         assert_eq!(pose.local_pos, cosmos_nav::EARTH_ORBIT_HOME_LOCAL_POS);

@@ -26,6 +26,18 @@ struct HeroVolumeInstance {
 // Day color, night lights, cloud coverage, relief/ocean mask; sRGB encoded mips.
 @group(1) @binding(5) var earth_maps: texture_2d_array<f32>;
 @group(1) @binding(6) var earth_maps_samp: sampler;
+// Immutable authored lattice, periodic every 128 cells; not an observation map.
+@group(1) @binding(7) var solar_noise_tex: texture_3d<f32>;
+@group(1) @binding(8) var solar_noise_samp: sampler;
+
+fn solar_cached_noise(p: vec3<f32>) -> vec3<f32> {
+    let f = fract(p);
+    let quintic = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+    // Half-texel centering lets hardware interpolate the eight lattice corners
+    // with the original quintic weights, including across the periodic seam.
+    let uvw = (floor(p) + vec3<f32>(0.5) + quintic) / 128.0;
+    return textureSampleLevel(solar_noise_tex, solar_noise_samp, uvw, 0.0).xyz * 2.0 - 1.0;
+}
 
 struct HeroVsOut {
     @builtin(position) clip_pos: vec4<f32>,

@@ -466,18 +466,41 @@ pub fn music_filament_local(midi: u8, timbre_idx: u8) -> DVec3 {
     DVec3::new(radius * angle.cos(), timbre_y, radius * angle.sin())
 }
 
+/// IAU nominal solar radius, shared by physical scene geometry and observation poses.
+pub const SUN_RADIUS_M: f64 = 695_700_000.0;
+pub const SOLAR_SECTOR_SCALE_EXP: f64 = 11.2;
+
+/// Spherical volumetric mean radii from NASA's planetary fact sheets. Belt
+/// extents are teaching volumes and deliberately do not masquerade as bodies.
+/// https://nssdc.gsfc.nasa.gov/planetary/planetfact.html
+pub fn solar_body_radius_m(zone_index: u16) -> Option<f64> {
+    Some(match zone_index {
+        0 => SUN_RADIUS_M,
+        1 => 2_439_700.0,
+        2 => 6_051_800.0,
+        3 => 6_371_000.0,
+        4 => 3_389_500.0,
+        6 => 69_911_000.0,
+        7 => 58_232_000.0,
+        8 => 25_362_000.0,
+        9 => 24_622_000.0,
+        11 => 1_188_000.0,
+        _ => return None,
+    })
+}
+
 /// Maps App 04 Solar System bodies (`zone_index 0..=11`) onto canonical `SectorId::SOLAR_SYSTEM`
 /// (`scale_exp = 11.2`) orbital positions with Earth (`zone 3`) aligned to `EARTH_ORBIT`'s
 /// `(0.9439, 0.0, 0.0)` sector origin for seamless multi-scale zoom continuity.
 ///
-/// Returns `(local_pos, scale_exp, panoramic_radius_m)`.
+/// Returns `(local_pos, scale_exp, physical_radius_m)` for spherical bodies;
+/// belt zones 5/10 return their authored teaching-volume extent instead.
 pub fn solar_body_local_pose(
     zone_index: u16,
     x_norm: f32,
     lane: f32,
     layout_r: f32,
 ) -> (DVec3, f64, f64) {
-    const SOLAR_SECTOR_SCALE_EXP: f64 = 11.2;
     let sector_unit_m = 10.0_f64.powf(SOLAR_SECTOR_SCALE_EXP);
 
     let orbit_r = match zone_index {
@@ -514,7 +537,9 @@ pub fn solar_body_local_pose(
     } else {
         0.032 + ((layout_r as f64).clamp(5.0, 50.0) / 50.0) * 0.135
     };
-    let radius_m = rel_r * sector_unit_m;
+    // Navigation and rendering share real body radii. Enlarged overview bounds
+    // used as geometry made the planets physically larger than the Sun.
+    let radius_m = solar_body_radius_m(zone_index).unwrap_or(rel_r * sector_unit_m);
     (local_pos, radius_m.log10(), radius_m)
 }
 
@@ -768,7 +793,12 @@ mod tests {
         for zi in 0..=11u16 {
             let (p, u, r) = solar_body_local_pose(zi, (zi as f32) / 11.0, 0.05, 20.0);
             assert!(p.abs().max_element() < 11.5, "solar body {zi} out of bounds: {p:?}");
-            assert!(r > 0.0 && u > 9.0);
+            assert!(r > 0.0 && u.is_finite());
+            assert!((10.0_f64.powf(u) / r - 1.0).abs() < 1e-12);
+            if let Some(physical_radius) = solar_body_radius_m(zi) {
+                assert_eq!(r, physical_radius);
+                assert!(r <= SUN_RADIUS_M, "a planet cannot be larger than the Sun");
+            }
         }
         for zi in 0..=13u16 {
             let (p, u, r) = earth_layer_local_pose(zi);

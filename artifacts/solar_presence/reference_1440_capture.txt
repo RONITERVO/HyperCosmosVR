@@ -1,0 +1,84 @@
+adapter=NVIDIA GeForce RTX 5070
+eye=2560x1440
+renderer_init_seconds=65.043
+capture_stride=0 (0=consecutive render burst, last-frame capture only)
+synthetic stereo; no headset/compositor; readback excluded from frame timing
+experience=4
+motion=Static
+synthetic_capture_hz=30
+vertical_fov_degrees=72
+horizontal_fov_degrees=104.504864
+near_plane_m=0.002
+far_plane=infinite reversed-Z
+frustum_tangents_left_right_bottom_top=-1.291631161,1.291631161,-0.726542528,0.726542528
+ipd_m=0.064
+head_yaw_deg=10*sin(2*pi*t/8); head_pitch_deg=4*sin(2*pi*t/11); roll=0
+head_translation_local_m=(0.10*sin(2*pi*t/6),0.04*sin(2*pi*t/9),0.06*sin(2*pi*t/8))
+orbit_yaw_deg=8*sin(2*pi*t/16); axis=body+Y; radius=authored distance; look_target=authored fixed world target
+motion_t_seconds=frame/30 (independent of simulation start); unused mode components are zero
+head translation converted from meters using sector scale, not observer zoom
+synthetic_capture_hz sets simulation steps and encoded playback; not measured native headset FPS
+head_look_up_pitch_deg=15*(1-cos(2*pi*t/60)); replaces normal pitch only in head-look-up mode; capture-only voluntary-look illustration
+video_encoding_active=false
+gpu_profile_requested=true
+gpu_profile_readback=after CPU frame-time sample; warmups excluded; timestamps do not establish native headset cadence
+exp04_z000_sun resolved_motion=Static motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.0009007928667123966, 0.002474908060898107) sector_scale_exp=11.2
+exp04_z000_sun zone=0 feature=None mean_ms=2.211 p95_ms=2.414 frames=120 start_sec=30.000 end_sec=33.967
+exp04_z000_sun gpu_pass=absorption mean_gpu_ms=0.103841 samples=120
+exp04_z000_sun gpu_pass=compute_and_clear mean_gpu_ms=0.008775 samples=120
+exp04_z000_sun gpu_pass=emission mean_gpu_ms=0.500301 samples=120
+exp04_z000_sun gpu_pass=overlays mean_gpu_ms=0.000011 samples=120
+exp04_z000_sun gpu_pass=post mean_gpu_ms=0.163151 samples=120
+exp04_z000_sun gpu_pass=sky mean_gpu_ms=0.065251 samples=120
+exp04_z000_sun gpu_pass=surface mean_gpu_ms=0.037878 samples=120
+exp04_z000_sun gpu_pass=volume mean_gpu_ms=0.821367 samples=120
+solar_energy_interior resolved_motion=Static motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.0, 0.0) sector_scale_exp=11.2
+solar_energy_interior zone=0 feature=Some(0) mean_ms=5.093 p95_ms=5.434 frames=120 start_sec=30.000 end_sec=33.967
+solar_energy_interior gpu_pass=absorption mean_gpu_ms=0.239978 samples=120
+solar_energy_interior gpu_pass=compute_and_clear mean_gpu_ms=0.008806 samples=120
+solar_energy_interior gpu_pass=emission mean_gpu_ms=2.258287 samples=120
+solar_energy_interior gpu_pass=overlays mean_gpu_ms=0.000002 samples=120
+solar_energy_interior gpu_pass=post mean_gpu_ms=0.262942 samples=120
+solar_energy_interior gpu_pass=sky mean_gpu_ms=0.066066 samples=120
+solar_energy_interior gpu_pass=surface mean_gpu_ms=0.123758 samples=120
+solar_energy_interior gpu_pass=volume mean_gpu_ms=1.635517 samples=120
+solar_granulation_horizon resolved_motion=Static motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(-0.0016141614713034705, 0.0007734630950786447, 0.004012869353458383) sector_scale_exp=11.2
+solar_granulation_horizon zone=0 feature=Some(1) mean_ms=4.658 p95_ms=4.976 frames=120 start_sec=30.000 end_sec=33.967
+solar_granulation_horizon gpu_pass=absorption mean_gpu_ms=0.140672 samples=120
+solar_granulation_horizon gpu_pass=compute_and_clear mean_gpu_ms=0.008805 samples=120
+solar_granulation_horizon gpu_pass=emission mean_gpu_ms=0.381871 samples=120
+solar_granulation_horizon gpu_pass=overlays mean_gpu_ms=0.000031 samples=120
+solar_granulation_horizon gpu_pass=post mean_gpu_ms=0.281242 samples=120
+solar_granulation_horizon gpu_pass=sky mean_gpu_ms=0.066260 samples=120
+solar_granulation_horizon gpu_pass=surface mean_gpu_ms=2.045659 samples=120
+solar_granulation_horizon gpu_pass=volume mean_gpu_ms=1.235677 samples=120
+solar_active_region resolved_motion=Static motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.001621427160082314, 0.004454834509616593) sector_scale_exp=11.2
+solar_active_region zone=0 feature=Some(2) mean_ms=7.855 p95_ms=8.278 frames=120 start_sec=30.000 end_sec=33.967
+solar_active_region gpu_pass=absorption mean_gpu_ms=0.411645 samples=120
+solar_active_region gpu_pass=compute_and_clear mean_gpu_ms=0.008838 samples=120
+solar_active_region gpu_pass=emission mean_gpu_ms=4.638552 samples=120
+solar_active_region gpu_pass=overlays mean_gpu_ms=0.000132 samples=120
+solar_active_region gpu_pass=post mean_gpu_ms=0.276221 samples=120
+solar_active_region gpu_pass=sky mean_gpu_ms=0.066457 samples=120
+solar_active_region gpu_pass=surface mean_gpu_ms=0.649094 samples=120
+solar_active_region gpu_pass=volume mean_gpu_ms=1.265318 samples=120
+solar_limb_eruption resolved_motion=Static motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.0019517178778768595, 0.005362300798612566) sector_scale_exp=11.2
+solar_limb_eruption zone=0 feature=Some(3) mean_ms=5.148 p95_ms=5.505 frames=120 start_sec=30.000 end_sec=33.967
+solar_limb_eruption gpu_pass=absorption mean_gpu_ms=0.158152 samples=120
+solar_limb_eruption gpu_pass=compute_and_clear mean_gpu_ms=0.008849 samples=120
+solar_limb_eruption gpu_pass=emission mean_gpu_ms=1.404398 samples=120
+solar_limb_eruption gpu_pass=overlays mean_gpu_ms=0.000092 samples=120
+solar_limb_eruption gpu_pass=post mean_gpu_ms=0.275450 samples=120
+solar_limb_eruption gpu_pass=sky mean_gpu_ms=0.066333 samples=120
+solar_limb_eruption gpu_pass=surface mean_gpu_ms=0.264536 samples=120
+solar_limb_eruption gpu_pass=volume mean_gpu_ms=2.383469 samples=120
+solar_escaping_wind resolved_motion=Static motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.0027774446723632233, 0.007630966521102497) sector_scale_exp=11.2
+solar_escaping_wind zone=0 feature=Some(4) mean_ms=3.580 p95_ms=3.864 frames=120 start_sec=30.000 end_sec=33.967
+solar_escaping_wind gpu_pass=absorption mean_gpu_ms=0.123191 samples=120
+solar_escaping_wind gpu_pass=compute_and_clear mean_gpu_ms=0.008818 samples=120
+solar_escaping_wind gpu_pass=emission mean_gpu_ms=0.765934 samples=120
+solar_escaping_wind gpu_pass=overlays mean_gpu_ms=0.000055 samples=120
+solar_escaping_wind gpu_pass=post mean_gpu_ms=0.200723 samples=120
+solar_escaping_wind gpu_pass=sky mean_gpu_ms=0.066041 samples=120
+solar_escaping_wind gpu_pass=surface mean_gpu_ms=0.090900 samples=120
+solar_escaping_wind gpu_pass=volume mean_gpu_ms=1.735467 samples=120

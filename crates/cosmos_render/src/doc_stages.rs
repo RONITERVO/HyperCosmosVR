@@ -258,6 +258,18 @@ pub fn emit_celestial_or_landmark(
 ) {
     let pos = vis.pose.pos;
     let accent = experience_accent_linear(vis.experience_id);
+    // All canonical planets share the heliocentric origin. A fixed studio
+    // light gives contradictory phases as the observer travels between them.
+    // Scene positions are still normalized here; meter conversion happens once
+    // after emission, so both sides of this subtraction use the same units.
+    let sun_dir = if vis.kind == EntityKind::CelestialBody
+        && input.cam_pose.sector_id == cosmos_math::SectorId::SOLAR_SYSTEM
+        && vis.zone_index != 0
+    {
+        let sun_center = (-input.cam_pose.local_pos
+            * 10.0_f64.powf(cosmos_spatial::SOLAR_SECTOR_SCALE_EXP - input.cam_pose.scale_exp)).as_vec3();
+        (sun_center - pos).normalize_or(sun_dir)
+    } else { sun_dir };
     let sun = [sun_dir.x, sun_dir.y, sun_dir.z, 1.0];
     let rot = vis.pose.orient;
     let rot_arr = [rot.x, rot.y, rot.z, rot.w];
@@ -291,7 +303,9 @@ pub fn emit_celestial_or_landmark(
                 6 | 7 => 0.032,
                 _ => 0.022,
             };
-            let r_b = vis.pose.rel_scale.max(floor_r).clamp(0.022, max_r);
+            let r_b = cosmos_spatial::solar_body_radius_m(vis.zone_index)
+                .map(|radius| (radius * 10.0_f64.powf(-input.cam_pose.scale_exp) / 0.84) as f32)
+                .unwrap_or_else(|| vis.pose.rel_scale.max(floor_r).clamp(0.022, max_r));
             let max_comp_r = 0.42;
             match body_idx {
                 0 => {
@@ -307,11 +321,11 @@ pub fn emit_celestial_or_landmark(
                         kind_tags: pack_doc_tags(1, surf_vid, 0, 0, &body_doc),
                     });
                     heroes_volume.push(HeroVolumeInstance {
-                        pos_radius: [pos.x, pos.y, pos.z, r_b * 1.30],
+                        pos_radius: [pos.x, pos.y, pos.z, r_b * 0.84 * 3.0],
                         rot_quat: rot_arr,
                         color_a: [1.25, 0.62, 0.22, 0.88],
                         color_b: [1.45, 0.42, 0.10, 0.85],
-                        phys_a: [input.time_sec * 0.04, 0.0, 0.0, dwell],
+                        phys_a: [input.time_sec * 0.04, 1.0 / 3.0, 0.0, dwell],
                         phys_b: sun,
                         kind_tags: pack_doc_tags(3, vol_vid, 0, 0, &body_doc),
                     });
@@ -1115,6 +1129,9 @@ pub fn emit_doc_stage_hero(
         // EXP 04: SOLAR SYSTEM — Analytical Hairline Keplerian Orbital Plane
         // --------------------------------------------------------------------
         4 => {
+            if input.is_close_solar_observer() {
+                return;
+            }
             if input.active_experience_id != 4 {
                 let sun_r = (rel_scale * 0.18).clamp(0.24, 10.0);
                 heroes_surface.push(HeroVolumeInstance {

@@ -516,11 +516,44 @@ impl FlightCamera {
         Ok(())
     }
 
-    /// Re-anchors the camera into the optimal spatial sector when leaving the current anchor's scale band.
+    fn minimum_observer_scale(&self, index: &CosmosSpatialIndex) -> f64 {
+        if self.pose.sector_id == SectorId::SOLAR_SYSTEM
+            && let Some(solar) = index.tree.get(SectorId::SOLAR_SYSTEM)
+            && self.pose.local_pos.length() <= solar.radius_m * 10.0_f64.powf(-solar.scale_exp)
+        {
+            // The index and focus paths use f32 vector lengths before restoring
+            // meters. Bound the entire owning domain, with a 64x linear margin
+            // below sqrt(f32::MAX) for squared lengths and proxy transforms.
+            // For the 4e13m Solar domain this is u≈-3.86 (sub-millimeter units),
+            // comfortably below meter-scale inspection without float overflow.
+            let max_normalized_radius = f64::from(f32::MAX).sqrt() / 64.0;
+            return self.config.min_scale_exp.max((solar.radius_m / max_normalized_radius).log10());
+        }
+        self.config.min_scale_exp
+    }
+
+    /// Re-anchors the camera when leaving its owning spatial/scale domain.
     pub fn reanchor_if_needed(&mut self, index: &CosmosSpatialIndex) -> Result<(), MathError> {
-        let cur_offset = index
-            .tree
-            .get(self.pose.sector_id)
+        // Also normalize externally supplied/free-flight poses before they can
+        // keep a physical Solar owner with unrepresentable observer units.
+        if self.pose.sector_id == SectorId::SOLAR_SYSTEM {
+            self.pose.scale_exp = self.pose.scale_exp.max(self.minimum_observer_scale(index));
+        }
+        let current = index.tree.get(self.pose.sector_id);
+        if self.pose.sector_id == SectorId::SOLAR_SYSTEM
+            && let Some(solar) = current
+            && self.pose.scale_exp <= solar.radius_m.log10()
+            && self.pose.local_pos.length() <= solar.radius_m * 10.0_f64.powf(-solar.scale_exp)
+        {
+            // A close Sun or planet uses much smaller camera units than this
+            // heliocentric sector. Picking an unrelated sector by scale alone
+            // would change the visible experience and its meter/IPD policy on
+            // the first idle frame after leaving a tour. Keep the physical
+            // owner inside its declared extent; outward zoom beyond that extent
+            // or an explicit destination sector still releases ownership.
+            return Ok(());
+        }
+        let cur_offset = current
             .map_or(f64::INFINITY, |n| (self.pose.scale_exp - n.scale_exp).abs());
         if cur_offset <= 1.5 {
             return Ok(());
@@ -672,7 +705,7 @@ impl FlightCamera {
         if input.scroll_delta.abs() > 1e-6 {
             let raw_du = -input.scroll_delta * self.config.scroll_scale_step;
             let clamped_u = (self.pose.scale_exp + raw_du)
-                .clamp(self.config.min_scale_exp, self.config.max_scale_exp);
+                .clamp(self.minimum_observer_scale(index), self.config.max_scale_exp);
             let actual_du = clamped_u - self.pose.scale_exp;
             let zoom_factor = 10.0_f64.powf(-actual_du);
 
@@ -765,7 +798,7 @@ impl FlightCamera {
         step: &PinchStepResult,
     ) -> Result<f64, MathError> {
         let clamped_u = (self.pose.scale_exp + step.delta_u)
-            .clamp(self.config.min_scale_exp, self.config.max_scale_exp);
+            .clamp(self.minimum_observer_scale(index), self.config.max_scale_exp);
         let actual_du = clamped_u - self.pose.scale_exp;
         let actual_zoom_factor = 10.0_f64.powf(-actual_du);
 
@@ -823,7 +856,7 @@ impl FlightCamera {
         }
         if self.scale_vel.abs() > 1e-12 {
             self.pose.scale_exp = (self.pose.scale_exp + self.scale_vel * dt_sec)
-                .clamp(self.config.min_scale_exp, self.config.max_scale_exp);
+                .clamp(self.minimum_observer_scale(index), self.config.max_scale_exp);
         }
 
         self.reanchor_if_needed(index)?;
@@ -872,6 +905,126 @@ mod tests {
         assert!((cam.pose.scale_exp - 6.6).abs() < 1e-12);
         cam.reanchor_if_needed(&index).unwrap();
         assert_eq!(cam.pose.sector_id, SectorId::EARTH_ORBIT);
+    }
+
+    fn close_solar_observation() -> ScalePose64 {
+        // solar_granulation_horizon's physical observer, after its rail ends.
+        ScalePose64::new(SectorId::SOLAR_SYSTEM,
+            DVec3::new(-0.0018753014155864836, 0.0007204302590712021, 0.004172571681299502),
+            8.8, DQuat::from_xyzw(0.3160160610058623, -0.37828431157035886,
+                -0.41377003449100497, 0.7653947918318961))
+    }
+
+    #[test]
+    fn desktop_and_vr_free_exploration_keep_the_physical_solar_owner() {
+        let index = build_default_universe_index();
+        for vr in [false, true] {
+            let start = close_solar_observation();
+            let mut cam = FlightCamera::from_pose(start, FlightConfig::default());
+            if vr {
+                cam.step_vr(&index, &VrFlightInput::default(), None, 1.0/120.0).unwrap();
+            } else {
+                cam.step_desktop(&index, &DesktopFlightInput::default(), None, 1.0/120.0).unwrap();
+            }
+            assert_eq!(cam.pose, start, "an idle free-flight frame cannot change the physical owner");
+            for _ in 0..120 {
+                if vr {
+                    cam.step_vr(&index, &VrFlightInput {
+                        left_stick: DVec2::new(0.25, 0.0),
+                        right_stick: DVec2::new(0.1, -0.2),
+                        ..Default::default()
+                    }, None, 1.0/120.0).unwrap();
+                } else {
+                    cam.step_desktop(&index, &DesktopFlightInput {
+                        move_axes: DVec3::new(0.25, 0.0, 0.0),
+                        scroll_delta: 0.005,
+                        mouse_delta_rad: DVec2::new(0.001, 0.0),
+                        right_drag_active: true,
+                        ..Default::default()
+                    }, None, 1.0/120.0).unwrap();
+                }
+                assert_eq!(cam.pose.sector_id, SectorId::SOLAR_SYSTEM);
+            }
+            assert!(cam.pose.local_pos.distance(start.local_pos) > 1e-6);
+            assert!((cam.pose.scale_exp-start.scale_exp).abs() > 0.01);
+        }
+
+        // Canonical whole-body inspection also uses small physical camera units,
+        // including Pluto and Mercury far from the Earth's coordinate domain.
+        for zone in [0, 1, 11] {
+            let (center, body_scale, radius) = cosmos_spatial::solar_body_local_pose(zone, 0.0, 0.0, 20.0);
+            let pose = ScalePose64::new(SectorId::SOLAR_SYSTEM,
+                center+DVec3::Z*radius*3.0*10.0_f64.powf(-cosmos_spatial::SOLAR_SECTOR_SCALE_EXP),
+                body_scale+0.55, DQuat::IDENTITY);
+            let mut cam = FlightCamera::from_pose(pose, FlightConfig::default());
+            cam.step_vr(&index, &VrFlightInput::default(), None, 1.0/120.0).unwrap();
+            assert_eq!(cam.pose, pose, "body {zone} must keep its physical owner");
+        }
+    }
+
+    #[test]
+    fn solar_ownership_releases_for_outward_zoom_domain_exit_and_explicit_home() {
+        let index = build_default_universe_index();
+        let solar = index.tree.get(SectorId::SOLAR_SYSTEM).unwrap();
+        let mut cam = FlightCamera::from_pose(close_solar_observation(), FlightConfig::default());
+        cam.pose.scale_exp = solar.radius_m.log10()-0.01;
+        cam.step_desktop(&index, &DesktopFlightInput::default(), None, 1.0/120.0).unwrap();
+        assert_eq!(cam.pose.sector_id, SectorId::SOLAR_SYSTEM);
+        let stationary_pivot = FocusTarget::from_ray(DVec3::NEG_Z, 0.0, None);
+        cam.step_desktop(&index, &DesktopFlightInput { scroll_delta: -1.0, ..Default::default() },
+            Some(&stationary_pivot), 1.0/120.0).unwrap();
+        assert_ne!(cam.pose.sector_id, SectorId::SOLAR_SYSTEM, "outward zoom must leave the Solar domain");
+
+        cam = FlightCamera::from_pose(close_solar_observation(), FlightConfig::default());
+        cam.pose.local_pos = DVec3::Z*solar.radius_m*1.01*10.0_f64.powf(-solar.scale_exp);
+        cam.step_vr(&index, &VrFlightInput::default(), None, 1.0/120.0).unwrap();
+        assert_ne!(cam.pose.sector_id, SectorId::SOLAR_SYSTEM, "Solar ownership is spatially bounded");
+
+        cam = FlightCamera::from_pose(close_solar_observation(), FlightConfig::default());
+        cam.start_home_flight(&index).unwrap();
+        for _ in 0..300 {
+            cam.step_vr(&index, &VrFlightInput::default(), None, 0.02).unwrap();
+            if !cam.is_home_flight_active() { break; }
+        }
+        assert!(!cam.is_home_flight_active());
+        assert_eq!(cam.pose.sector_id, SectorId::EARTH_ORBIT);
+        assert!(cam.pose.local_pos.distance(EARTH_ORBIT_HOME_LOCAL_POS) < 1e-8);
+        cam.step_vr(&index, &VrFlightInput::default(), None, 1.0/120.0).unwrap();
+        assert_eq!(cam.pose.sector_id, SectorId::EARTH_ORBIT, "Earth's existing owner policy remains intact");
+    }
+
+    #[test]
+    fn physical_solar_zoom_has_a_finite_domain_derived_numerical_floor() {
+        let index = build_default_universe_index();
+        let mut cam = FlightCamera::from_pose(close_solar_observation(), FlightConfig::default());
+        let minimum = cam.minimum_observer_scale(&index);
+        assert!(minimum < -3.0, "meter-scale exploration remains comfortably inside the supported range");
+        for vr in [false, true] {
+            cam.pose = close_solar_observation();
+            cam.pose.scale_exp = 0.0;
+            if vr {
+                for _ in 0..120 {
+                    cam.step_vr(&index, &VrFlightInput {
+                        right_stick: DVec2::new(0.0, 1.0), ..Default::default()
+                    }, None, 0.1).unwrap();
+                }
+            } else {
+                cam.step_desktop(&index, &DesktopFlightInput {
+                    scroll_delta: 1000.0, ..Default::default()
+                }, None, 1.0/120.0).unwrap();
+            }
+            assert_eq!(cam.pose.sector_id, SectorId::SOLAR_SYSTEM);
+            assert!((cam.pose.scale_exp-minimum).abs() < 1e-10);
+            let domain_radius = index.tree.get(SectorId::SOLAR_SYSTEM).unwrap().radius_m;
+            let normalized = DVec3::splat(domain_radius*10.0_f64.powf(-cam.pose.scale_exp)).as_vec3();
+            assert!(normalized.length_squared().is_finite());
+        }
+        let position = cam.pose.local_pos;
+        cam.pose.scale_exp = -36.0;
+        cam.reanchor_if_needed(&index).unwrap();
+        assert_eq!(cam.pose.sector_id, SectorId::SOLAR_SYSTEM);
+        assert_eq!(cam.pose.local_pos, position);
+        assert!((cam.pose.scale_exp-minimum).abs() < 1e-10);
     }
 
     #[test]
