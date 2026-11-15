@@ -348,8 +348,8 @@ fn cs_advect_particles(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
         tint = mix(vec3<f32>(0.20, 0.96, 1.24), vec3<f32>(1.18, 0.76, 0.24), fract(seed_v.z * 3.0)) * 0.56;
         age = fract(age + dt * 0.45);
-    } else {
-        // Mode 15: SETI & 25-Petal Hyper-Lotus Equilibrium Convergence (23, 24, 25)
+    } else if (mode == 15u) {
+        // Mode 15: SETI & 25-Petal Hyper-Lotus Equilibrium Convergence (21..25)
         let a = atan2(pos.z, pos.x);
         let r_tar = radius_scale * (0.48 + 0.16 * abs(cos(a * 12.5 + time * 0.18)));
         let r_xz = max(length(pos.xz), 1e-4);
@@ -359,6 +359,26 @@ fn cs_advect_particles(@builtin(global_invocation_id) gid: vec3<u32>) {
         pos += vel * dt;
         tint = hsl_to_rgb(fract(a / TAU + 1.0), 0.90, 0.56) * (0.45 + 0.25 * voice);
         age = fract(age + dt * 0.12);
+    } else {
+        // Mode 16: Relativistic Geodesic Lensing & Quadrupolar Strain Flow (14: Spacetime Z06..=Z09)
+        let r_cyl = max(length(pos.xz), 0.04 * radius_scale);
+        let a = atan2(pos.z, pos.x);
+        let plus_strain = cos(2.0 * a - time * 2.4);
+        let cross_strain = sin(2.0 * a - time * 2.4);
+        let r_isco = radius_scale * (0.44 + 0.10 * plus_strain);
+        let tangent = vec3<f32>(-pos.z / r_cyl, 0.0, pos.x / r_cyl);
+        let radial = vec3<f32>(pos.x / r_cyl, 0.0, pos.z / r_cyl);
+        let swirl_spd = 1.65 / sqrt(r_cyl / radius_scale + 0.22);
+        let target_v = tangent * (swirl_spd * radius_scale)
+                     + radial * ((r_isco - r_cyl) * 1.85)
+                     + vec3<f32>(0.0, -pos.y * 2.4 + 0.18 * cross_strain * radius_scale, 0.0);
+        vel = mix(vel * damping, target_v, clamp(dt * 4.2, 0.0, 1.0));
+        pos += vel * dt;
+        let doppler = clamp(0.5 + 0.5 * plus_strain, 0.0, 1.0);
+        let geo_gold = vec3<f32>(1.18, 0.78, 0.28);
+        let geo_cyan = vec3<f32>(0.28, 0.88, 1.32);
+        tint = mix(geo_gold, geo_cyan, doppler) * (0.44 + 0.22 * bass);
+        age = fract(age + dt * 0.14);
     }
 
     energy = clamp(luminance_rec709(tint), 0.0, 16.0);

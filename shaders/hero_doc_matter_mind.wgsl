@@ -1356,6 +1356,528 @@ fn mm_brain_sdf(p: vec3<f32>) -> vec4<f32> {
     return vec4<f32>(d, reg, fold, 0.0);
 }
 
+fn doc_complexity_feat_gain(feat: u32, idx: u32, cue: f32) -> f32 {
+    if (feat == 0xFFu || feat >= 8u) {
+        return 0.42;
+    }
+    if (feat == idx) {
+        return 1.24 + 0.18 * sin(cue * TAU);
+    }
+    return 0.14;
+}
+
+fn shade_doc_complexity_stage(
+    zone: u32,
+    feat: u32,
+    p_raw: vec3<f32>,
+    p: vec3<f32>,
+    r: f32,
+    cue: f32,
+    w: f32,
+    time: f32,
+    voice: f32,
+    bass: f32,
+    col_a: vec3<f32>,
+    col_b: vec3<f32>,
+) -> vec4<f32> {
+    var col = vec3<f32>(0.0);
+    var dens: f32 = 0.0;
+    let ff = f32(feat & 7u);
+    let has_f = feat < 8u;
+    let accent_z = mix(vec3<f32>(0.28, 1.18, 0.88), clamp(col_b, vec3<f32>(0.18), vec3<f32>(1.24)), 0.45);
+    let accent_p = clamp(col_a, vec3<f32>(0.22), vec3<f32>(1.24));
+
+    if (zone == 0u) {
+        // Z00: Foundations of Reality — 6-Ring Concentric Scale Ladder & Cross-Scale Emergence Filaments
+        let g0 = doc_complexity_feat_gain(feat, 0u, cue);
+        let g1 = doc_complexity_feat_gain(feat, 1u, cue);
+        let g2 = doc_complexity_feat_gain(feat, 2u, cue);
+        let g3 = doc_complexity_feat_gain(feat, 3u, cue);
+        let g4 = doc_complexity_feat_gain(feat, 4u, cue);
+        let g5 = doc_complexity_feat_gain(feat, 5u, cue);
+        let spread = 1.0 + select(0.0, 0.18, feat == 3u);
+        for (var k = 0; k < 6; k = k + 1) {
+            let kf = f32(k);
+            let y_lv = (-0.34 + kf * 0.136) * spread;
+            let rad_lv = 0.15 + kf * 0.068;
+            let ring_d = sd_torus(p - vec3<f32>(0.0, y_lv, 0.0), rad_lv, 0.011);
+            let ring_g = doc_line_glow(ring_d, 74.0);
+            let lv_tint = mix(vec3<f32>(0.26, 0.94, 1.24), vec3<f32>(1.24, 0.86, 0.28), kf / 5.0);
+            let lv_boost = select(0.55, 1.35, (feat == 2u) && ((k % 2) == 0));
+            col += lv_tint * ring_g * lv_boost * (0.65 + 0.35 * g2);
+            dens += ring_g * 0.46;
+        }
+        let core_lat = exp(-pow(max(length(p - vec3<f32>(0.0, -0.34, 0.0)) - 0.09, 0.0) * 58.0, 2.0));
+        col += accent_p * core_lat * (0.45 + 0.75 * g0);
+        dens += core_lat * (0.45 + 0.45 * g0);
+
+        let f_a = doc_line_glow(sd_capsule(p, vec3<f32>(-0.14, -0.34, 0.0), vec3<f32>(-0.44, 0.34, 0.0), 0.008), 84.0);
+        let f_b = doc_line_glow(sd_capsule(p, vec3<f32>(0.14, -0.34, 0.0), vec3<f32>(0.44, 0.34, 0.0), 0.008), 84.0);
+        col += vec3<f32>(0.38, 1.22, 0.94) * (f_a + f_b) * (0.45 + 0.85 * g1);
+        dens += (f_a + f_b) * (0.35 + 0.45 * g1);
+
+        if (feat == 3u || feat == 4u) {
+            let p_x = doc_line_glow(sd_capsule(p, vec3<f32>(-0.22, -0.22, 0.12), vec3<f32>(0.22, -0.22, -0.12), 0.009), 76.0);
+            col += vec3<f32>(1.22, 0.62, 0.28) * p_x * (0.5 + 0.6 * g3 + 0.7 * g4);
+            dens += p_x * 0.55;
+        } else if (feat == 5u) {
+            let apex = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, 0.42, 0.0), 1.5708), 0.16, 0.012), 72.0);
+            col += vec3<f32>(1.26, 1.04, 0.34) * apex * (0.65 + 0.65 * g5);
+            dens += apex * 0.65;
+        }
+    } else if (zone == 1u) {
+        // Z01: Physical Laws & Symmetries — Symmetric Polyhedral Phase Chamber + Twin Diverging Ribbons
+        let p_c = doc_rot_y(p, select(0.0, ff * 0.52, feat == 2u) + time * 0.12);
+        let cage = exp(-pow(abs(sd_octahedron(p_c, 0.54)) * 46.0, 2.0));
+        let wire_box = exp(-pow(abs(sd_box(p_c, vec3<f32>(0.36))) * 54.0, 2.0));
+        let wire_cyl = exp(-pow(abs(sd_cylinder_y(p_c, 0.36, 0.36)) * 52.0, 2.0));
+        var chamb_m = cage;
+        if (feat == 0u) { chamb_m = wire_box; }
+        else if (feat == 6u) { chamb_m = wire_cyl; }
+        col += mix(vec3<f32>(0.24, 0.96, 1.24), accent_z, 0.35) * chamb_m * 0.74;
+        dens += chamb_m * 0.64;
+
+        let span = smoothstep(0.50, 0.35, abs(p.y));
+        let div_k = select(0.24, 0.42, feat == 5u);
+        let r_path = (p.y + 0.42) * div_k;
+        let rib_a = exp(-pow(length(p.xz - vec2<f32>(r_path, 0.12 * sin(p.y * 7.0 + time))) * 34.0, 2.0)) * span;
+        let rib_b = exp(-pow(length(p.xz - vec2<f32>(-r_path, -0.12 * sin(p.y * 7.0 + time))) * 34.0, 2.0)) * span;
+        col += vec3<f32>(1.24, 0.88, 0.28) * rib_a + vec3<f32>(0.32, 1.22, 0.86) * rib_b;
+        dens += (rib_a + rib_b) * 0.80;
+
+        if (feat == 1u) {
+            let vox = doc_line_glow(sd_box(p, vec3<f32>(0.16)), 68.0);
+            col += vec3<f32>(1.18, 0.56, 0.24) * vox;
+            dens += vox * 0.58;
+        } else if (feat == 3u) {
+            let cons_a = doc_line_glow(sd_torus(doc_rot_x(p, 0.65), 0.32, 0.010), 76.0);
+            let cons_b = doc_line_glow(sd_torus(doc_rot_z(p, 0.65), 0.32, 0.010), 76.0);
+            col += vec3<f32>(1.26, 1.02, 0.32) * (cons_a + cons_b);
+            dens += (cons_a + cons_b) * 0.65;
+        } else if (feat == 4u) {
+            let prob = exp(-pow(abs(r - 0.36) * 28.0, 2.0)) * (0.45 + 0.55 * abs(sin(p.y * 12.0)));
+            col += vec3<f32>(0.68, 0.54, 1.24) * prob;
+            dens += prob * 0.55;
+        } else if (feat == 7u) {
+            let p_cone = doc_line_glow(sd_cone_up(p - vec3<f32>(0.0, -0.34, 0.0), vec2<f32>(0.62, 0.78), 0.42), 68.0);
+            col += vec3<f32>(0.36, 1.18, 1.28) * p_cone;
+            dens += p_cone * 0.68;
+        }
+    } else if (zone == 2u) {
+        // Z02: Spontaneous Symmetry Breaking — 3D Mexican-Hat Potential Well V(r) + Multi-Domain Spin Lattice
+        let rho = length(p.xz);
+        let r_n = rho * 1.45;
+        let v_y = 0.22 - 1.15 * (r_n * r_n) + 1.42 * (r_n * r_n * r_n * r_n);
+        let pot_shell = exp(-pow(abs(p.y - v_y) * 44.0, 2.0)) * smoothstep(0.68, 0.24, rho);
+        let dom_idx = select(0.0, 1.0, p.x > 0.0) + select(0.0, 2.0, p.z > 0.0);
+        var dom_c = vec3<f32>(0.24, 0.94, 1.24);
+        if (dom_idx > 2.5) {
+            dom_c = vec3<f32>(1.22, 0.78, 0.24);
+        } else if (dom_idx > 1.5) {
+            dom_c = vec3<f32>(0.28, 1.16, 0.72);
+        } else if (dom_idx > 0.5) {
+            dom_c = vec3<f32>(0.88, 0.44, 1.22);
+        }
+        let slab = exp(-pow(abs(p.y + 0.36) * 42.0, 2.0)) * smoothstep(0.64, 0.28, rho);
+        col += mix(vec3<f32>(0.28, 1.04, 1.24), vec3<f32>(1.22, 0.82, 0.28), smoothstep(-0.18, 0.22, v_y)) * pot_shell * 0.85
+             + dom_c * slab * select(0.42, 0.95, feat == 3u);
+        dens += pot_shell * 0.74 + slab * 0.56;
+
+        let probe_pos = select(vec3<f32>(0.36 * cos(time * 0.5), -0.02, 0.36 * sin(time * 0.5)), vec3<f32>(0.0, 0.22, 0.0), feat == 0u || feat == 5u);
+        let probe = exp(-pow(max(length(p - probe_pos) - 0.068, 0.0) * 64.0, 2.0));
+        col += vec3<f32>(1.28, 1.02, 0.34) * probe;
+        dens += probe * 0.88;
+
+        if (feat == 4u) {
+            let wall_x = exp(-pow(abs(p.x) * 48.0, 2.0)) * smoothstep(0.56, 0.16, abs(p.z)) * smoothstep(0.45, 0.15, abs(p.y + 0.15));
+            let wall_z = exp(-pow(abs(p.z) * 48.0, 2.0)) * smoothstep(0.56, 0.16, abs(p.x)) * smoothstep(0.45, 0.15, abs(p.y + 0.15));
+            col += vec3<f32>(1.28, 0.32, 0.62) * (wall_x + wall_z);
+            dens += (wall_x + wall_z) * 0.78;
+        } else if (feat == 2u) {
+            let front = exp(-pow(abs(rho - 0.36) * 44.0, 2.0)) * smoothstep(0.42, 0.10, abs(p.y));
+            col += vec3<f32>(1.22, 0.58, 0.24) * front;
+            dens += front * 0.64;
+        } else if (feat == 5u) {
+            let jit = pow(0.5 + 0.5 * sin(rho * 28.0 - time * 3.0), 6.0) * smoothstep(0.42, 0.06, rho) * exp(-pow((p.y - 0.18) * 18.0, 2.0));
+            col += vec3<f32>(1.24, 0.84, 0.28) * jit;
+            dens += jit * 0.76;
+        } else if (feat == 6u) {
+            let coll_r = doc_line_glow(sd_torus(p - vec3<f32>(0.0, -0.34, 0.0), 0.44, 0.014), 72.0);
+            col += vec3<f32>(0.32, 1.24, 0.92) * coll_r;
+            dens += coll_r * 0.78;
+        }
+    } else if (zone == 3u) {
+        // Z03: Collective States of Matter — 4-Quadrant Condensed-Matter Stage (FCC / Liquid / Dipoles / Meissner Coil)
+        let lat_c = fract(p * 3.8 + 0.5) - 0.5;
+        let lat_n = exp(-pow(length(lat_c) * 14.0, 2.0)) * smoothstep(0.56, 0.18, r) * select(0.25, 1.0, p.x < 0.08 && p.y > -0.08);
+        let flow_s = pow(0.5 + 0.5 * sin(p.x * 16.0 - time * 2.4 + cos(p.y * 8.0)), 6.0) * smoothstep(0.56, 0.18, r) * select(0.2, 1.0, p.x > -0.08);
+        let meissner_r = doc_line_glow(sd_torus(p - vec3<f32>(0.22, -0.22, 0.0), 0.18, 0.018), 64.0);
+        let dipole_b = doc_line_glow(sd_capsule(p, vec3<f32>(-0.34, -0.22, 0.0), vec3<f32>(-0.10, -0.22, 0.0), 0.014), 68.0);
+        let g0 = doc_complexity_feat_gain(feat, 0u, cue);
+        let g5 = doc_complexity_feat_gain(feat, 5u, cue);
+        let g6 = doc_complexity_feat_gain(feat, 6u, cue);
+        col += vec3<f32>(0.34, 1.12, 1.28) * lat_n * (0.55 + 0.65 * g0)
+             + vec3<f32>(0.26, 1.22, 0.86) * flow_s * select(0.48, 1.15, feat == 1u)
+             + vec3<f32>(0.32, 0.96, 1.28) * meissner_r * (0.55 + 0.75 * g6)
+             + vec3<f32>(1.24, 0.72, 0.24) * dipole_b * (0.55 + 0.75 * g5);
+        dens += lat_n * 0.68 + flow_s * 0.52 + meissner_r * 0.72 + dipole_b * 0.68;
+        if (feat == 2u) {
+            let jet = doc_line_glow(sd_capsule(p, vec3<f32>(0.02, 0.16, 0.0), vec3<f32>(0.42, 0.16, 0.0), 0.014), 72.0);
+            col += vec3<f32>(0.28, 1.24, 1.18) * jet;
+            dens += jet * 0.78;
+        } else if (feat == 3u) {
+            let wall = exp(-pow(abs(p.x - 0.44) * 48.0, 2.0)) * smoothstep(0.42, 0.12, length(p.yz));
+            col += vec3<f32>(1.26, 0.46, 0.24) * wall;
+            dens += wall * 0.72;
+        } else if (feat == 4u) {
+            let shear = exp(-pow(abs(p.y - 0.18 * sin(p.x * 5.0)) * 38.0, 2.0)) * smoothstep(0.46, 0.10, length(p.xz));
+            col += vec3<f32>(0.88, 0.48, 1.24) * shear;
+            dens += shear * 0.76;
+        } else if (feat == 7u) {
+            let bound = exp(-pow(abs(p.x) * 48.0, 2.0)) * smoothstep(0.56, 0.16, length(p.yz));
+            col += vec3<f32>(1.24, 1.06, 0.36) * bound;
+            dens += bound * 0.72;
+        }
+    } else if (zone == 4u) {
+        // Z04: Far From Equilibrium — Lorenz Strange Attractor inside Dissipative Hot-to-Cold Carnot Frame
+        let pl = doc_rot_x(doc_rot_y(p - vec3<f32>(-0.22, 0.04, 0.0), 0.35), 0.24);
+        let pr = doc_rot_x(doc_rot_y(p - vec3<f32>(0.22, -0.04, 0.0), -0.35), -0.24);
+        var s1: f32 = 0.0;
+        var s2: f32 = 0.0;
+        for (var ring = 0; ring < 3; ring = ring + 1) {
+            let rr = 0.11 + f32(ring) * 0.072;
+            s1 += exp(-pow(abs(length(pl.xy) - rr) * 58.0, 2.0)) * exp(-pow(pl.z * 32.0, 2.0));
+            s2 += exp(-pow(abs(length(pr.xy) - rr) * 58.0, 2.0)) * exp(-pow(pr.z * 32.0, 2.0));
+        }
+        let throttle = select(1.0, 0.35 + 0.65 * (0.5 + 0.5 * sin(cue * TAU)), feat == 6u);
+        let hot_plate = exp(-pow(abs(p.y + 0.44) * 38.0, 2.0)) * smoothstep(0.54, 0.18, length(p.xz));
+        let cold_plate = exp(-pow(abs(p.y - 0.44) * 38.0, 2.0)) * smoothstep(0.54, 0.18, length(p.xz));
+        col += vec3<f32>(0.22, 1.12, 1.28) * s1 * throttle + vec3<f32>(1.24, 0.46, 0.86) * s2 * throttle
+             + vec3<f32>(1.24, 0.44, 0.18) * hot_plate + vec3<f32>(0.24, 1.22, 0.88) * cold_plate;
+        dens += (s1 + s2) * 0.68 * throttle + (hot_plate + cold_plate) * 0.62;
+        if (feat == 0u || feat == 3u) {
+            let slice_r = exp(-pow(abs(p.y - select(0.14, -0.18, feat == 0u)) * 38.0, 2.0)) * smoothstep(0.46, 0.10, length(p.xz));
+            col += vec3<f32>(1.24, 0.92, 0.32) * slice_r;
+            dens += slice_r * 0.72;
+        } else if (feat == 1u || feat == 2u) {
+            let plume = exp(-pow(length(p.xz) * select(14.0, 8.0, feat == 2u), 2.0)) * smoothstep(0.46, 0.14, abs(p.y));
+            col += vec3<f32>(1.22, 0.68, 0.24) * plume;
+            dens += plume * 0.64;
+        } else if (feat == 4u || feat == 5u) {
+            let ent = exp(-pow(abs(r - select(0.56, 0.42, feat == 5u)) * 40.0, 2.0));
+            col += vec3<f32>(1.18, 0.36, 0.22) * ent;
+            dens += ent * 0.66;
+        }
+    } else if (zone == 5u) {
+        // Z05: Fluctuations — Stochastic Curl-Noise Mist & Double-Bifurcation Tree
+        let trunk = doc_line_glow(sd_capsule(p, vec3<f32>(0.0, -0.44, 0.0), vec3<f32>(0.0, -0.10, 0.0), 0.016), 72.0);
+        let bl = doc_line_glow(sd_capsule(p, vec3<f32>(0.0, -0.10, 0.0), vec3<f32>(-0.24, 0.18, 0.04), 0.013), 72.0);
+        let br = doc_line_glow(sd_capsule(p, vec3<f32>(0.0, -0.10, 0.0), vec3<f32>(0.24, 0.18, -0.04), 0.013), 72.0);
+        let sub_a = doc_line_glow(sd_capsule(p, vec3<f32>(-0.24, 0.18, 0.04), vec3<f32>(-0.42, 0.44, 0.10), 0.010), 74.0);
+        let sub_b = doc_line_glow(sd_capsule(p, vec3<f32>(-0.24, 0.18, 0.04), vec3<f32>(-0.10, 0.44, -0.06), 0.010), 74.0);
+        let sub_c = doc_line_glow(sd_capsule(p, vec3<f32>(0.24, 0.18, -0.04), vec3<f32>(0.10, 0.44, 0.06), 0.010), 74.0);
+        let sub_d = doc_line_glow(sd_capsule(p, vec3<f32>(0.24, 0.18, -0.04), vec3<f32>(0.42, 0.44, -0.10), 0.010), 74.0);
+        let tree_g = trunk + bl + br + sub_a + sub_b + sub_c + sub_d;
+        let haze = pow(max(0.0, 0.5 + 0.5 * snoise3(p * 11.0 + vec3<f32>(0.0, time * 1.4, 0.0))), 6.0) * smoothstep(0.62, 0.18, r);
+        col += vec3<f32>(0.28, 1.18, 0.94) * tree_g + vec3<f32>(1.18, 0.72, 0.28) * haze * select(0.45, 1.15, feat == 0u || feat == 5u);
+        dens += tree_g * 0.78 + haze * 0.52;
+        if (feat == 1u || feat == 2u) {
+            let delta = doc_line_glow(sd_capsule(p, vec3<f32>(0.0, -0.28, 0.0), vec3<f32>(select(0.28, 0.42, feat == 2u), 0.34, 0.0), 0.012), 74.0);
+            col += vec3<f32>(1.24, 0.94, 0.32) * delta;
+            dens += delta * 0.78;
+        } else if (feat == 4u) {
+            let seed_f = exp(-pow(length(p - vec3<f32>(0.0, -0.10, 0.0)) * 18.0, 2.0));
+            col += vec3<f32>(1.28, 1.04, 0.36) * seed_f;
+            dens += seed_f * 0.85;
+        } else if (feat == 3u) {
+            let hop = exp(-pow(length(p - vec3<f32>(0.24 * sin(time * 3.0), 0.26, 0.0)) * 18.0, 2.0));
+            col += vec3<f32>(1.22, 0.44, 0.92) * hop;
+            dens += hop * 0.82;
+        }
+    } else if (zone == 6u) {
+        // Z06: Spontaneous Patterns — Multi-Pattern Morphogenesis Specimen Table sampling Gray-Scott field_grid_tex
+        let field_s = doc_sample_field_grid(fract(p.xz * 0.74 + vec2<f32>(0.5)));
+        let rd_pde = field_s.r - field_s.g;
+        let plate = exp(-pow(abs(p.y + 0.28) * 44.0, 2.0)) * smoothstep(0.60, 0.18, length(p.xz));
+        let pde_stripes = clamp(0.45 + rd_pde * 1.6 + 0.35 * sin(p.x * 18.0 + p.z * 16.0), 0.0, 1.0);
+        col += mix(vec3<f32>(0.22, 0.96, 1.18), vec3<f32>(1.22, 0.76, 0.26), pde_stripes) * plate * select(0.75, 1.25, feat == 2u);
+        dens += plate * 0.74;
+
+        let motif_c = p - vec3<f32>(0.0, 0.14, 0.0);
+        if (feat == 1u) {
+            let crys = exp(-pow(abs(sd_octahedron(motif_c, 0.32)) * 46.0, 2.0));
+            col += vec3<f32>(0.52, 1.18, 1.28) * crys;
+            dens += crys * 0.82;
+        } else if (feat == 3u) {
+            let w_shell = exp(-pow(abs(length(motif_c) - 0.28) * 46.0, 2.0)) * (0.5 + 0.5 * sin(length(motif_c) * 28.0 - time * 2.4));
+            col += vec3<f32>(0.28, 1.18, 1.26) * w_shell;
+            dens += w_shell * 0.80;
+        } else if (feat == 4u) {
+            let a_bz = atan2(motif_c.z, motif_c.x);
+            let bz = pow(max(0.0, cos(a_bz * 2.0 - length(motif_c.xz) * 26.0 + time * 2.2)), 6.0) * exp(-pow(motif_c.y * 28.0, 2.0)) * smoothstep(0.46, 0.08, length(motif_c.xz));
+            col += vec3<f32>(1.24, 0.42, 0.84) * bz;
+            dens += bz * 0.80;
+        } else if (feat == 5u) {
+            let d_tr = doc_line_glow(sd_capsule(motif_c, vec3<f32>(0.0, -0.22, 0.0), vec3<f32>(0.0, 0.04, 0.0), 0.015), 76.0)
+                     + doc_line_glow(sd_capsule(motif_c, vec3<f32>(0.0, 0.04, 0.0), vec3<f32>(-0.18, 0.26, 0.0), 0.011), 76.0)
+                     + doc_line_glow(sd_capsule(motif_c, vec3<f32>(0.0, 0.04, 0.0), vec3<f32>(0.18, 0.26, 0.0), 0.011), 76.0);
+            col += vec3<f32>(0.34, 1.22, 0.68) * d_tr;
+            dens += d_tr * 0.82;
+        } else if (feat == 6u) {
+            let osc_r = exp(-pow(abs(length(motif_c.xz) - 0.38) * 40.0, 2.0)) * exp(-pow(motif_c.y * 24.0, 2.0)) * (0.45 + 0.55 * cos(atan2(motif_c.z, motif_c.x) * 12.0));
+            col += vec3<f32>(1.26, 1.02, 0.34) * osc_r;
+            dens += osc_r * 0.82;
+        } else {
+            let hex_cell = exp(-pow(abs(sd_hex_prism(doc_rot_x(motif_c, 1.5708), 0.28, 0.14)) * 46.0, 2.0));
+            col += vec3<f32>(0.32, 1.22, 0.88) * hex_cell * select(0.85, 1.25, feat == 0u);
+            dens += hex_cell * 0.72;
+        }
+    } else if (zone == 7u) {
+        // Z07: Cybernetic Feedback — Dual-Torus Counter-Looping Regulator + Controlled Core
+        let expand_p = select(0.42, 0.54, feat == 2u);
+        let damp_n = select(0.32, 0.24, feat == 3u || feat == 6u);
+        let pos_torus = doc_line_glow(sd_torus(doc_rot_x(p, 0.52), expand_p, 0.014), 72.0);
+        let neg_torus = doc_line_glow(sd_torus(doc_rot_z(p, -0.62), damp_n, 0.014), 72.0);
+        let core_r = select(0.14, 0.20 + 0.05 * sin(time * 4.0), feat == 5u);
+        let core_o = exp(-pow(max(r - core_r, 0.0) * 54.0, 2.0));
+        col += vec3<f32>(1.24, 0.76, 0.22) * pos_torus * select(0.75, 1.25, feat == 2u)
+             + vec3<f32>(0.24, 1.18, 1.28) * neg_torus * select(0.75, 1.25, feat == 3u || feat == 6u)
+             + mix(vec3<f32>(0.32, 1.24, 0.76), vec3<f32>(1.28, 0.36, 0.28), select(0.0, 1.0, feat == 7u)) * core_o;
+        dens += pos_torus * 0.74 + neg_torus * 0.74 + core_o * 0.82;
+        if (feat == 0u || feat == 1u) {
+            let pkt_p = select(vec3<f32>(0.42, 0.0, 0.0), vec3<f32>(0.0, 0.32, 0.0), feat == 1u);
+            let pkt = exp(-pow(max(length(p - pkt_p) - 0.06, 0.0) * 60.0, 2.0));
+            col += vec3<f32>(1.28, 1.02, 0.34) * pkt;
+            dens += pkt * 0.85;
+        } else if (feat == 4u) {
+            let thr = doc_line_glow(sd_torus(p, 0.26, 0.008), 80.0);
+            col += vec3<f32>(1.26, 1.04, 0.36) * thr;
+            dens += thr * 0.68;
+        }
+    } else if (zone == 8u) {
+        // Z08: Complex Networks — 3D Scale-Free Modular Graph with High-Degree Hubs & Bridges
+        let h1 = vec3<f32>(-0.22, 0.14, 0.04);
+        let h2 = vec3<f32>(0.24, -0.10, -0.04);
+        let n1 = vec3<f32>(-0.44, -0.14, 0.16);
+        let n2 = vec3<f32>(-0.34, 0.36, -0.14);
+        let n3 = vec3<f32>(0.02, 0.34, 0.22);
+        let n4 = vec3<f32>(0.44, 0.20, 0.12);
+        let n5 = vec3<f32>(0.36, -0.36, 0.16);
+        let n6 = vec3<f32>(-0.02, -0.34, -0.22);
+
+        let e_hub = doc_line_glow(sd_capsule(p, h1, h2, 0.013), 76.0);
+        let edges = doc_line_glow(sd_capsule(p, h1, n1, 0.009), 78.0)
+                  + doc_line_glow(sd_capsule(p, h1, n2, 0.009), 78.0)
+                  + doc_line_glow(sd_capsule(p, h1, n3, 0.009), 78.0)
+                  + doc_line_glow(sd_capsule(p, h2, n4, 0.009), 78.0)
+                  + doc_line_glow(sd_capsule(p, h2, n5, 0.009), 78.0)
+                  + doc_line_glow(sd_capsule(p, h2, n6, 0.009), 78.0);
+        let hub_rad = select(0.068, 0.095, feat == 2u);
+        let g_h1 = exp(-pow(max(length(p - h1) - hub_rad, 0.0) * 62.0, 2.0)) * select(1.0, 0.22, feat == 6u);
+        let g_h2 = exp(-pow(max(length(p - h2) - hub_rad, 0.0) * 62.0, 2.0));
+        let leaf_rad = select(0.044, 0.068, feat == 0u);
+        let g_leaves = exp(-pow(max(min(min(length(p - n1), length(p - n2)), length(p - n3)) - leaf_rad, 0.0) * 68.0, 2.0))
+                     + exp(-pow(max(min(min(length(p - n4), length(p - n5)), length(p - n6)) - leaf_rad, 0.0) * 68.0, 2.0));
+        let link_c = select(vec3<f32>(0.28, 1.08, 1.24), vec3<f32>(1.28, 0.32, 0.24), feat == 4u || feat == 6u);
+        col += vec3<f32>(1.26, 0.94, 0.26) * (g_h1 + g_h2 + e_hub * select(1.0, 1.35, feat == 1u))
+             + link_c * (edges * select(1.0, 1.35, feat == 1u) + g_leaves);
+        dens += (g_h1 + g_h2 + e_hub) * 0.82 + (edges + g_leaves) * 0.68;
+        if (feat == 3u) {
+            let cage_l = doc_line_glow(sd_torus(p - h1, 0.26, 0.008), 76.0);
+            let cage_r = doc_line_glow(sd_torus(p - h2, 0.26, 0.008), 76.0);
+            col += vec3<f32>(0.36, 1.22, 0.96) * (cage_l + cage_r);
+            dens += (cage_l + cage_r) * 0.66;
+        } else if (feat == 5u || feat == 7u) {
+            let bypass = doc_line_glow(sd_capsule(p, n3, select(n4, n6, feat == 7u), 0.011), 76.0);
+            col += vec3<f32>(0.32, 1.24, 0.78) * bypass;
+            dens += bypass * 0.76;
+        }
+    } else if (zone == 9u) {
+        // Z09: Self-Organization — Live Gray-Scott Turing Sphere + Coherent Boid Murmuration Ring
+        let field_s = doc_sample_field_grid(fract(p.xy * 0.85 + vec2<f32>(0.5)));
+        let rd_val = clamp(0.5 + (field_s.r - field_s.g) * 1.4, 0.0, 1.0);
+        let t_freq = select(14.0, 22.0, feat == 3u);
+        let t_wave = 0.5 + 0.5 * sin(p.x * t_freq + cos(p.y * t_freq + time * 0.6)) * rd_val;
+        let sphere_shell = exp(-pow(abs(r - 0.34) * 52.0, 2.0)) * (0.35 + 0.65 * t_wave) * select(1.0, 0.42, feat == 5u);
+        col += mix(vec3<f32>(0.24, 1.08, 0.86), accent_z, 0.45 + 0.35 * sin(time * 0.6 * select(0.0, 1.0, feat == 6u))) * sphere_shell;
+        dens += sphere_shell * 0.78;
+
+        for (var b = 0; b < 6; b = b + 1) {
+            let ang_b = f32(b) * TAU / 6.0 + time * 0.65;
+            let bp = vec3<f32>(cos(ang_b) * 0.48, sin(ang_b * 2.0) * 0.14, sin(ang_b) * 0.48);
+            let boid = exp(-pow(max(length(p - bp) - 0.036, 0.0) * 68.0, 2.0));
+            let nb = exp(-pow(abs(length(p - bp) - 0.12) * 44.0, 2.0)) * select(0.0, 1.0, feat == 0u || feat == 4u);
+            col += vec3<f32>(1.24, 0.92, 0.32) * boid + vec3<f32>(0.34, 1.18, 1.28) * nb;
+            dens += boid * 0.78 + nb * 0.44;
+        }
+        if (feat == 1u || feat == 2u) {
+            let ring_f = doc_line_glow(sd_torus(p, select(0.48, 0.24, feat == 2u), 0.012), 74.0);
+            col += vec3<f32>(0.32, 1.24, 0.94) * ring_f;
+            dens += ring_f * 0.74;
+        }
+    } else if (zone == 10u) {
+        // Z10: Functional Information — 3D Helical Symbol Code Ribbon + Reader Collar Gate
+        let ang_h = p.y * 8.4 + time * 0.5;
+        let rib_d = length(p - vec3<f32>(cos(ang_h) * 0.20, p.y, sin(ang_h) * 0.20));
+        let sym_rib = exp(-pow(max(rib_d - 0.032, 0.0) * 64.0, 2.0)) * smoothstep(0.54, 0.18, abs(p.y));
+        let collar = doc_line_glow(sd_torus(p, 0.32, 0.018), 68.0);
+        let bad_bit = exp(-pow(length(p - vec3<f32>(0.20, -0.16, 0.0)) * 22.0, 2.0)) * select(0.0, 1.0, feat == 4u || feat == 5u);
+        col += vec3<f32>(0.28, 1.12, 1.24) * sym_rib * select(1.0, 1.32, feat == 0u || feat == 1u)
+             + vec3<f32>(1.24, 0.94, 0.28) * collar * select(0.75, 1.32, feat == 3u || feat == 6u)
+             + select(vec3<f32>(1.28, 0.26, 0.76), vec3<f32>(0.28, 1.26, 0.62), feat == 5u) * bad_bit;
+        dens += sym_rib * 0.78 + collar * 0.72 + bad_bit * 0.80;
+        if (feat == 1u) {
+            let mem_r = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.26, 0.0), 0.22, 0.012), 74.0);
+            col += vec3<f32>(1.22, 0.92, 0.32) * mem_r;
+            dens += mem_r * 0.74;
+        } else if (feat == 2u || feat == 7u) {
+            let branch = doc_line_glow(sd_capsule(p, vec3<f32>(0.28, 0.0, 0.0), vec3<f32>(0.48, select(-0.24, 0.28, feat == 7u), 0.0), 0.012), 74.0);
+            col += vec3<f32>(0.34, 1.24, 0.86) * branch;
+            dens += branch * 0.78;
+        }
+    } else if (zone == 11u) {
+        // Z11: Organized Chemistry — 5-Node Eigen Autocatalytic Hypercycle + Lock-and-Key Substrate Dock
+        for (var k = 0; k < 5; k = k + 1) {
+            let a = f32(k) * TAU / 5.0 + time * 0.24;
+            let na = f32(k + 1) * TAU / 5.0 + time * 0.24;
+            let np = vec3<f32>(cos(a) * 0.38, sin(a * 2.0) * 0.07, sin(a) * 0.38);
+            let n_next = vec3<f32>(cos(na) * 0.38, sin(na * 2.0) * 0.07, sin(na) * 0.38);
+            let ng = exp(-pow(max(length(p - np) - 0.045, 0.0) * 62.0, 2.0));
+            let edge = doc_line_glow(sd_capsule(p, np, n_next, 0.009), 76.0);
+            let nc = hsl_to_rgb(f32(k) / 5.0, 0.88, 0.54) * 0.92;
+            col += nc * (ng + edge * select(0.85, 1.28, feat == 1u));
+            dens += ng * 0.74 + edge * 0.62;
+        }
+        if (feat == 0u || feat == 2u || feat == 3u) {
+            let dock_s = select(0.14, 0.22, feat == 2u);
+            let dock = doc_line_glow(sd_octahedron(p - vec3<f32>(0.0, select(0.0, 0.14, feat == 3u), 0.0), dock_s), 68.0);
+            col += select(vec3<f32>(1.26, 0.96, 0.28), vec3<f32>(0.34, 1.24, 0.92), feat == 2u) * dock;
+            dens += dock * 0.78;
+        } else if (feat == 4u || feat == 5u) {
+            let raf_c = doc_line_glow(sd_torus(doc_rot_x(p, select(0.25, 0.95, feat == 5u)), 0.22, 0.011), 74.0);
+            col += vec3<f32>(1.24, 0.82, 0.28) * raf_c;
+            dens += raf_c * 0.76;
+        } else if (feat == 6u) {
+            let comp_s = exp(-pow(abs(r - 0.50) * 44.0, 2.0));
+            col += vec3<f32>(0.26, 1.18, 0.86) * comp_s;
+            dens += comp_s * 0.64;
+        }
+    } else if (zone == 12u) {
+        // Z12: Molecular Replication & Variation — Semiconservative Template Zipper + Variant Lineage
+        let upper = p.y >= 0.04;
+        let sep = select(0.18 + max(0.04 - p.y, 0.0) * 0.55, 0.11, upper);
+        let th = p.y * 7.2 + time * 0.4;
+        let s_l = vec3<f32>(-sep * cos(th * 0.25 + 0.2), p.y, -sep * sin(th * 0.25 + 0.2));
+        let s_r = vec3<f32>(sep * cos(th * 0.25 + 0.2), p.y, sep * sin(th * 0.25 + 0.2));
+        let mask_y = smoothstep(0.54, 0.18, abs(p.y));
+        let strand_g = (exp(-pow(max(length(p - s_l) - 0.022, 0.0) * 68.0, 2.0))
+                      + exp(-pow(max(length(p - s_r) - 0.022, 0.0) * 68.0, 2.0))) * mask_y;
+        let ridge = exp(-pow(abs(p.y + 0.40) * 40.0, 2.0)) * smoothstep(0.56, 0.16, length(p.xz));
+        let drift_dim = select(1.0, 0.48, feat == 7u);
+        col += vec3<f32>(0.28, 1.16, 0.92) * strand_g * drift_dim + vec3<f32>(1.22, 0.88, 0.28) * ridge * 0.75;
+        dens += strand_g * 0.82 * drift_dim + ridge * 0.58;
+        if (feat == 1u) {
+            let arc = doc_line_glow(sd_capsule(p, vec3<f32>(-0.22, 0.16, 0.0), vec3<f32>(0.22, -0.16, 0.0), 0.011), 76.0);
+            col += vec3<f32>(1.24, 0.92, 0.30) * arc;
+            dens += arc * 0.76;
+        } else if (feat == 2u || feat == 3u) {
+            let mut_n = exp(-pow(max(length(p - vec3<f32>(0.24, -0.18, 0.0)) - select(0.055, 0.08, feat == 3u), 0.0) * 60.0, 2.0));
+            col += vec3<f32>(1.26, 0.28, 0.82) * mut_n;
+            dens += mut_n * 0.86;
+        } else if (feat == 4u) {
+            let nut = exp(-pow(max(length(p - vec3<f32>(0.0, -0.32, 0.0)) - 0.07, 0.0) * 58.0, 2.0));
+            col += vec3<f32>(0.32, 1.24, 0.62) * nut;
+            dens += nut * 0.80;
+        } else if (feat == 5u || feat == 6u) {
+            let fit_p = doc_line_glow(sd_cone_up(p - vec3<f32>(0.0, -0.38, 0.0), vec2<f32>(select(0.55, 0.72, feat == 6u), 0.83), 0.28), 64.0);
+            col += vec3<f32>(1.24, 0.96, 0.30) * fit_p;
+            dens += fit_p * 0.72;
+        }
+    } else if (zone == 13u) {
+        // Z13: Protocells — Upgraded Cutaway Lipid Bilayer Budding Vesicle + Ion Channels + Lumen
+        let pinch = select(0.0, 0.08, feat == 6u);
+        let c1 = length(p - vec3<f32>(-0.20 - pinch, 0.0, 0.0)) - select(0.28, 0.34, feat == 5u);
+        let c2 = length(p - vec3<f32>(0.20 + pinch, 0.0, 0.0)) - 0.24;
+        let d_ves = min(c1, c2);
+        let cutaway = select(1.0, 0.32, (feat == 0u || feat == 1u) && (p.z > 0.05 && p.x > 0.0));
+        let mem = exp(-pow(abs(d_ves) * 48.0, 2.0)) * cutaway;
+        let inner = exp(-pow(abs(d_ves + 0.045) * 48.0, 2.0)) * cutaway * 0.55;
+        let lumen = exp(-pow(length(p - vec3<f32>(-0.20, 0.0, 0.0)) * 14.0, 2.0));
+        let f_tor = doc_line_glow(sd_torus(vec3<f32>(p.y, p.x, p.z), 0.18, 0.011), 70.0);
+        col += vec3<f32>(0.26, 1.18, 0.76) * (mem + inner)
+             + vec3<f32>(1.24, 0.92, 0.28) * (lumen * select(0.45, 1.15, feat == 1u) + f_tor * select(0.55, 1.25, feat == 6u));
+        dens += (mem + inner) * 0.76 + lumen * 0.58 + f_tor * 0.68;
+        if (feat == 2u) {
+            let ext = exp(-pow(abs(r - 0.58) * 38.0, 2.0));
+            col += vec3<f32>(0.34, 1.16, 1.28) * ext;
+            dens += ext * 0.62;
+        } else if (feat == 3u || feat == 4u) {
+            let pore = doc_line_glow(sd_capsule(p, vec3<f32>(-0.20, 0.20, 0.0), vec3<f32>(-0.20, select(0.36, 0.08, feat == 4u), 0.0), 0.016), 70.0);
+            col += vec3<f32>(0.36, 1.26, 1.18) * pore;
+            dens += pore * 0.80;
+        } else if (feat == 7u) {
+            let tether = doc_line_glow(sd_capsule(p, vec3<f32>(-0.20, 0.0, 0.0), vec3<f32>(0.20, 0.0, 0.0), 0.012), 76.0);
+            col += vec3<f32>(1.26, 0.96, 0.30) * tether;
+            dens += tether * 0.78;
+        }
+    } else if (zone == 14u) {
+        // Z14: Chemical Evolution — Prebiotic Hydrothermal Vent Chimney + Clay Terraces + RNA Hairpin
+        let chim = doc_line_glow(sd_cylinder_y(p - vec3<f32>(-0.22, -0.10, 0.0), 0.075, 0.26), 62.0);
+        let plume = pow(max(0.0, snoise3(p * 12.0 - vec3<f32>(0.0, time * 1.8, 0.0))), 4.0) * smoothstep(0.28, 0.04, length(p.xz - vec2<f32>(-0.22, 0.0)));
+        let clay = exp(-pow(abs(fract((p.y + 0.12) * 8.0) - 0.5) * 14.0, 2.0)) * exp(-pow(abs(p.x - 0.20) * 14.0, 2.0)) * smoothstep(0.32, 0.06, abs(p.y + 0.16));
+        let rna_loop = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, 0.24, 0.0), 0.78), 0.14, 0.012), 72.0);
+        col += vec3<f32>(1.22, 0.56, 0.22) * (chim + plume * 0.75) * select(1.0, 1.32, feat == 3u)
+             + vec3<f32>(0.28, 1.14, 0.88) * clay * select(1.0, 1.32, feat == 4u)
+             + vec3<f32>(0.96, 0.44, 1.24) * rna_loop * select(1.0, 1.32, feat == 0u);
+        dens += (chim + plume * 0.65) * 0.72 + clay * 0.68 + rna_loop * 0.74;
+        if (feat == 1u || feat == 2u) {
+            let wheel = doc_line_glow(sd_torus(p - vec3<f32>(0.0, -0.04, 0.0), select(0.24, 0.12, feat == 2u), 0.012), 72.0);
+            col += vec3<f32>(1.24, 0.92, 0.30) * wheel;
+            dens += wheel * 0.76;
+        } else if (feat == 5u) {
+            let pool = exp(-pow(abs(p.y + 0.26) * 44.0, 2.0)) * smoothstep(0.56, 0.18, length(p.xz));
+            col += vec3<f32>(0.26, 1.18, 1.24) * pool;
+            dens += pool * 0.72;
+        } else if (feat == 6u || feat == 7u) {
+            let streak = doc_line_glow(sd_capsule(p, vec3<f32>(-0.42, 0.44, 0.0), vec3<f32>(0.18, select(0.08, -0.20, feat == 7u), 0.0), 0.012), 76.0);
+            col += vec3<f32>(1.28, 0.94, 0.34) * streak;
+            dens += streak * 0.80;
+        }
+    } else {
+        // Z15: Threshold of Life — Chemical-to-Cellular Transition Bridge & Emerald Life Portal
+        let chem_r = doc_line_glow(sd_torus(doc_rot_y(p - vec3<f32>(-0.26, 0.0, 0.0), time * 0.3), 0.18, 0.010), 74.0);
+        let bridge = doc_line_glow(sd_capsule(p, vec3<f32>(-0.26, 0.0, 0.0), vec3<f32>(0.18, 0.0, 0.0), 0.011), 76.0);
+        let bio_shell = exp(-pow(abs(length(p - vec3<f32>(0.18, 0.0, 0.0)) - 0.24) * 50.0, 2.0));
+        let bio_core = exp(-pow(length(p - vec3<f32>(0.18, 0.0, 0.0)) * 16.0, 2.0));
+        let portal = doc_line_glow(sd_torus(doc_rot_z(p - vec3<f32>(0.42, 0.0, 0.0), 1.5708), 0.22, 0.012), 74.0);
+        col += vec3<f32>(1.22, 0.76, 0.26) * chem_r
+             + vec3<f32>(0.32, 1.22, 0.88) * (bridge * select(1.0, 1.35, feat == 0u) + bio_shell + portal * select(0.45, 1.25, feat == 5u || feat == 6u))
+             + vec3<f32>(0.36, 1.28, 0.62) * bio_core * select(1.0, 1.35, feat == 1u);
+        dens += chem_r * 0.70 + bridge * 0.66 + bio_shell * 0.78 + bio_core * 0.72 + portal * 0.62;
+        if (feat == 2u) {
+            let gen_r = doc_line_glow(sd_torus(p - vec3<f32>(0.18, 0.0, 0.0), 0.14, 0.011), 76.0);
+            col += vec3<f32>(1.26, 0.94, 0.30) * gen_r;
+            dens += gen_r * 0.78;
+        } else if (feat == 3u) {
+            let phylo = doc_line_glow(sd_capsule(p, vec3<f32>(0.18, 0.0, 0.0), vec3<f32>(0.42, 0.32, 0.0), 0.011), 76.0);
+            col += vec3<f32>(0.38, 1.26, 0.74) * phylo;
+            dens += phylo * 0.78;
+        } else if (feat == 4u) {
+            let mist = exp(-pow(abs(length(p - vec3<f32>(-0.26, 0.0, 0.0)) - 0.34) * 32.0, 2.0));
+            col += vec3<f32>(0.62, 0.86, 1.24) * mist;
+            dens += mist * 0.64;
+        }
+    }
+
+    if (has_f) {
+        let fh = mm_feat_halo(p_raw, feat, accent_z, time);
+        col += fh.rgb * (0.45 + 0.55 * w);
+        dens += fh.a * (0.45 + 0.55 * w);
+    }
+    let pulse = 1.0 + bass * 0.12 + voice * 0.08 + cue * 0.06;
+    return vec4<f32>(clamp(col * pulse, vec3<f32>(0.0), vec3<f32>(1.38)), clamp(dens, 0.0, 2.2));
+}
+
 fn march_doc_bio_mind(
     vid: u32,
     ro: vec3<f32>,
@@ -1372,9 +1894,12 @@ fn march_doc_bio_mind(
     let scene = doc_scene(inst);
     let zone = doc_zone(inst);
     let cue = doc_cue(inst);
+    let feat = doc_feat(inst);
+    let weight = doc_weight(inst);
 
     let is_canon = doc_is_canonical_zone_vid(vid);
     let canon_exp = select(0u, doc_vid_exp(vid), is_canon);
+    let canon_zone = select(zone, doc_vid_zone(vid), is_canon);
     let legacy_group = select(
         select(0u, 1u, vid == 2u || vid == 16u || (vid >= 20u && vid < 30u)),
         2u,
@@ -1386,13 +1911,13 @@ fn march_doc_bio_mind(
         is_canon
     );
 
-    let steps: i32 = i32(clamp(42.0 * fovea_k, 24.0, 46.0));
+    let steps: i32 = i32(clamp(26.0 * fovea_k, 18.0, 28.0));
     let dt = (t1 - t0) / f32(steps);
     var t = t0 + dt * jitter;
     var accum = vec3<f32>(0.0);
     var trans: f32 = 1.0;
 
-    for (var i = 0; i < 46; i = i + 1) {
+    for (var i = 0; i < 28; i = i + 1) {
         if (i >= steps || trans < 0.03) { break; }
         let p_raw = ro + rd * t;
         let r = length(p_raw);
@@ -1401,7 +1926,11 @@ fn march_doc_bio_mind(
             var col = vec3<f32>(0.0);
             var dens: f32 = 0.0;
 
-            if (mode_group == 0u) {
+            if (is_canon && canon_exp == 15u) {
+                let st = shade_doc_complexity_stage(canon_zone, feat, p_raw, p, r, cue, weight, time, voice, bass, inst.color_a.rgb, inst.color_b.rgb);
+                col = st.rgb;
+                dens = st.a;
+            } else if (mode_group == 0u) {
                 // ---------------- EXP 15: COMPLEXITY ----------------
                 let c_mode = select(u32(max(scene, 0)), vid - 10u, vid >= 10u && vid < 20u);
                 if (c_mode == 0u) {

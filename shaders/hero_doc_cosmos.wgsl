@@ -946,6 +946,37 @@ fn shade_doc_solar_planet_surface(
         return (surf_c * (ndotl * 1.04 + 0.04) + rim_c * fresnel * 0.42) * 0.78 * inst.color_a.a;
     }
 
+    if (vid >= 3760u && vid <= 3762u) {
+        // Canonical Act IV Exp 15 Complexity Companions (`3760..=3762`)
+        let feat_f = f32(doc_feat(inst) & 7u);
+        let spin_p = doc_rot_y(p_surf, time * 0.16 + feat_f * 0.45);
+        let lat_grid = exp(-abs(sin(spin_p.y * 14.0)) * 12.0);
+        let lon_grid = exp(-abs(sin(atan2(spin_p.z, spin_p.x) * 6.0)) * 12.0);
+        let grid_g = max(lat_grid, lon_grid);
+        var surf_c = inst.color_a.rgb * 0.55;
+        var rim_c = inst.color_b.rgb * 0.95;
+        if (vid == 3760u) {
+            // Z04 nonequilibrium Carnot thermal gradient reservoir sphere
+            let therm = smoothstep(-0.65, 0.65, spin_p.y);
+            surf_c = mix(vec3<f32>(1.05, 0.38, 0.14), vec3<f32>(0.16, 0.88, 0.68), therm)
+                   + vec3<f32>(0.98, 0.74, 0.28) * grid_g * 0.35;
+            rim_c = mix(vec3<f32>(1.15, 0.48, 0.18), vec3<f32>(0.24, 1.05, 0.78), therm);
+        } else if (vid == 3761u) {
+            // Z08 networks / Z11 chemistry hub & catalytic monomer reservoir
+            let net_w = pow(max(0.0, cos(spin_p.x * 10.0) * sin(spin_p.y * 10.0) * cos(spin_p.z * 10.0)), 4.0);
+            surf_c = mix(vec3<f32>(0.10, 0.36, 0.44), vec3<f32>(0.98, 0.76, 0.24), net_w)
+                   + vec3<f32>(0.28, 0.96, 0.82) * grid_g * 0.36;
+            rim_c = vec3<f32>(0.98, 0.82, 0.32);
+        } else {
+            // 3762u: Z12 replication / Z13 protocells daughter lipid vesicle
+            let pore = pow(max(0.0, snoise3(spin_p * 7.5 + vec3<f32>(time * 0.08))), 6.0);
+            surf_c = mix(vec3<f32>(0.08, 0.34, 0.36), vec3<f32>(0.22, 0.92, 0.62), 0.45 + 0.55 * abs(spin_p.y))
+                   + vec3<f32>(0.42, 1.05, 0.92) * pore * 0.75;
+            rim_c = vec3<f32>(0.32, 1.08, 0.78);
+        }
+        return (surf_c * (ndotl * 1.04 + 0.04) + rim_c * fresnel * 0.44) * 0.76 * inst.color_a.a;
+    }
+
     if (vid == 12u) {
         // App 01 Physical Material Spheres OR Red/Black Dwarf Cooling Remnants
         let m_mode = doc_submode(inst);

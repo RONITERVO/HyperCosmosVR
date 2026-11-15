@@ -2614,7 +2614,7 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             let zone = z_idx as u16;
             let expected_mode = match zone {
                 1..=5 => 13u32,
-                6..=9 => 15,
+                6..=9 => 16,
                 _ => 5,
             };
             let u_z = -29.6;
@@ -2722,6 +2722,126 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             assert!(
                 diff >= 400,
                 "Exp 14 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
+                z + 1
+            );
+        }
+
+        // 17. Exp 15 Complexity full 16-zone (Z00..=Z15, vid=2500..=2515), 119/119 features, Gray-Scott dispatch & companions
+        let eye15 = DVec3::new(1.10, 0.72, 3.55);
+        let cam15 = macro_cam(eye15);
+        let exp15_feats: [u16; 16] = [6, 8, 7, 8, 7, 6, 8, 8, 8, 7, 8, 7, 8, 8, 8, 7];
+        let mut zone15_f0: Vec<Vec<u8>> = Vec::with_capacity(16);
+        for (z_idx, &feat_count) in exp15_feats.iter().enumerate() {
+            let zone = z_idx as u16;
+            assert!(
+                is_zone_migrated_tier_a(15, zone),
+                "Exp 15 Z{zone:02} must be migrated Tier-A"
+            );
+            let d15 = DocumentaryFocusState {
+                active_zone_index: zone,
+                ..Default::default()
+            };
+            assert_eq!(resolve_zone_shader_vid(15, &d15), 2500 + zone as u32);
+            let expected_mode = if zone == 9 { 6u32 } else { 12u32 };
+            let mut renders = Vec::with_capacity(feat_count as usize);
+            for feat in 0u16..feat_count {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::COMPLEXITY_HELIX, eye15, -7.0, DQuat::IDENTITY),
+                    cam15,
+                    256,
+                    256,
+                );
+                input.active_experience_id = 15;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [0.28, 1.42, 0.92],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                assert_eq!(
+                    scene.dispatch_field_grid,
+                    Some(0),
+                    "Exp 15 must keep Gray-Scott field_grid dispatch active"
+                );
+                let expected_vid = 2500 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 8 && h.kind_tags[1] == expected_vid),
+                    "Exp 15 Z{zone:02} F{feat} must emit primary stage hero (kind=8, vid={expected_vid})"
+                );
+                if let Some(slot) = match zone {
+                    4 => Some(0u8),
+                    8 | 11 => Some(1),
+                    12 | 13 => Some(2),
+                    _ => None,
+                } {
+                    let comp_vid = canonical_companion_vid(15, slot);
+                    assert!(
+                        scene
+                            .heroes_surface
+                            .iter()
+                            .any(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == comp_vid),
+                        "Exp 15 Z{zone:02} must emit canonical companion sphere vid={comp_vid}"
+                    );
+                } else {
+                    assert!(
+                        scene.heroes_surface.is_empty(),
+                        "Exp 15 Z{zone:02} must emit 0 peripheral spheres"
+                    );
+                }
+
+                let px = renderer21
+                    .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
+                    .expect("Exp 15 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 254 && c[1] >= 254 && c[2] >= 254)
+                    .count();
+                assert!(
+                    void_px * 100 >= total_px21 * 55,
+                    "Exp 15 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
+                );
+                assert!(
+                    lit_px >= 450,
+                    "Exp 15 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 15 Z{zone:02} F{feat} must have 0 blown highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..renders.len() {
+                for j in (i + 1)..renders.len() {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 120,
+                        "Exp 15 Z{zone:02} features F{i} and F{j} must differ by >=120 px, got {diff}"
+                    );
+                }
+            }
+            zone15_f0.push(renders.remove(0));
+        }
+        for z in 0..15 {
+            let diff = count_diff_px(&zone15_f0[z], &zone15_f0[z + 1]);
+            assert!(
+                diff >= 400,
+                "Exp 15 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
                 z + 1
             );
         }
