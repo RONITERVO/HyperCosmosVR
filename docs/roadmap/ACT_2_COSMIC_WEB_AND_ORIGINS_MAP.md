@@ -2,7 +2,7 @@
 
 [Master Visual Roadmap](../CONTRIBUTOR_VISUAL_ROADMAP.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md) · [Shader Contracts](../../shaders/SHADER_CONTRACTS.md) · [Act I Map](ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) · [Act III Map](ACT_3_MATTER_AND_SPACETIME_MAP.md) · [Act IV Map](ACT_4_LIFE_MIND_AND_SENSES_MAP.md) · [Act V Map](ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md)
 
-> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`15 / 26` Act II packages = `100%` of `05_milky_way`, `06_local_group`, `07_laniakea`, `08_cosmic_web`, `09_observable_universe`, and `10_early_universe` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
+> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`20 / 26` Act II packages = `100%` of `05_milky_way`, `21_cosmic_life`, `06_local_group`, `07_laniakea`, `08_cosmic_web`, `09_observable_universe`, and `10_early_universe` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
 
 > [!IMPORTANT]
 > **Odyssey Act II Travel Order (`&[5, 21, 22, 6, 7, 8, 9, 10]`):** [`odyssey.rs#L29-L32`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) embeds **Exp 21 (`21_cosmic_life`)** and **Exp 22 (`22_cosmic_contact`)** inside the Orion Spur between **Exp 05 (`05_milky_way`)** and **Exp 06 (`06_local_group`)**, while [`topology.rs#L419-L426`](../../crates/cosmos_spatial/src/topology.rs#L419-L426) links both `5 -> 21 -> 22` (`EmbeddedStellarArm`) and the outward cosmological ladder `5 -> 6 -> 7 -> 8 -> 9 -> 10` (`ScaleRiseOutward`). Chapters and Pick-Up Cards below follow exact **Odyssey Act II progression (`05 -> 21 -> 22 -> 06 -> 07 -> 08 -> 09 -> 10`)**.
@@ -12,16 +12,16 @@
 | Pos | Exp | Slug | Catalog Title (ES) | Zones | Zone `[A / B / C / D]` | Feats | Feat `[A / B / C / D]` | Landmarks | Current `doc_stage_variant_id` / Dispatch | Reserved `vid` Block | Packages |
 |---:|---:|---|---|---:|:---:|---:|:---:|---:|---|---|---:|
 | 1 / 8 | `05` | `05_milky_way` | Espectro de la Vía Láctea · Del sistema solar al borde galáctico | **13** | `13 / 0 / 0 / 0` | **65** | `65 / 0 / 0 / 0` | 13 (`12` baked + `Z12`) | **`[TIER-A]` Complete:** canonical `1500..=1512` stages + `3660..=3671` companions + `Z12` landmark + `65/65` `doc_feat` | `1500..=1512` (3660..=3671) | `3` *(3 done)* |
-| 2 / 8 | `21` | `21_cosmic_life` | Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre | **25** | `0 / 4 / 4 / 17` | **200** | `0 / 10 / 32 / 158` | 0 | `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored) | `3100..=3124` (3820..=3829) | `5` |
+| 2 / 8 | `21` | `21_cosmic_life` | Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre | **25** | `25 / 0 / 0 / 0` | **200** | `200 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `3100..=3124` stages (`shade_doc_cosmic_life_stage`) + `3820` companion on `Z04/Z13/Z14/Z15` + `200/200` `doc_feat` | `3100..=3124` (3820) | `5` *(5 done)* |
 | 3 / 8 | `22` | `22_cosmic_contact` | Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones | **28** | `0 / 5 / 15 / 8` | **168** | `0 / 11 / 88 / 69` | 0 | `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs) | `3200..=3227` (3830..=3839) | `6` |
 | 4 / 8 | `06` | `06_local_group` | Espectro del Grupo Local: de la Vía Láctea a Andrómeda | **9** | `9 / 0 / 0 / 0` | **45** | `45 / 0 / 0 / 0` | 9 | **`[TIER-A]` Complete:** canonical `1600..=1608` stages + `3680..=3688` companions + `45/45` `doc_feat` | `1600..=1608` (3680..=3688) | `2` *(2 done)* |
 | 5 / 8 | `07` | `07_laniakea` | Espectro de Laniakea: del Grupo Local al Gran Atractor | **10** | `10 / 0 / 0 / 0` | **50** | `50 / 0 / 0 / 0` | 10 | **`[TIER-A]` Complete:** canonical `1700..=1709` stages + `3700..=3709` companions + `50/50` `doc_feat` | `1700..=1709` (3700..=3709) | `2` *(2 done)* |
 | 6 / 8 | `08` | `08_cosmic_web` | Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo | **11** | `11 / 0 / 0 / 0` | **55** | `55 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `1800..=1810` stages (`shade_doc_cosmic_web_stage`) + Mode 2 & `cs_field_grid` cues + `55/55` `doc_feat` | `1800..=1810` (Mode 2 + `cs_field_grid` cues) | `3` *(3 done)* |
 | 7 / 8 | `09` | `09_observable_universe` | Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico | **11** | `11 / 0 / 0 / 0` | **55** | `55 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `1900..=1910` stages (`shade_doc_observable_universe_stage`) + Mode `2/13/5` & `cmb_alpha`/star isolation + `55/55` `doc_feat` | `1900..=1910` (Epoch-gated `compute_mode`) | `3` *(3 done)* |
 | 8 / 8 | `10` | `10_early_universe` | Espectro del Universo Temprano: del Fondo Cósmico a la Inflación | **9** | `9 / 0 / 0 / 0` | **46** | `46 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `2000..=2008` stages (`shade_doc_early_universe_stage`) + Mode `13/3/5` & pre-stellar isolation + `46/46` `doc_feat` | `2000..=2008` (Zone-gated compute) | `2` *(2 done)* |
-| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`63 / 9 / 19 / 25`** | **`684`** | **`316 / 21 / 120 / 227`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **54.3% Tier-A · 7.8% B · 16.4% C · 21.6% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`15` done)* |
+| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`88 / 5 / 15 / 8`** | **`684`** | **`516 / 11 / 88 / 69`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **75.9% Tier-A · 4.3% B · 12.9% C · 6.9% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`20` done)* |
 
-*Feature distribution across Act II (`684` features): `46.2%` Tier-A (`316`), `3.1%` Tier-B (`21`), `17.5%` Tier-C (`120`), `33.2%` Tier-D (`227`).*
+*Feature distribution across Act II (`684` features): `75.4%` Tier-A (`516`), `1.6%` Tier-B (`11`), `12.9%` Tier-C (`88`), `10.1%` Tier-D (`69`).*
 
 ## 2. P0 Core Pipeline Prerequisites & Act II Architectural Findings
 
@@ -49,11 +49,11 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 | [`PKG-ACT2-EXP05-Z00-04`](#pkg-act2-exp05-z00-04) | `05` | `Z00..Z04` (5) | `25` | Phase 1 + Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1500..=1504` + `3660..=3664`):** Solar frontier -> Alpha Centauri bespoke geometry, landmark LOD floor, `25/25` `doc_feat` transitions |
 | [`PKG-ACT2-EXP05-Z05-08`](#pkg-act2-exp05-z05-08) | `05` | `Z05..Z08` (4) | `20` | Phase 1 + Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1505..=1508` + `3665..=3668`):** Stellar neighborhood, Local Bubble cavity, Orion Spur, pillar nursery + `20/20` `doc_feat` transitions |
 | [`PKG-ACT2-EXP05-Z09-12`](#pkg-act2-exp05-z09-12) | `05` | `Z09..Z12` (4) | `20` | Phase 1 + Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1509..=1512` + `3669..=3671` + 13th `Z12` landmark):** Galactic disk, Sgr A*, halo, Milky Way edge + `20/20` `doc_feat` transitions |
-| [`PKG-ACT2-EXP21-Z00-04`](#pkg-act2-exp21-z00-04) | `21` | `Z00..Z04` (5) | `40` | Phase 1 · **Critical** | `0/1/1/3` | `0/3/5/32` | Cosmic Life Origins & Planetary Habitability Lab (`z=00..04`) |
-| [`PKG-ACT2-EXP21-Z05-09`](#pkg-act2-exp21-z05-09) | `21` | `Z05..Z09` (5) | `40` | Phase 1 · **Critical** | `0/0/1/4` | `0/0/6/34` | Ocean Worlds, Biosphere Diversity & Evolutionary Thresholds (`z=05..09`) |
-| [`PKG-ACT2-EXP21-Z10-14`](#pkg-act2-exp21-z10-14) | `21` | `Z10..Z14` (5) | `40` | Phase 1 · **Critical** | `0/3/0/2` | `0/7/0/33` | Extremophiles, Europa Plumes, Exoplanet Detection & Biosignatures (`z=10..14`) |
-| [`PKG-ACT2-EXP21-Z15-19`](#pkg-act2-exp21-z15-19) | `21` | `Z15..Z19` (5) | `40` | Phase 1 · **Critical** | `0/0/0/5` | `0/0/8/32` | Technosignatures, Great Filter & Fermi Silence (`z=15..19`) |
-| [`PKG-ACT2-EXP21-Z20-24`](#pkg-act2-exp21-z20-24) | `21` | `Z20..Z24` (5) | `40` | Phase 1 · **Critical** | `0/0/2/3` | `0/0/13/27` | Cosmic Humility, Alien Societal Archetypes & Interstellar Ethics (`z=20..24`) |
+| [`PKG-ACT2-EXP21-Z00-04`](#pkg-act2-exp21-z00-04) | `21` | `Z00..Z04` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3100..=3104`):** Cosmic Life Origins, CHNOPS, Stellar Stability, Disks & Habitable Zone (`Z04` + `3820`) + `40/40` `doc_feat` |
+| [`PKG-ACT2-EXP21-Z05-09`](#pkg-act2-exp21-z05-09) | `21` | `Z05..Z09` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3105..=3109`, Mode 12 micro-zones):** Real Habitability, Prebiotic Chemistry, Origin of Life, Microbial & Complex Life + `40/40` `doc_feat` |
+| [`PKG-ACT2-EXP21-Z10-14`](#pkg-act2-exp21-z10-14) | `21` | `Z10..Z14` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3110..=3114` + `3820`):** Extremophiles, Mars Stratigraphy, Ocean Worlds, Exoplanet Transits & Biosignatures + `40/40` `doc_feat` |
+| [`PKG-ACT2-EXP21-Z15-19`](#pkg-act2-exp21-z15-19) | `21` | `Z15..Z19` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3115..=3119` + `3820`/Mode 1):** False Positives, Cognitive Bush, Xenocognition, Technosignatures & Fermi Paradox + `40/40` `doc_feat` |
+| [`PKG-ACT2-EXP21-Z20-24`](#pkg-act2-exp21-z20-24) | `21` | `Z20..Z24` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3120..=3124`, Mode 15 lotus relays):** Great Filter Funnel, Alien Archetypes, Light-Cone Relays, Verification Globe & Exotic Life + `40/40` `doc_feat` |
 | [`PKG-ACT2-EXP22-Z00-04`](#pkg-act2-exp22-z00-04) | `22` | `Z00..Z04` (5) | `30` | Phase 1 · **Critical** | `0/3/0/2` | `0/5/5/20` | SETI Anomaly Triage, Noise Verification & Signal Confirmation (`z=00..04`, `scene=0` split) |
 | [`PKG-ACT2-EXP22-Z05-09`](#pkg-act2-exp22-z05-09) | `22` | `Z05..Z09` (5) | `30` | Phase 1 · **Critical** | `0/0/3/2` | `0/1/17/12` | Passive vs Active Searches & Global Coordination Forums (`z=05..09`, `scene=8` part 1) |
 | [`PKG-ACT2-EXP22-Z10-14`](#pkg-act2-exp22-z10-14) | `22` | `Z10..Z14` (5) | `30` | Phase 1 · **Critical** | `0/1/2/2` | `0/2/16/12` | Social Reaction, Prime Math Signatures & Cryptographic Decoding (`z=10..14`, `scene=8` part 2) |
@@ -478,21 +478,21 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 21: `21_cosmic_life` — Vida Cósmica / Cosmic Life (`25` Zones, `200` Features, `0` Landmarks)
+### Exp 21: `21_cosmic_life` — Vida Cósmica / Cosmic Life (`25` Zones, `200` Features, `0` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre* — Spectrum of Cosmic Life: from Habitable Planets to Extraterrestrial Intelligence
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **2 / 8** (Chapter `act2_exp21`)
 - **Spatial & Scale Band:** `SectorId::ORION_SPUR` (`anchor_local=(-0.35, 0.0, 0.25)`) · `u ∈ [15.5, 20.0]` · `focus_scale_exp = 18.0` (`topology.rs:340`)
-- **Compute & Far Shell:** `mode = 13` (cosmological radial redshift stream — mismatch for exoplanet biospheres!, `compute_universe.wgsl:319-330`, `universe_scene.rs:313`) · `galaxy_plane = 1.0`, `star_density = 1.0` Orion Spur background (`universe_scene.rs:350-370`)
-- **Current Render Dispatch:** `doc_stage_variant_id(21)` (`doc_stages.rs:75-78`) routes `z=12 -> vid=212` (Europa plume shell) and ALL other 24 zones -> `vid=210` (`mode=0`: twin-ring Habitable Zone orbiter, ignoring `scene=0..24` completely!), plus twin `heroes_surface` spheres `vid=11 / vid=10` (`doc_stages.rs:764-786`); `hero_doc_civilization_horizon.wgsl:363-388` shifts `orb_ang` by `f32(feat)*0.45` only.
-- **Granular Audit Tally:** Zones `0A / 4B / 4C / 17D` (`25`) · Features `0A / 10B / 32C / 158D` (`200`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `astrobiologia`, `habitabilidad`, `agua`, `exoplaneta`, `biofirma`, `extremofilo`, `encelado` & `europa` (exist), `tránsito`, `espectro`, `biosfera`, `tecnofirma`, `fermi`
+- **Compute & Far Shell (`[COMPLETED — TIER-A]`):** `select_compute_mode(21)` routes `Z06..=Z10 => 12` (Prebiotic Rayleigh-Benard convection), `Z19 => 1` (Milky Way Fermi disk), `Z22..=Z23 => 15` (SETI convergence filaments), and other zones `=> 13`; `build_far_shell_uniforms` suppresses `galaxy_plane = 0.0` and dims stars to `0.25` during `Z06..=Z10` micro-chambers.
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a((21, 0..=24))` -> `3100..=3124`) + `shade_doc_cosmic_life_stage` in `hero_doc_civilization_horizon.wgsl` across all `25` zones & `200/200` features (`<= 28` raymarch steps), plus canonical companion `3820` on planetary comparison zones (`Z04, Z13, Z14, Z15`), GPU-verified in `render_tests.rs` Section 13.
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `25A / 0B / 0C / 0D` (`25`) · Features `200A / 0B / 0C / 0D` (`200`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added `32` bilingual `Exp 21` tokens (`astrobiologia`/`astrobiology`, `habitabilidad`/`habitability`, `agua`/`water`, `exoplaneta`/`exoplanet`, `biofirma`/`biosignature`, `extremofilo`/`extremophile`, `transito`/`transit`, `espectro`/`spectrum`, `biosfera`/`biosphere`, `tecnofirma`/`technosignature`, `fermi`, `filtro`/`filter`, `protocelula`/`protocell`, `abiogenesis`, `prebiotica`/`prebiotic`, `eucariota`/`eukaryote`, `estromatolito`/`stromatolite`).
 
 <a id="pkg-act2-exp21-z00-04"></a>
-### PKG-ACT2-EXP21-Z00-04: Cosmic Life Origins & Planetary Habitability Lab (`z=00..04`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP21-Z00-04: Cosmic Life Origins & Planetary Habitability Lab (`z=00..04`) — `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z00..Z04` (`5` zones, `40` features) | Zone Tiers `0A / 1B / 1C / 3D` | Feature Tiers `0A / 3B / 5C / 32D` | Render path: [`doc_stages.rs#L75-L78`](../../crates/cosmos_render/src/doc_stages.rs#L75-L78) -> [`shaders/hero_doc_civilization_horizon.wgsl#L363-L388`](../../shaders/hero_doc_civilization_horizon.wgsl#L363-L388) — `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `40` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z04` (`5` zones, `40` features) | Live Zone Tiers `5A / 0B / 0C / 0D` | Live Feature Tiers `40A / 0B / 0C / 0D` | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3100..=3104` + companion `3820` on `Z04`) -> `shade_doc_cosmic_life_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 13.
 
 **Reserved Target IDs:**
 
@@ -638,9 +638,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp21-z05-09"></a>
-### PKG-ACT2-EXP21-Z05-09: Ocean Worlds, Biosphere Diversity & Evolutionary Thresholds (`z=05..09`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP21-Z05-09: Ocean Worlds, Biosphere Diversity & Evolutionary Thresholds (`z=05..09`) — `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z05..Z09` (`5` zones, `40` features) | Zone Tiers `0A / 0B / 1C / 4D` | Feature Tiers `0A / 0B / 6C / 34D` | Render path: [`doc_stages.rs#L75-L78`](../../crates/cosmos_render/src/doc_stages.rs#L75-L78) -> [`shaders/hero_doc_civilization_horizon.wgsl#L363-L388`](../../shaders/hero_doc_civilization_horizon.wgsl#L363-L388) — `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `40` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z05..Z09` (`5` zones, `40` features) | Live Zone Tiers `5A / 0B / 0C / 0D` | Live Feature Tiers `40A / 0B / 0C / 0D` | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3105..=3109`, Mode 12 on `Z06..=Z09`) -> `shade_doc_cosmic_life_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 13.
 
 **Reserved Target IDs:**
 
@@ -786,9 +786,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp21-z10-14"></a>
-### PKG-ACT2-EXP21-Z10-14: Extremophiles, Europa Plumes, Exoplanet Detection & Biosignatures (`z=10..14`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP21-Z10-14: Extremophiles, Europa Plumes, Exoplanet Detection & Biosignatures (`z=10..14`) — `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z10..Z14` (`5` zones, `40` features) | Zone Tiers `0A / 3B / 0C / 2D` | Feature Tiers `0A / 7B / 0C / 33D` | Render path: [`doc_stages.rs#L75-L78`](../../crates/cosmos_render/src/doc_stages.rs#L75-L78) -> [`shaders/hero_doc_civilization_horizon.wgsl#L363-L388`](../../shaders/hero_doc_civilization_horizon.wgsl#L363-L388) — `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `40` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z10..Z14` (`5` zones, `40` features) | Live Zone Tiers `5A / 0B / 0C / 0D` | Live Feature Tiers `40A / 0B / 0C / 0D` | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3110..=3114` + `3820` on `Z13/Z14`) -> `shade_doc_cosmic_life_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 13.
 
 **Reserved Target IDs:**
 
@@ -934,9 +934,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp21-z15-19"></a>
-### PKG-ACT2-EXP21-Z15-19: Technosignatures, Great Filter & Fermi Silence (`z=15..19`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP21-Z15-19: Technosignatures, Great Filter & Fermi Silence (`z=15..19`) — `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z15..Z19` (`5` zones, `40` features) | Zone Tiers `0A / 0B / 0C / 5D` | Feature Tiers `0A / 0B / 8C / 32D` | Render path: [`doc_stages.rs#L75-L78`](../../crates/cosmos_render/src/doc_stages.rs#L75-L78) -> [`shaders/hero_doc_civilization_horizon.wgsl#L363-L388`](../../shaders/hero_doc_civilization_horizon.wgsl#L363-L388) — `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `40` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z15..Z19` (`5` zones, `40` features) | Live Zone Tiers `5A / 0B / 0C / 0D` | Live Feature Tiers `40A / 0B / 0C / 0D` | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3115..=3119`, `3820` on `Z15`, Mode 1 on `Z19`) -> `shade_doc_cosmic_life_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 13.
 
 **Reserved Target IDs:**
 
@@ -1082,9 +1082,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp21-z20-24"></a>
-### PKG-ACT2-EXP21-Z20-24: Cosmic Humility, Alien Societal Archetypes & Interstellar Ethics (`z=20..24`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP21-Z20-24: Cosmic Humility, Alien Societal Archetypes & Interstellar Ethics (`z=20..24`) — `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z20..Z24` (`5` zones, `40` features) | Zone Tiers `0A / 0B / 2C / 3D` | Feature Tiers `0A / 0B / 13C / 27D` | Render path: [`doc_stages.rs#L75-L78`](../../crates/cosmos_render/src/doc_stages.rs#L75-L78) -> [`shaders/hero_doc_civilization_horizon.wgsl#L363-L388`](../../shaders/hero_doc_civilization_horizon.wgsl#L363-L388) — `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `40` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z20..Z24` (`5` zones, `40` features) | Live Zone Tiers `5A / 0B / 0C / 0D` | Live Feature Tiers `40A / 0B / 0C / 0D` | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3120..=3124`, Mode 15 on `Z22/Z23`) -> `shade_doc_cosmic_life_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 13.
 
 **Reserved Target IDs:**
 

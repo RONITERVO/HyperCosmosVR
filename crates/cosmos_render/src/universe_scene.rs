@@ -368,11 +368,17 @@ pub fn select_compute_mode(
                 if u_cam >= 26.8 {
                     5
                 } else {
-                    2
+                    13
                 }
             }
         },
-        11 | 12 | 21 | 22 => 13,
+        21 => match doc.active_zone_index {
+            6..=10 => 12,
+            19 => 1,
+            22 | 23 => 15,
+            _ => 13,
+        },
+        11 | 12 | 22 => 13,
         13 => {
             if u_cam < -12.5 {
                 3
@@ -413,7 +419,7 @@ pub fn build_far_shell_uniforms(
 ) -> FarShellUniforms {
     let mw_fade_in = smoothstep(5.0, 9.5, u_cam);
     let mw_fade_out = 1.0 - smoothstep(21.2, 23.6, u_cam);
-    let galaxy_plane = (mw_fade_in * mw_fade_out).clamp(0.0, 1.0);
+    let mut galaxy_plane = (mw_fade_in * mw_fade_out).clamp(0.0, 1.0);
 
     // Keep Cosmic Web (u = 25.35) completely free of warm CMB haze, separate CMB (09) from Inflation (10),
     // and fade Inflation out cleanly above u = 27.4 so Final Horizon Lotus (u ~ 28.5) floats in >=70% #000000 void.
@@ -441,7 +447,7 @@ pub fn build_far_shell_uniforms(
         1.0
     };
 
-    if doc.narration_active_weight >= 0.05 && doc.active_zone_index != u16::MAX {
+    if doc.active_zone_index != u16::MAX {
         match experience_id {
             9 => {
                 if doc.active_zone_index < 8 {
@@ -449,7 +455,7 @@ pub fn build_far_shell_uniforms(
                 } else {
                     cmb_alpha = cmb_alpha.max(0.62);
                 }
-                if matches!(doc.active_zone_index, 7 | 8) {
+                if doc.active_zone_index >= 7 {
                     star_density = 0.0;
                 }
             }
@@ -465,6 +471,12 @@ pub fn build_far_shell_uniforms(
                 } else {
                     0.0
                 };
+            }
+            21 => {
+                if matches!(doc.active_zone_index, 6..=10) {
+                    galaxy_plane = 0.0;
+                    star_density *= 0.25;
+                }
             }
             _ => {}
         }

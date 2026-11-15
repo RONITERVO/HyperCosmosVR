@@ -406,7 +406,7 @@ fn phase7_documentary_stages_01_through_25_oled_and_telemetry_hold() {
         DocStageCase { exp_id: 1, sector: SectorId::COLORS_PRISM, scale_u: 2.0, scene_idx: 2, zone_idx: 3, feat_idx: 1, telemetry: [215.0, 0.92, 0.56, 2.0], expected_surface: 3 },
         DocStageCase { exp_id: 2, sector: SectorId::MUSIC_HARP, scale_u: 2.0, scene_idx: 1, zone_idx: 2, feat_idx: 4, telemetry: [69.0, 2.0, 440.0, 0.85], expected_surface: 0 },
         DocStageCase { exp_id: 13, sector: SectorId::QUANTUM_FIELD, scale_u: -10.0, scene_idx: 2, zone_idx: 4, feat_idx: 0, telemetry: [0.0; 4], expected_surface: 0 },
-        DocStageCase { exp_id: 14, sector: SectorId::PLANCK_ORIGIN, scale_u: -18.0, scene_idx: 1, zone_idx: 2, feat_idx: 1, telemetry: [0.0; 4], expected_surface: 0 },
+        DocStageCase { exp_id: 14, sector: SectorId::PLANCK_ORIGIN, scale_u: -29.6, scene_idx: 1, zone_idx: 2, feat_idx: 1, telemetry: [0.0; 4], expected_surface: 0 },
         DocStageCase { exp_id: 17, sector: SectorId::MIND_CATHEDRAL, scale_u: 2.15, scene_idx: 1, zone_idx: 3, feat_idx: 2, telemetry: [0.0; 4], expected_surface: 0 },
         DocStageCase { exp_id: 22, sector: SectorId::ORION_SPUR, scale_u: 17.8, scene_idx: 0, zone_idx: 1, feat_idx: 0, telemetry: [0.0; 4], expected_surface: 0 },
         DocStageCase { exp_id: 23, sector: SectorId::HYPER_LOTUS_23_PERSPECTIVES, scale_u: 27.6, scene_idx: 2, zone_idx: 2, feat_idx: 3, telemetry: [0.0; 4], expected_surface: 0 },
@@ -2144,6 +2144,200 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             assert!(
                 diff >= 800,
                 "Exp 10 consecutive zones Z{z:02} and Z{:02} must differ by >=800 px, got {diff}",
+                z + 1
+            );
+        }
+    }
+
+    // 13. PR #8 review nitpick regressions + Exp 21 Cosmic Life full 25-zone (Z00..=Z24, vid=3100..=3124) [TIER-A] & 200/200 feature GPU verification
+    {
+        use cosmos_render::doc_stages::emit_doc_stage_hero;
+        use cosmos_render::{build_far_shell_uniforms, select_compute_mode};
+
+        // 13a. PR #8 nitpick: cross-experience DocumentaryFocusState isolation & un-clamped submode when active_zone_index == u16::MAX
+        let mut iso_input = SceneBuildInput::desktop_default(
+            ScalePose64::new(SectorId::COSMIC_WEB, DVec3::new(0.0, 0.25, 3.2), 25.35, DQuat::IDENTITY),
+            macro_cam(DVec3::new(0.0, 0.25, 3.2)),
+            256,
+            256,
+        );
+        iso_input.active_experience_id = 8;
+        iso_input.documentary.active_zone_index = 5;
+        let (mut hs_iso, mut hv_iso, mut sp_iso) = (Vec::new(), Vec::new(), Vec::new());
+        emit_doc_stage_hero(
+            9,
+            Vec3::new(0.0, 0.0, -3.2),
+            1.6,
+            [0.0, 0.0, 0.0, 1.0],
+            Vec3::Y,
+            0.5,
+            &iso_input,
+            &mut hs_iso,
+            &mut hv_iso,
+            &mut sp_iso,
+        );
+        assert_eq!(hv_iso[0].kind_tags[1], 9, "neighboring Exp 09 anchor must not inherit Exp 08 zone_index");
+        assert_eq!((hv_iso[0].kind_tags[3] >> 24) & 0xFF, 0, "inactive neighbor must encode submode=0");
+
+        hv_iso.clear();
+        hs_iso.clear();
+        emit_doc_stage_hero(
+            21,
+            Vec3::new(0.0, 0.0, -3.2),
+            1.6,
+            [0.0, 0.0, 0.0, 1.0],
+            Vec3::Y,
+            0.5,
+            &iso_input,
+            &mut hs_iso,
+            &mut hv_iso,
+            &mut sp_iso,
+        );
+        assert_eq!(hv_iso[0].kind_tags[1], 210, "neighboring Exp 21 anchor must not inherit Exp 08 zone_index");
+        assert_eq!((hv_iso[0].kind_tags[3] >> 24) & 0xFF, 0, "inactive Exp 21 neighbor must encode submode=0");
+
+        // 13b. PR #8 nitpick: build_far_shell_uniforms gates on active_zone_index != u16::MAX (even if narration_active_weight == 0.0) & star_density=0 on Exp 09 Z09/Z10
+        for z in [7u16, 8, 9, 10] {
+            let far_quiet = build_far_shell_uniforms(
+                26.35,
+                9,
+                &DocumentaryFocusState {
+                    active_zone_index: z,
+                    narration_active_weight: 0.0,
+                    ..Default::default()
+                },
+            );
+            assert_eq!(
+                far_quiet.galaxy_north[3], 0.0,
+                "Exp 09 Z{z:02} must suppress foreground stars even with narration_active_weight == 0.0"
+            );
+        }
+
+        // 13c. PR #8 nitpick: Exp 10 compute fallback must never route to Cosmic Web filaments (mode 2)
+        assert_eq!(select_compute_mode(27.0, 10, &DocumentaryFocusState::default()), 5);
+        assert_eq!(select_compute_mode(26.5, 10, &DocumentaryFocusState::default()), 13);
+
+        // 13d. Exp 21 Cosmic Life: 25/25 zones (vid=3100..=3124), 200/200 features (F0..=F7)
+        let mut renderer21 = CosmosRenderer::init_desktop(256, 256).expect("RTX 5070 DX12 256x256 init");
+        let total_px21: usize = 256 * 256;
+        let eye21 = DVec3::new(-0.35, 0.20, 3.05);
+        let cam21 = macro_cam(eye21);
+        let mut zone_f0: Vec<Vec<u8>> = Vec::with_capacity(25);
+        for zone in 0u16..=24u16 {
+            assert!(
+                is_zone_migrated_tier_a(21, zone),
+                "Exp 21 Z{zone:02} must be migrated Tier-A"
+            );
+            let doc_chk = DocumentaryFocusState {
+                active_zone_index: zone,
+                ..Default::default()
+            };
+            assert_eq!(resolve_zone_shader_vid(21, &doc_chk), 3100 + zone as u32);
+            let expected_mode = match zone {
+                6..=10 => 12,
+                19 => 1,
+                22 | 23 => 15,
+                _ => 13,
+            };
+            assert_eq!(
+                select_compute_mode(18.12, 21, &doc_chk),
+                expected_mode,
+                "Exp 21 Z{zone:02} compute mode mismatch"
+            );
+            let far21 = build_far_shell_uniforms(18.12, 21, &doc_chk);
+            if matches!(zone, 6..=10) {
+                assert_eq!(far21.regime_weights[0], 0.0, "Exp 21 micro zone Z{zone:02} must suppress galaxy plane");
+                assert!(far21.galaxy_north[3] <= 0.25, "Exp 21 micro zone Z{zone:02} must dim stars");
+            }
+
+            let mut renders = Vec::with_capacity(8);
+            for feat in 0u16..8u16 {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::ORION_SPUR, eye21, 18.12, DQuat::IDENTITY),
+                    cam21,
+                    256,
+                    256,
+                );
+                input.active_experience_id = 21;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [0.24, 1.18, 0.95],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                let expected_vid = 3100 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 9 && h.kind_tags[1] == expected_vid),
+                    "Exp 21 Z{zone:02} F{feat} must emit primary stage hero (kind=9, vid={expected_vid})"
+                );
+                if matches!(zone, 4 | 13 | 14 | 15) {
+                    assert!(
+                        scene
+                            .heroes_surface
+                            .iter()
+                            .any(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == canonical_companion_vid(21, 0)),
+                        "Exp 21 Z{zone:02} must emit canonical companion sphere vid=3820"
+                    );
+                } else {
+                    assert!(
+                        scene.heroes_surface.is_empty(),
+                        "Exp 21 non-companion zone Z{zone:02} must emit 0 cluttering globes"
+                    );
+                }
+
+                let px = renderer21
+                    .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
+                    .expect("Exp 21 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                    .count();
+                assert!(
+                    void_px * 100 >= total_px21 * 55,
+                    "Exp 21 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
+                );
+                assert!(
+                    lit_px >= 450,
+                    "Exp 21 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 21 Z{zone:02} F{feat} must have 0 clipped highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..8usize {
+                for j in (i + 1)..8usize {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 120,
+                        "Exp 21 Z{zone:02} features F{i} and F{j} must differ by >=120 px, got {diff}"
+                    );
+                }
+            }
+            zone_f0.push(renders.remove(0));
+        }
+        for z in 0..24 {
+            let diff = count_diff_px(&zone_f0[z], &zone_f0[z + 1]);
+            assert!(
+                diff >= 400,
+                "Exp 21 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
                 z + 1
             );
         }
