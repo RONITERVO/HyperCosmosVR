@@ -19,7 +19,7 @@ The modular documentary hero pipeline concatenates **6 WGSL files in strict orde
 | `hero_doc_cosmos.wgsl` | 14-zone Deep Earth surface & cutaway (`03`), 11 Solar System worlds & PBR materials (`04`, `01`), Cassini/Goldilocks rings, Kerr BH, Local Group/Laniakea/Web/CMB/Landmarks (`05..10`) | *(module helper functions)* | Naga + HLSL SM 6.5 OK |
 | `hero_doc_matter_mind.wgsl` | Colors Prism & 3D HSL Bicone (`01`), Chladni Plate & 48-String Plucked Harp + 4 Timbre Chambers (`02`), Matter/QM & Spacetime (`13..14`), Complexity/Life & Sculpted 3D Anatomical Cortex Connectome (`15..17`) | *(module helper functions)* | Naga + HLSL SM 6.5 OK |
 | `hero_doc_civilization_horizon.wgsl` | Evidence/Future (`11..12`), Culture/Tech/Futures (`18..20`), Cosmic Life/Contact SETI Dish & Prime Beacon/6-Lens Mandala/Meaning/25-Petal Final Horizon (`21..25`) with `doc_zone`/`doc_feat` disambiguation & fade | *(module helper functions)* | Naga + HLSL SM 6.5 OK |
-| `compute_universe.wgsl` | Multi-mode compute particle advection (modes `0..15`) & 2D ping-pong PDE grids (modes `0..2`) | `cs_advect_particles` `@workgroup_size(256,1,1)`, `cs_field_grid` `@workgroup_size(8,8,1)` | Naga + HLSL SM 6.5 OK |
+| `compute_universe.wgsl` | Multi-mode compute particle advection (modes `0..16`) & 2D ping-pong PDE grids (modes `0..2`) | `cs_advect_particles` `@workgroup_size(256,1,1)`, `cs_field_grid` `@workgroup_size(8,8,1)` | Naga + HLSL SM 6.5 OK |
 | `far_shell.wgsl` | Infinite boundaryless sky dome (deep starfield, Milky Way dust, CMB, Inflation, Quantum Void, Hyper-Horizon Lotus) | `vs_main`, `vs_stereo`, `fs_main` | Naga + HLSL SM 6.5 OK |
 | `hero_volumetric.wgsl` | Modular entry-point dispatcher calling `doc_*` functions | `vs_main`, `vs_stereo`, `fs_hero_surface`, `fs_hero_volume` | Naga + HLSL SM 6.5 OK |
 | `instanced_sprites.wgsl` | Zero-VB procedural quad sprites (`0..7`): stars, filaments, asteroids, spectrograph/DNA barcodes, diegetic wrist/dwell rings, hex Dyson mirrors/mini-moons, Minkowski/SETI cones, hairline orbits | `vs_particle_main`, `vs_particle_stereo`, `vs_sprite_main`, `vs_sprite_stereo`, `fs_main` | Naga + HLSL SM 6.5 OK |
@@ -101,8 +101,8 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
     - `3`: QCD quark-gluon color flux confinement (`13`)
     - `4`: Electron spherical-harmonic orbitals (`13`) (`n = tags.y & 0xFF`, `l = (tags.y >> 8) & 0xFF`)
     - `5`: Planck spin-foam & quantum vacuum fluctuations (`14`/`13`)
-    - `6`: Complexity (`15`) Turing/BZ protocell shell waves
-    - `7`: Living Neural Connectome firing cascades (`16`/`17 Mind`)
+    - `6`: Cellular Turing/BZ shell waves (`15 Z09`, `16 Z00..=Z14`)
+    - `7`: Living Neural Connectome firing cascades (`16 Z15..=Z18` / `17 Mind`)
     - `8`: App `02` Cymatic standing-wave ripples driven by `u_audio.synth_b`
     - `9`: App `01` chromatic dust & dwell focus-attracted motes
     - `10`: Solar System (`04`) Keplerian asteroid & icy Kuiper belt ring
@@ -110,9 +110,10 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
     - `12`: Prebiotic Rayleigh-Benard convection micro-swarm (`15`, `13`)
     - `13`: Cosmological redshift expansion stream & photon flux (`11`, `12`, `21`, `22`)
     - `14`: Transformer token & optical bus orthogonal lattice (`18..20`)
-    - `15+`: 25-petal Hyper-Lotus equilibrium convergence (`23..25`)
+    - `15`: 25-petal Hyper-Lotus equilibrium convergence (`23..25`)
+    - `16`: Relativistic geodesic lensing and quadrupolar strain flow (`14 Z06..=Z09`)
   - `cs_field_grid` (`@workgroup_size(8,8,1)`, dispatch `ceil(grid_w/8), ceil(grid_h/8)`):
-    - `0`: Gray-Scott Turing reaction-diffusion (`15 Complexity`)
+    - `0`: Gray-Scott Turing reaction-diffusion (`15 Complexity`, `16 Z09` multicellularity / `Z10` development)
     - `1`: Chladni cymatic resonance PDE (`02 Music`)
     - `2+`: Auroral magnetospheric curtain field (`03 Thermosphere`)
 

@@ -222,6 +222,8 @@ impl UniverseSceneBuilder {
 
         let dispatch_field_grid = match (compute_mode, input.active_experience_id) {
             (_, 15) => Some(0),
+            // Exp 16 Z09 multicellular / Z10 development: Gray-Scott morphogen (Turing) patterning
+            (_, 16) if matches!(input.documentary.active_zone_index, 9 | 10) => Some(0),
             (_, 2) | (8, _) => Some(1),
             (_, 3) => Some(2),
             _ => None,
@@ -406,7 +408,10 @@ pub fn select_compute_mode(
             9 => 6,  // selforganization -> local-rule flock / reaction swarm
             _ => 12, // emergent convection vortex + Gray-Scott PDE
         },
-        16 => 6,
+        16 => match doc.active_zone_index {
+            15..=18 => 7, // nervous, brains, perception, consciousness -> neural connectome firing
+            _ => 6,       // cells, metabolism, heredity, evolution, organisms -> cellular BZ shell
+        },
         17 => 7,
         18..=20 => 14,
         23..=25 => 15,

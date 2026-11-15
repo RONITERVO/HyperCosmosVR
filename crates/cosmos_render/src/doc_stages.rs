@@ -98,6 +98,7 @@ pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool
             | (13, 0..=11)
             | (14, 0..=14)
             | (15, 0..=15)
+            | (16, 0..=18)
             | (21, 0..=24)
             | (22, 0..=27)
     )
@@ -1319,7 +1320,7 @@ pub fn emit_doc_stage_hero(
             let r_b = (rel_scale * 0.86).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
             let z = doc.active_zone_index;
-            let submode = if experience_id == 15 && z != u16::MAX {
+            let submode = if matches!(experience_id, 15 | 16) && z != u16::MAX {
                 (z as u32).min(31)
             } else {
                 0
@@ -1339,17 +1340,21 @@ pub fn emit_doc_stage_hero(
                 kind_tags: pack_doc_tags(8, vid, base_flags, submode, doc),
             });
 
-            if experience_id == 15 && z != u16::MAX {
-                let comp_slot = match z {
-                    4 => Some(0u8),       // 3760: Dissipative heat-reservoir Carnot frame sphere
-                    8 | 11 => Some(1u8),  // 3761: Scale-free network / catalytic monomer hub
-                    12 | 13 => Some(2u8), // 3762: Dividing lipid vesicle / template companion
+            if matches!(experience_id, 15 | 16) && z != u16::MAX {
+                let comp_slot = match (experience_id, z) {
+                    (15, 4) => Some(0u8),       // 3760: Dissipative heat-reservoir Carnot frame sphere
+                    (15, 8 | 11) => Some(1u8),  // 3761: Scale-free network / catalytic monomer hub
+                    (15, 12 | 13) => Some(2u8), // 3762: Dividing lipid vesicle / template companion
+                    (16, 4) => Some(0u8),       // 3770: RNA polymerase / ribonucleoprotein transcript globe
+                    (16, 7) => Some(1u8),       // 3771: Endosymbiont alpha-proteobacterium / plastid
+                    (16, 12) => Some(2u8),      // 3772: Biome globe with trophic nutrient ring
+                    (16, 15) => Some(3u8),      // 3773: Peripheral sensory-motor reflex loop ring
                     _ => None,
                 };
                 if let Some(slot) = comp_slot {
                     let comp_p = pos + stage_right * (r_b * 0.58) + stage_up * (r_b * 0.24);
                     let r_comp = (r_b * 0.13).clamp(0.03, 0.36);
-                    let comp_vid = canonical_companion_vid(15, slot);
+                    let comp_vid = canonical_companion_vid(experience_id, slot);
                     heroes_surface.push(HeroVolumeInstance {
                         pos_radius: [comp_p.x, comp_p.y, comp_p.z, r_comp],
                         rot_quat: face_quat,

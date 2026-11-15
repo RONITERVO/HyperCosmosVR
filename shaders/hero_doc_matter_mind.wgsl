@@ -1878,6 +1878,1442 @@ fn shade_doc_complexity_stage(
     return vec4<f32>(clamp(col * pulse, vec3<f32>(0.0), vec3<f32>(1.38)), clamp(dens, 0.0, 2.2));
 }
 
+// ============================================================================
+// EXP 16 (LIFE) — Canonical `[TIER-A]` 19-Zone Stage (`vid = 2600..=2618`, 153 features incl. Z18 F8)
+// ============================================================================
+fn doc_life_feat_gain(feat: u32, idx: u32, cue: f32) -> f32 {
+    if (feat >= 9u) {
+        return 0.42;
+    }
+    if (feat == idx) {
+        return 1.24 + 0.18 * sin(cue * TAU);
+    }
+    return 0.14;
+}
+
+fn mm_life_blob(p: vec3<f32>, c: vec3<f32>, rad: f32, k: f32) -> f32 {
+    return exp(-pow(max(length(p - c) - rad, 0.0) * k, 2.0));
+}
+
+fn mm_life_seg(p: vec3<f32>, a: vec3<f32>, b: vec3<f32>, rad: f32, k: f32) -> f32 {
+    return doc_line_glow(sd_capsule(p, a, b, rad), k);
+}
+
+fn mm_life_shell(p: vec3<f32>, c: vec3<f32>, rad: f32, k: f32) -> f32 {
+    return exp(-pow(abs(length(p - c) - rad) * k, 2.0));
+}
+
+fn mm_life_sparkle(p: vec3<f32>, freq: f32) -> f32 {
+    return pow(max(sin(p.x * freq) * sin(p.y * freq * 0.93) * sin(p.z * freq * 1.07), 0.0), 8.0);
+}
+
+fn shade_doc_life_stage(
+    zone: u32,
+    feat: u32,
+    p: vec3<f32>,
+    r: f32,
+    cue: f32,
+    w: f32,
+    time: f32,
+    voice: f32,
+    bass: f32,
+    col_a: vec3<f32>,
+    col_b: vec3<f32>,
+) -> vec4<f32> {
+    var col = vec3<f32>(0.0);
+    var dens: f32 = 0.0;
+    let accent_p = clamp(col_a, vec3<f32>(0.22), vec3<f32>(1.24));
+    let c_life = vec3<f32>(0.32, 1.20, 0.70);
+    let c_cyan = vec3<f32>(0.28, 0.96, 1.24);
+    let c_gold = vec3<f32>(1.24, 0.92, 0.30);
+    let c_mag = vec3<f32>(1.10, 0.42, 1.06);
+    let c_amber = vec3<f32>(1.24, 0.62, 0.24);
+    let c_blue = vec3<f32>(0.40, 0.66, 1.26);
+    let c_red = vec3<f32>(1.22, 0.30, 0.34);
+    let c_violet = vec3<f32>(0.72, 0.48, 1.24);
+
+    if (zone == 0u) {
+        // Z00: Threshold of Life — pre-LUCA protocell triad (vesicle, autocatalytic loop, gradient halo)
+        let g0 = doc_life_feat_gain(feat, 0u, cue);
+        let ves = mm_life_shell(p, vec3<f32>(0.0), 0.28, 46.0);
+        col += c_life * ves * (0.55 + 0.55 * g0);
+        dens += ves * (0.55 + 0.35 * g0);
+        for (var k = 0; k < 4; k = k + 1) {
+            let a = f32(k) * 1.5707963 + time * 0.35;
+            let np = vec3<f32>(cos(a) * 0.44, 0.0, sin(a) * 0.44);
+            let nn = vec3<f32>(cos(a + 1.5707963) * 0.44, 0.0, sin(a + 1.5707963) * 0.44);
+            let node = mm_life_blob(p, np, 0.030, 60.0);
+            let edge = mm_life_seg(p, np, nn, 0.006, 86.0);
+            col += c_gold * (node * 0.9 + edge * 0.45);
+            dens += node * 0.7 + edge * 0.35;
+        }
+        if (feat == 0u) {
+            // compartimento: second bilayer leaflet seals the interior
+            let inner = mm_life_shell(p, vec3<f32>(0.0), 0.245, 52.0);
+            col += c_cyan * inner * 0.9;
+            dens += inner * 0.7;
+        } else if (feat == 1u) {
+            // red de reacciones: pentagram reaction network inside the vesicle
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.2566371;
+                let b = a + 2.5132741;
+                let pa = vec3<f32>(cos(a) * 0.17, sin(a * 2.0) * 0.05, sin(a) * 0.17);
+                let pb = vec3<f32>(cos(b) * 0.17, sin(b * 2.0) * 0.05, sin(b) * 0.17);
+                let e = mm_life_seg(p, pa, pb, 0.006, 84.0);
+                col += c_amber * e;
+                dens += e * 0.6;
+            }
+        } else if (feat == 2u) {
+            // gradiente: hot-to-cold chemical gradient column feeding the vesicle
+            let colg = mm_life_seg(p, vec3<f32>(-0.50, -0.38, 0.0), vec3<f32>(-0.50, 0.38, 0.0), 0.026, 52.0);
+            let tgr = smoothstep(-0.38, 0.38, p.y);
+            col += mix(c_amber, c_cyan, tgr) * colg * (0.55 + 0.6 * (1.0 - tgr));
+            dens += colg * 0.72;
+        } else if (feat == 3u) {
+            // replicación: template strand + nascent copy strand
+            let s1 = mm_life_seg(p, vec3<f32>(-0.15, 0.05, 0.0), vec3<f32>(0.15, 0.05, 0.0), 0.010, 80.0);
+            let s2 = mm_life_seg(p, vec3<f32>(-0.15, -0.05, 0.0), vec3<f32>(0.06, -0.05, 0.0), 0.010, 80.0);
+            col += c_mag * s1 + c_cyan * s2;
+            dens += (s1 + s2) * 0.8;
+        } else if (feat == 4u) {
+            // variación: three daughter vesicles of different size
+            for (var k = 0; k < 3; k = k + 1) {
+                let dv = mm_life_shell(p, vec3<f32>(0.52, -0.22 + f32(k) * 0.22, 0.0), 0.045 + f32(k) * 0.022, 58.0);
+                col += mix(c_life, c_gold, f32(k) * 0.5) * dv;
+                dens += dv * 0.7;
+            }
+        } else if (feat == 5u) {
+            // cooperación molecular: two molecules locked into a mutual catalytic ring
+            let ring_c = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, 0.44, 0.0), 1.5708), 0.10, 0.008), 80.0);
+            let m1 = mm_life_blob(p, vec3<f32>(-0.10, 0.44, 0.0), 0.028, 60.0);
+            let m2 = mm_life_blob(p, vec3<f32>(0.10, 0.44, 0.0), 0.028, 60.0);
+            col += c_gold * ring_c + c_cyan * m1 + c_mag * m2;
+            dens += ring_c * 0.6 + (m1 + m2) * 0.8;
+        } else if (feat == 6u) {
+            // herencia imperfecta: copied strand with a red copying error
+            let st = mm_life_seg(p, vec3<f32>(-0.30, -0.44, 0.0), vec3<f32>(0.30, -0.44, 0.0), 0.009, 80.0);
+            let err = mm_life_blob(p, vec3<f32>(0.08, -0.44, 0.0), 0.034, 58.0);
+            col += c_cyan * st * 0.8 + c_red * err * 1.1;
+            dens += st * 0.6 + err * 0.9;
+        } else if (feat == 7u) {
+            // pregunta abierta: open mist halo + unresolved spark above the threshold
+            let mist = mm_life_shell(p, vec3<f32>(0.0), 0.56, 30.0) * (0.45 + 0.55 * abs(sin(p.y * 14.0)));
+            let spark = mm_life_blob(p, vec3<f32>(0.0, 0.56, 0.0), 0.030, 56.0);
+            col += c_violet * mist * 0.7 + c_gold * spark;
+            dens += mist * 0.45 + spark * 0.8;
+        }
+    } else if (zone == 1u) {
+        // Z01: First Living Systems — prokaryotic rod cell (wall, nucleoid loop, rotary flagellum)
+        let g0 = doc_life_feat_gain(feat, 0u, cue);
+        let rod_d = sd_capsule(p, vec3<f32>(-0.24, 0.0, 0.0), vec3<f32>(0.24, 0.0, 0.0), 0.15);
+        let rod_g = exp(-pow(abs(rod_d) * 46.0, 2.0));
+        let nucleoid = doc_line_glow(sd_torus(doc_rot_x(p, 1.2), 0.08, 0.008), 80.0);
+        let tail_x = clamp((p.x - 0.39) / 0.24, 0.0, 1.0);
+        let fl_y = 0.045 * sin(p.x * 40.0 - time * 6.0);
+        let fl_z = 0.045 * cos(p.x * 40.0 - time * 6.0);
+        let flag = exp(-pow(length(vec2<f32>(p.y - fl_y, p.z - fl_z)) * 60.0, 2.0)) * smoothstep(0.37, 0.41, p.x) * smoothstep(0.66, 0.60, p.x);
+        col += c_life * rod_g * (0.55 + 0.5 * g0) + c_gold * nucleoid * 0.8 + c_cyan * flag * (0.8 + 0.2 * tail_x);
+        dens += rod_g * 0.6 + nucleoid * 0.6 + flag * 0.7;
+        if (feat == 0u) {
+            // unidad: protective outer cell wall
+            let wall = exp(-pow(abs(sd_capsule(p, vec3<f32>(-0.24, 0.0, 0.0), vec3<f32>(0.24, 0.0, 0.0), 0.19)) * 50.0, 2.0));
+            col += c_cyan * wall * 0.9;
+            dens += wall * 0.7;
+        } else if (feat == 1u) {
+            // mantenimiento: ribosome chain + membrane pumps exchanging matter
+            for (var k = 0; k < 6; k = k + 1) {
+                let rb = mm_life_blob(p, vec3<f32>(-0.20 + f32(k) * 0.08, -0.06, 0.04), 0.014, 66.0);
+                col += c_amber * rb;
+                dens += rb * 0.7;
+            }
+            let pump_a = mm_life_seg(p, vec3<f32>(-0.10, 0.08, 0.0), vec3<f32>(-0.10, 0.24, 0.0), 0.012, 74.0);
+            let pump_b = mm_life_seg(p, vec3<f32>(0.10, 0.08, 0.0), vec3<f32>(0.10, 0.24, 0.0), 0.012, 74.0);
+            col += c_gold * (pump_a + pump_b);
+            dens += (pump_a + pump_b) * 0.7;
+        } else if (feat == 2u) {
+            // descendencia: binary fission septum + two daughter rods
+            let sept = doc_line_glow(sd_torus(doc_rot_z(p, 1.5708), 0.15, 0.010), 78.0);
+            let d1 = exp(-pow(abs(sd_capsule(p, vec3<f32>(-0.24, 0.40, 0.0), vec3<f32>(-0.06, 0.40, 0.0), 0.06)) * 54.0, 2.0));
+            let d2 = exp(-pow(abs(sd_capsule(p, vec3<f32>(0.06, 0.40, 0.0), vec3<f32>(0.24, 0.40, 0.0), 0.06)) * 54.0, 2.0));
+            col += c_gold * sept + c_life * (d1 + d2);
+            dens += sept * 0.7 + (d1 + d2) * 0.7;
+        } else if (feat == 3u) {
+            // población: colony of six sibling rods around the founder
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976;
+                let cpos = vec3<f32>(cos(a) * 0.50, -0.12, sin(a) * 0.50);
+                let tang = vec3<f32>(-sin(a), 0.0, cos(a)) * 0.06;
+                let sib = exp(-pow(abs(sd_capsule(p, cpos - tang, cpos + tang, 0.035)) * 58.0, 2.0));
+                col += c_life * sib;
+                dens += sib * 0.65;
+            }
+        } else if (feat == 4u) {
+            // entorno: mineral substrate plate with dissolved nutrient sparks
+            let plate = exp(-pow(abs(p.y + 0.40) * 52.0, 2.0)) * smoothstep(0.55, 0.30, length(p.xz));
+            let sp = mm_life_sparkle(p, 24.0) * smoothstep(-0.20, -0.36, p.y) * smoothstep(0.55, 0.3, length(p.xz));
+            col += c_amber * plate * 0.75 + c_gold * sp;
+            dens += plate * 0.6 + sp * 0.6;
+        } else if (feat == 5u) {
+            // continuidad: unbroken chain of generations
+            for (var k = 0; k < 3; k = k + 1) {
+                let gp = vec3<f32>(0.30 + f32(k) * 0.12, 0.28 + f32(k) * 0.12, 0.0);
+                let gb = mm_life_shell(p, gp, 0.055 - f32(k) * 0.012, 60.0);
+                col += c_cyan * gb;
+                dens += gb * 0.7;
+            }
+            let link = mm_life_seg(p, vec3<f32>(0.22, 0.18, 0.0), vec3<f32>(0.54, 0.52, 0.0), 0.006, 84.0);
+            col += c_gold * link * 0.8;
+            dens += link * 0.5;
+        } else if (feat == 6u) {
+            // ancestro común: LUCA root node with converging lineages
+            let luca = mm_life_blob(p, vec3<f32>(0.0, -0.50, 0.0), 0.040, 54.0);
+            col += c_gold * luca * 1.1;
+            dens += luca * 0.9;
+            for (var k = 0; k < 3; k = k + 1) {
+                let lx = -0.20 + f32(k) * 0.20;
+                let lin = mm_life_seg(p, vec3<f32>(0.0, -0.50, 0.0), vec3<f32>(lx, -0.17, 0.0), 0.007, 82.0);
+                col += c_life * lin;
+                dens += lin * 0.6;
+            }
+        } else if (feat == 7u) {
+            // extinción temprana: dim truncated lineages ending in red crosses
+            for (var k = 0; k < 2; k = k + 1) {
+                let ey = -0.16 + f32(k) * 0.32;
+                let br = mm_life_seg(p, vec3<f32>(-0.30, ey * 0.5, 0.0), vec3<f32>(-0.50, ey, 0.0), 0.007, 82.0);
+                let x1 = mm_life_seg(p, vec3<f32>(-0.55, ey - 0.05, 0.0), vec3<f32>(-0.45, ey + 0.05, 0.0), 0.007, 82.0);
+                let x2 = mm_life_seg(p, vec3<f32>(-0.55, ey + 0.05, 0.0), vec3<f32>(-0.45, ey - 0.05, 0.0), 0.007, 82.0);
+                col += c_life * br * 0.4 + c_red * (x1 + x2);
+                dens += br * 0.35 + (x1 + x2) * 0.7;
+            }
+        }
+    } else if (zone == 2u) {
+        // Z02: Primitive Cells — complete cutaway cell (bilayer, cytosol flow, enzymatic hub)
+        let g0 = doc_life_feat_gain(feat, 0u, cue);
+        let outer_m = mm_life_shell(p, vec3<f32>(0.0), 0.40, 48.0) * smoothstep(-0.20, 0.10, p.z + 0.25);
+        let inner_m = mm_life_shell(p, vec3<f32>(0.0), 0.37, 52.0) * smoothstep(-0.20, 0.10, p.z + 0.25);
+        let cyto = pow(0.5 + 0.5 * sin(atan2(p.z, p.x) * 3.0 + length(p.xz) * 14.0 - time), 6.0) * smoothstep(0.34, 0.10, r) * 0.30;
+        let hub = mm_life_blob(p, vec3<f32>(0.0), 0.05, 50.0);
+        col += c_life * outer_m * (0.5 + 0.5 * g0) + c_cyan * inner_m * 0.45 + c_blue * cyto + accent_p * hub * (0.5 + 0.7 * g0);
+        dens += outer_m * 0.55 + inner_m * 0.35 + cyto * 0.5 + hub * 0.7;
+        if (feat == 1u) {
+            // membrana: gated transmembrane channels around the equator
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976;
+                let dir = vec3<f32>(cos(a), 0.0, sin(a));
+                let ch = mm_life_seg(p, dir * 0.33, dir * 0.45, 0.016, 70.0);
+                col += c_gold * ch;
+                dens += ch * 0.75;
+            }
+        } else if (feat == 2u) {
+            // interior: three looping cytosolic streams
+            for (var k = 0; k < 3; k = k + 1) {
+                let st = doc_line_glow(sd_torus(doc_rot_x(doc_rot_y(p, f32(k) * 2.094), 0.6 + f32(k) * 0.4), 0.20, 0.008), 80.0);
+                col += c_cyan * st;
+                dens += st * 0.6;
+            }
+        } else if (feat == 3u) {
+            // energía: ATP sparks orbiting the hub
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.2566371 + time * 0.8;
+                let sp = mm_life_blob(p, vec3<f32>(cos(a) * 0.22, sin(a * 2.0) * 0.06, sin(a) * 0.22), 0.020, 64.0);
+                col += c_gold * sp * 1.1;
+                dens += sp * 0.8;
+            }
+        } else if (feat == 4u) {
+            // alimento: food beads crossing a gate into the cell
+            for (var k = 0; k < 4; k = k + 1) {
+                let fx = 0.62 - f32(k) * 0.10 - fract(time * 0.2) * 0.10;
+                let fb = mm_life_blob(p, vec3<f32>(fx, 0.06, 0.0), 0.024, 60.0);
+                col += c_amber * fb;
+                dens += fb * 0.75;
+            }
+        } else if (feat == 5u) {
+            // reparación: membrane patch being resealed at the top
+            let patch_r = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.39, 0.0), 0.09, 0.012), 74.0);
+            let patch_c = mm_life_blob(p, vec3<f32>(0.0, 0.40, 0.0), 0.04, 54.0);
+            col += c_gold * patch_r + c_life * patch_c;
+            dens += patch_r * 0.75 + patch_c * 0.6;
+        } else if (feat == 6u) {
+            // división: equatorial constriction ring pinching the cell
+            let pinch = doc_line_glow(sd_torus(doc_rot_z(p, 1.5708), 0.34, 0.014), 70.0);
+            col += c_mag * pinch;
+            dens += pinch * 0.8;
+        } else if (feat == 7u) {
+            // entorno: surrounding medium ring with drifting solutes
+            let env_r = doc_line_glow(sd_torus(p, 0.58, 0.008), 80.0);
+            let sol = mm_life_sparkle(p, 20.0) * smoothstep(0.46, 0.56, r) * smoothstep(0.70, 0.60, r);
+            col += c_blue * env_r + c_cyan * sol;
+            dens += env_r * 0.6 + sol * 0.6;
+        }
+    } else if (zone == 3u) {
+        // Z03: Metabolism — redox membrane slab + rotary ATP synthase turbine
+        let g4 = doc_life_feat_gain(feat, 4u, cue);
+        let slab = exp(-pow(abs(p.y) * 56.0, 2.0)) * smoothstep(0.56, 0.36, length(p.xz));
+        let d_rotor = sd_cylinder_y(p, 0.09, 0.22);
+        let blade = exp(-pow(abs(sin(atan2(p.z, p.x) * 6.0 - time * 4.5)) * 12.0, 2.0)) * exp(-pow(abs(d_rotor) * 36.0, 2.0));
+        col += c_life * slab * 0.65 + c_gold * blade * (0.6 + 0.4 * g4);
+        dens += slab * 0.55 + blade * 0.8;
+        if (feat == 0u) {
+            // nutriente: hexagonal sugar ring descending onto the membrane
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976;
+                let hb = mm_life_blob(p, vec3<f32>(-0.36 + cos(a) * 0.08, 0.30, sin(a) * 0.08), 0.016, 66.0);
+                col += c_amber * hb;
+                dens += hb * 0.75;
+            }
+        } else if (feat == 1u) {
+            // reacción: two reactants fusing into a product
+            let ra = mm_life_blob(p, vec3<f32>(0.24, 0.34, 0.0), 0.034, 58.0);
+            let rb = mm_life_blob(p, vec3<f32>(0.44, 0.34, 0.0), 0.034, 58.0);
+            let br = mm_life_seg(p, vec3<f32>(0.24, 0.34, 0.0), vec3<f32>(0.44, 0.34, 0.0), 0.010, 76.0);
+            col += c_cyan * ra + c_mag * rb + c_gold * br;
+            dens += (ra + rb) * 0.8 + br * 0.6;
+        } else if (feat == 2u) {
+            // enzima: open C-shaped enzyme clamp gripping its substrate
+            let q = p - vec3<f32>(-0.36, -0.24, 0.0);
+            let clamp_g = doc_line_glow(sd_torus(doc_rot_x(q, 1.5708), 0.10, 0.018), 70.0) * smoothstep(0.06, -0.02, q.x);
+            let subs = mm_life_blob(q, vec3<f32>(0.0), 0.034, 58.0);
+            col += c_violet * clamp_g + c_gold * subs;
+            dens += clamp_g * 0.8 + subs * 0.8;
+        } else if (feat == 3u) {
+            // ruta metabólica: cyclic pathway ring with five intermediates
+            let ring_p = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.32, 0.0), 0.22, 0.007), 82.0);
+            col += c_cyan * ring_p;
+            dens += ring_p * 0.6;
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.2566371 + time * 0.4;
+                let nb = mm_life_blob(p, vec3<f32>(cos(a) * 0.22, 0.32, sin(a) * 0.22), 0.022, 62.0);
+                col += c_gold * nb;
+                dens += nb * 0.75;
+            }
+        } else if (feat == 4u) {
+            // portador de energía: ATP with three glowing phosphate beads
+            let ad = mm_life_blob(p, vec3<f32>(0.18, -0.24, 0.0), 0.034, 58.0);
+            col += c_blue * ad;
+            dens += ad * 0.75;
+            for (var k = 0; k < 3; k = k + 1) {
+                let ph = mm_life_blob(p, vec3<f32>(0.27 + f32(k) * 0.07, -0.24, 0.0), 0.020, 64.0);
+                col += c_gold * ph * 1.1;
+                dens += ph * 0.8;
+            }
+        } else if (feat == 5u) {
+            // gradiente: dense proton field above, sparse below, flowing through the turbine
+            let hplus = mm_life_sparkle(p, 26.0) * smoothstep(0.04, 0.12, p.y) * smoothstep(0.44, 0.30, p.y) * smoothstep(0.52, 0.30, length(p.xz));
+            let flow = mm_life_seg(p, vec3<f32>(0.0, 0.40, 0.0), vec3<f32>(0.0, -0.34, 0.0), 0.012, 70.0);
+            col += c_cyan * hplus * 1.2 + c_blue * flow;
+            dens += hplus * 0.8 + flow * 0.6;
+        } else if (feat == 6u) {
+            // desecho: waste molecules exported down and away
+            for (var k = 0; k < 3; k = k + 1) {
+                let wb = mm_life_blob(p, vec3<f32>(0.28 + f32(k) * 0.10, -0.28 - f32(k) * 0.10, 0.0), 0.024, 60.0);
+                col += c_violet * wb * 0.9;
+                dens += wb * 0.7;
+            }
+        } else if (feat == 7u) {
+            // homeostasis: closed feedback loop balancing the whole assembly
+            let loop_g = doc_line_glow(sd_torus(doc_rot_x(p, 1.5708), 0.52, 0.010), 76.0);
+            let bal = mm_life_blob(p, vec3<f32>(0.0, 0.52, 0.0), 0.030, 58.0);
+            col += c_life * loop_g + c_gold * bal;
+            dens += loop_g * 0.65 + bal * 0.8;
+        }
+    } else if (zone == 4u) {
+        // Z04: Heritable Information — B-DNA double helix with base-pair rungs
+        let g1 = doc_life_feat_gain(feat, 1u, cue);
+        if (abs(p.y) < 0.52 && length(p.xz) < 0.30) {
+            let theta = p.y * 8.2 + time * 0.6;
+            let r_h = 0.18;
+            let s1 = vec3<f32>(cos(theta) * r_h, p.y, sin(theta) * r_h);
+            let s2 = vec3<f32>(-cos(theta) * r_h, p.y, -sin(theta) * r_h);
+            let h1 = exp(-pow(length(p - s1) * 48.0, 2.0));
+            let h2 = exp(-pow(length(p - s2) * 48.0, 2.0));
+            let rung_phase = fract(p.y * 5.2 + 0.5) - 0.5;
+            let d_rung = length(vec2<f32>(rung_phase / 5.2, dot(p.xz, normalize(vec2<f32>(-sin(theta), cos(theta))))));
+            let in_cyl = smoothstep(r_h + 0.01, r_h - 0.02, length(p.xz));
+            let rung = exp(-pow(d_rung * 58.0, 2.0)) * in_cyl;
+            let rung_col = select(c_amber, c_life, sin(theta * 2.0) > 0.0);
+            let hs = 0.55 + 0.6 * g1;
+            col += (c_cyan * h1 + c_mag * h2 + rung_col * rung) * hs;
+            dens += (h1 + h2 + rung) * 0.85;
+        }
+        if (feat == 0u) {
+            // ARN: single-stranded RNA with a folded hairpin loop
+            let rx = 0.42 + 0.035 * sin(p.y * 18.0 + time);
+            let rna = exp(-pow(length(vec2<f32>(p.x - rx, p.z)) * 56.0, 2.0)) * smoothstep(0.40, 0.30, abs(p.y + 0.04));
+            let hp = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.42, 0.38, 0.0), 1.5708), 0.06, 0.008), 80.0);
+            col += c_mag * (rna + hp);
+            dens += (rna + hp) * 0.75;
+        } else if (feat == 2u) {
+            // gen: bracketed gene segment along the helix
+            let ba = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.04, 0.0), 0.25, 0.010), 76.0);
+            let bb = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.26, 0.0), 0.25, 0.010), 76.0);
+            let band = exp(-pow(abs(length(p.xz) - 0.25) * 40.0, 2.0)) * step(0.04, p.y) * step(p.y, 0.26) * 0.4;
+            col += c_gold * (ba + bb + band);
+            dens += (ba + bb) * 0.7 + band * 0.4;
+        } else if (feat == 3u) {
+            // código genético: three codon triplets read off beside the helix
+            for (var k = 0; k < 9; k = k + 1) {
+                let grp = k / 3;
+                let cb = mm_life_blob(p, vec3<f32>(-0.42, -0.26 + f32(k) * 0.065 + f32(grp) * 0.03, 0.0), 0.018, 64.0);
+                let ccol = select(select(c_cyan, c_gold, grp == 1), c_mag, grp == 2);
+                col += ccol * cb;
+                dens += cb * 0.75;
+            }
+        } else if (feat == 4u) {
+            // proteína: folded polypeptide bead chain
+            for (var k = 0; k < 8; k = k + 1) {
+                let t = f32(k) * 0.78;
+                let pp = vec3<f32>(0.40 + 0.09 * sin(t * 2.0), -0.32 + 0.09 * cos(t * 3.0), 0.09 * sin(t * 1.5));
+                let pb = mm_life_blob(p, pp, 0.018, 64.0);
+                col += c_amber * pb;
+                dens += pb * 0.75;
+            }
+        } else if (feat == 5u) {
+            // mutación: one base pair flashes into a mismatch
+            let mut_b = mm_life_blob(p, vec3<f32>(0.0, -0.08, 0.0), 0.040, 54.0);
+            let st1 = mm_life_seg(p, vec3<f32>(-0.10, -0.08, 0.0), vec3<f32>(0.10, -0.08, 0.0), 0.006, 84.0);
+            col += c_red * mut_b * 1.1 + c_gold * st1;
+            dens += mut_b * 0.9 + st1 * 0.6;
+        } else if (feat == 6u) {
+            // copia: replication fork splitting the helix into two copies
+            let fa = mm_life_seg(p, vec3<f32>(0.0, 0.42, 0.0), vec3<f32>(-0.24, 0.62, 0.0), 0.012, 74.0);
+            let fb = mm_life_seg(p, vec3<f32>(0.0, 0.42, 0.0), vec3<f32>(0.24, 0.62, 0.0), 0.012, 74.0);
+            col += c_cyan * fa + c_mag * fb;
+            dens += (fa + fb) * 0.8;
+        } else if (feat == 7u) {
+            // reparación: sliding repair clamp scanning the helix
+            let yc = -0.40 + 0.80 * fract(time * 0.15);
+            let clamp_r = doc_line_glow(sd_torus(p - vec3<f32>(0.0, yc, 0.0), 0.24, 0.018), 66.0);
+            col += c_life * clamp_r * 1.1;
+            dens += clamp_r * 0.85;
+        }
+    } else if (zone == 5u) {
+        // Z05: Darwinian Evolution — 3D phylogenetic tree (LUCA -> Bacteria / Archaea / Eukarya)
+        let g7 = doc_life_feat_gain(feat, 7u, cue);
+        let root = vec3<f32>(0.0, -0.46, 0.0);
+        let fork = vec3<f32>(0.0, -0.18, 0.0);
+        let luca = mm_life_blob(p, root, 0.030, 40.0);
+        let trunk = mm_life_seg(p, root, fork, 0.012, 90.0);
+        col += c_gold * (luca * (0.7 + 0.6 * g7) + trunk * 0.8);
+        dens += luca * 0.8 + trunk * 0.8;
+        for (var dom = 0; dom < 3; dom = dom + 1) {
+            let da = f32(dom) * 2.0943951 + 0.35;
+            let mid = vec3<f32>(cos(da) * 0.24, 0.06, sin(da) * 0.24);
+            let tip_a = vec3<f32>(cos(da - 0.24) * 0.48, 0.42, sin(da - 0.24) * 0.48);
+            let tip_b = vec3<f32>(cos(da + 0.24) * 0.46, 0.38, sin(da + 0.24) * 0.46);
+            let b1 = mm_life_seg(p, fork, mid, 0.010, 88.0);
+            let b2 = mm_life_seg(p, mid, tip_a, 0.007, 92.0);
+            let b3 = mm_life_seg(p, mid, tip_b, 0.007, 92.0);
+            let leaf = exp(-pow(min(length(p - tip_a), length(p - tip_b)) * 22.0, 2.0));
+            let dom_c = select(select(c_life, c_amber, dom == 1), c_blue, dom == 2);
+            col += dom_c * (b1 + b2 + b3 + leaf) * 0.85;
+            dens += (b1 + b2 + b3 + leaf) * 0.8;
+        }
+        if (feat == 0u) {
+            // variación: spray of heritable variants at the crown
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976;
+                let vb = mm_life_blob(p, vec3<f32>(cos(a) * 0.09, 0.58, sin(a) * 0.09), 0.018, 64.0);
+                col += mix(c_cyan, c_mag, f32(k) / 5.0) * vb;
+                dens += vb * 0.75;
+            }
+        } else if (feat == 1u) {
+            // selección: sieve plane filtering lineages
+            let plane = exp(-pow(abs(p.y - 0.24) * 70.0, 2.0)) * smoothstep(0.55, 0.40, length(p.xz));
+            let holes = max(exp(-pow(abs(fract(p.x * 7.0) - 0.5) * 14.0, 2.0)), exp(-pow(abs(fract(p.z * 7.0) - 0.5) * 14.0, 2.0)));
+            col += c_cyan * plane * holes;
+            dens += plane * holes * 0.7;
+        } else if (feat == 2u) {
+            // adaptación: fitness peak with a population climbing it
+            let dxz = p.xz - vec2<f32>(0.36, 0.0);
+            let hy = -0.52 + 0.24 * exp(-dot(dxz, dxz) * 30.0);
+            let hill = exp(-pow(abs(p.y - hy) * 50.0, 2.0)) * smoothstep(0.30, 0.12, length(dxz));
+            let climber = mm_life_blob(p, vec3<f32>(0.36, -0.27, 0.0), 0.026, 60.0);
+            col += c_amber * hill + c_gold * climber;
+            dens += hill * 0.7 + climber * 0.8;
+        } else if (feat == 3u) {
+            // deriva genética: random-walk drifting lineages
+            let dx = p.x + 0.45 - 0.045 * sin(p.y * 23.0 + time);
+            let dz = p.z - 0.04 * cos(p.y * 17.0 - time * 0.7);
+            let drift = exp(-pow(length(vec2<f32>(dx, dz)) * 50.0, 2.0)) * smoothstep(0.42, 0.30, abs(p.y));
+            col += c_violet * drift;
+            dens += drift * 0.75;
+        } else if (feat == 4u) {
+            // competencia: two rivals locked in a red tension line
+            let ca = mm_life_blob(p, vec3<f32>(-0.20, 0.58, 0.0), 0.028, 60.0);
+            let cb = mm_life_blob(p, vec3<f32>(0.20, 0.58, 0.0), 0.028, 60.0);
+            let tens = mm_life_seg(p, vec3<f32>(-0.17, 0.58, 0.0), vec3<f32>(0.17, 0.58, 0.0), 0.007, 82.0);
+            col += c_amber * (ca + cb) + c_red * tens;
+            dens += (ca + cb) * 0.8 + tens * 0.65;
+        } else if (feat == 5u) {
+            // cooperación: mutualistic bridge between two distant lineages
+            let ta = vec3<f32>(cos(0.11) * 0.48, 0.42, sin(0.11) * 0.48);
+            let tb = vec3<f32>(cos(2.6843) * 0.46, 0.38, sin(2.6843) * 0.46);
+            let br = mm_life_seg(p, ta, tb, 0.010, 76.0);
+            col += c_life * br * 1.1;
+            dens += br * 0.8;
+        } else if (feat == 6u) {
+            // extinción: truncated branch capped in red
+            let s0 = vec3<f32>(cos(4.5388) * 0.24, 0.06, sin(4.5388) * 0.24);
+            let s1 = vec3<f32>(-0.10, -0.06, -0.50);
+            let stub = mm_life_seg(p, s0, s1, 0.008, 84.0);
+            let cap = mm_life_blob(p, s1, 0.032, 56.0);
+            col += c_blue * stub * 0.45 + c_red * cap * 1.1;
+            dens += stub * 0.4 + cap * 0.85;
+        } else if (feat == 7u) {
+            // ancestro común: concentric rings marking LUCA at the root
+            let rr1 = doc_line_glow(sd_torus(p - root, 0.08, 0.007), 80.0);
+            let rr2 = doc_line_glow(sd_torus(p - root, 0.14, 0.007), 80.0);
+            col += c_gold * (rr1 + rr2);
+            dens += (rr1 + rr2) * 0.65;
+        }
+    } else if (zone == 6u) {
+        // Z06: Photosynthesis — chloroplast envelope with thylakoid grana stacks
+        let env_d = length(p * vec3<f32>(0.85, 1.6, 1.0)) - 0.42;
+        let env_g = exp(-pow(abs(env_d) * 44.0, 2.0));
+        col += c_life * env_g * 0.55;
+        dens += env_g * 0.45;
+        for (var k = 0; k < 3; k = k + 1) {
+            let a = f32(k) * 2.0943951;
+            let cxz = vec2<f32>(cos(a) * 0.20, sin(a) * 0.20);
+            let stack = exp(-pow(abs(fract(p.y * 9.0) - 0.5) * 12.0, 2.0)) * exp(-pow(max(length(p.xz - cxz) - 0.08, 0.0) * 40.0, 2.0)) * smoothstep(0.20, 0.10, abs(p.y));
+            col += vec3<f32>(0.20, 1.18, 0.48) * stack;
+            dens += stack * 0.75;
+        }
+        if (feat == 0u) {
+            // luz solar: three parallel sun rays striking the stacks
+            for (var k = 0; k < 3; k = k + 1) {
+                let oz = -0.10 + f32(k) * 0.10;
+                let ray = mm_life_seg(p, vec3<f32>(-0.62, 0.56, oz), vec3<f32>(-0.18, 0.12, oz), 0.008, 80.0);
+                col += c_gold * ray;
+                dens += ray * 0.65;
+            }
+        } else if (feat == 1u) {
+            // pigmento: chlorophyll porphyrin square with central magnesium
+            let pc = vec3<f32>(0.46, 0.22, 0.0);
+            let mg = mm_life_blob(p, pc, 0.020, 64.0);
+            col += c_gold * mg;
+            dens += mg * 0.8;
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.5707963 + 0.785;
+                let pn = mm_life_blob(p, pc + vec3<f32>(cos(a) * 0.07, sin(a) * 0.07, 0.0), 0.016, 66.0);
+                col += vec3<f32>(0.24, 1.22, 0.42) * pn;
+                dens += pn * 0.75;
+            }
+        } else if (feat == 2u) {
+            // fijación de carbono: Calvin ring capturing CO2 beads
+            let calvin = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.40, 0.0), 0.16, 0.009), 78.0);
+            let co2 = mm_life_blob(p, vec3<f32>(0.26 - fract(time * 0.2) * 0.10, 0.40, 0.0), 0.022, 62.0);
+            col += c_cyan * calvin + c_amber * co2;
+            dens += calvin * 0.7 + co2 * 0.8;
+        } else if (feat == 3u) {
+            // tapete microbiano: layered stromatolite microbial mat dome
+            for (var k = 0; k < 3; k = k + 1) {
+                let lay = mm_life_shell(p, vec3<f32>(0.0, -0.66, 0.0), 0.20 + f32(k) * 0.06, 60.0) * step(-0.52, p.y);
+                col += mix(c_amber, c_life, f32(k) * 0.5) * lay;
+                dens += lay * 0.65;
+            }
+        } else if (feat == 4u) {
+            // oxígeno: O2 bubble pairs rising out of the leaf
+            for (var k = 0; k < 3; k = k + 1) {
+                let yy = -0.10 + fract(time * 0.25 + f32(k) * 0.33) * 0.50;
+                let o1 = mm_life_blob(p, vec3<f32>(0.30, yy, 0.18 * f32(k - 1)), 0.016, 66.0);
+                let o2 = mm_life_blob(p, vec3<f32>(0.35, yy, 0.18 * f32(k - 1)), 0.016, 66.0);
+                col += c_cyan * (o1 + o2) * 1.1;
+                dens += (o1 + o2) * 0.8;
+            }
+        } else if (feat == 5u) {
+            // atmósfera: oxygenated atmosphere cap above
+            let atm = mm_life_shell(p, vec3<f32>(0.0), 0.60, 34.0) * smoothstep(0.08, 0.30, p.y);
+            col += c_blue * atm * 0.9;
+            dens += atm * 0.6;
+        } else if (feat == 6u) {
+            // estrés oxidativo: reactive oxygen sparks crackling at the envelope
+            let ros = mm_life_sparkle(p, 30.0) * exp(-pow(abs(env_d - 0.05) * 18.0, 2.0));
+            col += c_red * ros * 1.3;
+            dens += ros * 0.8;
+        } else if (feat == 7u) {
+            // transformación planetaria: small globe turning from rust to blue
+            let q = p - vec3<f32>(-0.40, -0.36, 0.0);
+            let globe = mm_life_shell(q, vec3<f32>(0.0), 0.11, 54.0);
+            let tint = mix(c_amber, c_blue, smoothstep(-0.10, 0.10, q.y));
+            col += tint * globe * 1.1;
+            dens += globe * 0.8;
+        }
+    } else if (zone == 7u) {
+        // Z07: Complex Cells — eukaryotic host with nucleus and mitochondrion
+        let g0 = doc_life_feat_gain(feat, 0u, cue);
+        let g2 = doc_life_feat_gain(feat, 2u, cue);
+        let host = mm_life_shell(p, vec3<f32>(0.0), 0.46, 44.0);
+        let nuc_c = vec3<f32>(-0.12, 0.04, 0.0);
+        let nuc = mm_life_shell(p, nuc_c, 0.15, 56.0);
+        let mito_c = vec3<f32>(0.22, -0.12, 0.06);
+        let mito_d = length((p - mito_c) * vec3<f32>(0.75, 1.5, 1.3)) - 0.10;
+        let mito = exp(-pow(abs(mito_d) * 52.0, 2.0));
+        col += c_cyan * host * 0.5 + c_blue * nuc * (0.55 + 0.6 * g0) + c_amber * mito * (0.55 + 0.6 * g2);
+        dens += host * 0.45 + nuc * 0.6 + mito * 0.6;
+        if (feat == 0u) {
+            // núcleo: nuclear envelope with a ring of pores
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976;
+                let pore = mm_life_blob(p, nuc_c + vec3<f32>(cos(a) * 0.15, 0.0, sin(a) * 0.15), 0.014, 66.0);
+                col += c_gold * pore;
+                dens += pore * 0.75;
+            }
+        } else if (feat == 1u) {
+            // orgánulo: endoplasmic reticulum folds and Golgi stack
+            let er1 = doc_line_glow(sd_torus(p - nuc_c, 0.21, 0.007), 80.0) * step(p.x, -0.05);
+            let er2 = doc_line_glow(sd_torus(p - nuc_c, 0.26, 0.007), 80.0) * step(p.x, -0.05);
+            col += c_violet * (er1 + er2);
+            dens += (er1 + er2) * 0.65;
+            for (var k = 0; k < 3; k = k + 1) {
+                let gs = mm_life_seg(p, vec3<f32>(0.04, 0.22 + f32(k) * 0.04, 0.0), vec3<f32>(0.20, 0.22 + f32(k) * 0.04, 0.0), 0.006, 84.0);
+                col += c_gold * gs;
+                dens += gs * 0.6;
+            }
+        } else if (feat == 2u) {
+            // mitocondria: folded cristae glowing inside the mitochondrion
+            let cris = 0.035 * sin((p.x - mito_c.x) * 60.0);
+            let inner = exp(-pow(abs(mito_d + 0.03 + cris) * 46.0, 2.0)) * smoothstep(0.02, -0.02, mito_d);
+            col += c_gold * inner * 1.2;
+            dens += inner * 0.85;
+        } else if (feat == 3u) {
+            // endosimbiosis: bacterium being engulfed through a membrane invagination
+            let bact = exp(-pow(abs(sd_capsule(p, vec3<f32>(-0.06, 0.44, 0.0), vec3<f32>(0.06, 0.44, 0.0), 0.045)) * 56.0, 2.0));
+            let invag = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.42, 0.0), 0.10, 0.008), 78.0);
+            col += c_amber * bact + c_cyan * invag;
+            dens += bact * 0.75 + invag * 0.65;
+        } else if (feat == 4u) {
+            // membrana interna: dashed internal membrane system
+            let im = mm_life_shell(p, vec3<f32>(0.0), 0.32, 50.0) * step(0.0, sin(atan2(p.z, p.x) * 8.0));
+            col += c_life * im * 0.9;
+            dens += im * 0.6;
+        } else if (feat == 5u) {
+            // citoesqueleto: radiating cytoskeletal cables
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976 + 0.3;
+                let el = sin(f32(k) * 1.7) * 0.25;
+                let dir = normalize(vec3<f32>(cos(a), el, sin(a)));
+                let cab = mm_life_seg(p, dir * 0.08, dir * 0.44, 0.005, 88.0);
+                col += c_cyan * cab;
+                dens += cab * 0.6;
+            }
+        } else if (feat == 6u) {
+            // genoma mayor: coiled chromatin filling the nucleus
+            for (var k = 0; k < 3; k = k + 1) {
+                let ch = doc_line_glow(sd_torus(doc_rot_z(doc_rot_x(p - nuc_c, f32(k) * 1.05), f32(k) * 0.7), 0.08, 0.007), 82.0);
+                col += c_mag * ch;
+                dens += ch * 0.65;
+            }
+        } else if (feat == 7u) {
+            // socio integrado: integrated plastid partner linked to the host
+            let pl_c = vec3<f32>(-0.20, -0.26, 0.08);
+            let pl = exp(-pow(abs(length((p - pl_c) * vec3<f32>(0.8, 1.5, 1.2)) - 0.08) * 54.0, 2.0));
+            let ln = mm_life_seg(p, pl_c, nuc_c, 0.005, 86.0);
+            col += vec3<f32>(0.24, 1.22, 0.44) * pl + c_gold * ln;
+            dens += pl * 0.75 + ln * 0.5;
+        }
+    } else if (zone == 8u) {
+        // Z08: Sexual Reproduction — homologous chromosome pair (maternal blue / paternal magenta)
+        let ca = mm_life_seg(p, vec3<f32>(-0.18, -0.20, 0.0), vec3<f32>(-0.02, 0.20, 0.0), 0.020, 64.0)
+               + mm_life_seg(p, vec3<f32>(-0.02, -0.20, 0.0), vec3<f32>(-0.18, 0.20, 0.0), 0.020, 64.0);
+        let cb = mm_life_seg(p, vec3<f32>(0.02, -0.20, 0.0), vec3<f32>(0.18, 0.20, 0.0), 0.020, 64.0)
+               + mm_life_seg(p, vec3<f32>(0.18, -0.20, 0.0), vec3<f32>(0.02, 0.20, 0.0), 0.020, 64.0);
+        col += c_blue * ca * 0.7 + c_mag * cb * 0.7;
+        dens += (ca + cb) * 0.6;
+        if (feat == 0u) {
+            // meiosis: spindle fibres from two poles + four haploid daughters
+            for (var k = 0; k < 2; k = k + 1) {
+                let sy = select(-0.46, 0.46, k == 1);
+                let sa = mm_life_seg(p, vec3<f32>(0.0, sy, 0.0), vec3<f32>(-0.10, 0.0, 0.0), 0.004, 90.0);
+                let sb = mm_life_seg(p, vec3<f32>(0.0, sy, 0.0), vec3<f32>(0.10, 0.0, 0.0), 0.004, 90.0);
+                col += c_gold * (sa + sb) * 0.8;
+                dens += (sa + sb) * 0.5;
+            }
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.5707963 + 0.785;
+                let dc = mm_life_shell(p, vec3<f32>(cos(a) * 0.50, 0.0, sin(a) * 0.50), 0.05, 60.0);
+                col += c_life * dc;
+                dens += dc * 0.65;
+            }
+        } else if (feat == 1u) {
+            // gameto: large egg and motile sperm
+            let egg = mm_life_shell(p, vec3<f32>(-0.40, -0.30, 0.0), 0.13, 50.0);
+            let head = mm_life_blob(p, vec3<f32>(0.40, -0.30, 0.0), 0.025, 60.0);
+            let tail = exp(-pow(length(vec2<f32>(p.y + 0.30 - 0.02 * sin(p.x * 50.0 - time * 8.0), p.z)) * 60.0, 2.0)) * smoothstep(0.42, 0.45, p.x) * smoothstep(0.64, 0.58, p.x);
+            col += c_mag * egg + c_blue * (head + tail);
+            dens += egg * 0.7 + (head + tail) * 0.75;
+        } else if (feat == 2u) {
+            // fecundación: fusion flash on the egg surface with ripple
+            let egg = mm_life_shell(p, vec3<f32>(0.0, -0.40, 0.0), 0.15, 50.0);
+            let fuse = mm_life_blob(p, vec3<f32>(0.0, -0.25, 0.0), 0.030, 56.0);
+            let rip = doc_line_glow(sd_torus(p - vec3<f32>(0.0, -0.27, 0.0), 0.08, 0.006), 82.0);
+            col += c_mag * egg * 0.8 + c_gold * (fuse * 1.1 + rip);
+            dens += egg * 0.6 + fuse * 0.9 + rip * 0.6;
+        } else if (feat == 3u) {
+            // recombinación: chiasma crossover swapping arm segments
+            let chi = mm_life_blob(p, vec3<f32>(-0.10, 0.0, 0.0), 0.030, 58.0) + mm_life_blob(p, vec3<f32>(0.10, 0.0, 0.0), 0.030, 58.0);
+            let swap = mm_life_seg(p, vec3<f32>(-0.06, 0.12, 0.0), vec3<f32>(0.06, 0.12, 0.0), 0.016, 66.0);
+            col += c_gold * chi + c_life * swap;
+            dens += chi * 0.85 + swap * 0.75;
+        } else if (feat == 4u) {
+            // diversidad genética: four offspring with mixed chromosome segments
+            for (var k = 0; k < 4; k = k + 1) {
+                let ox = -0.30 + f32(k) * 0.20;
+                let mix_t = f32(k) / 3.0;
+                let top = mm_life_seg(p, vec3<f32>(ox, 0.40, 0.0), vec3<f32>(ox, 0.48, 0.0), 0.014, 70.0);
+                let bot = mm_life_seg(p, vec3<f32>(ox, 0.30, 0.0), vec3<f32>(ox, 0.38, 0.0), 0.014, 70.0);
+                col += mix(c_blue, c_mag, mix_t) * top + mix(c_mag, c_blue, mix_t) * bot;
+                dens += (top + bot) * 0.75;
+            }
+        } else if (feat == 5u) {
+            // dos progenitores: two parents converging their contributions
+            let pa = mm_life_shell(p, vec3<f32>(-0.38, 0.42, 0.0), 0.07, 56.0);
+            let pb = mm_life_shell(p, vec3<f32>(0.38, 0.42, 0.0), 0.07, 56.0);
+            let la = mm_life_seg(p, vec3<f32>(-0.34, 0.36, 0.0), vec3<f32>(-0.10, 0.20, 0.0), 0.006, 84.0);
+            let lb = mm_life_seg(p, vec3<f32>(0.34, 0.36, 0.0), vec3<f32>(0.10, 0.20, 0.0), 0.006, 84.0);
+            col += c_blue * (pa + la) + c_mag * (pb + lb);
+            dens += (pa + pb) * 0.7 + (la + lb) * 0.55;
+        } else if (feat == 6u) {
+            // coste: tilted balance beam weighing the cost of sex
+            let beam = mm_life_seg(p, vec3<f32>(-0.36, -0.36, 0.0), vec3<f32>(0.36, -0.46, 0.0), 0.010, 76.0);
+            let fulc = mm_life_seg(p, vec3<f32>(0.0, -0.41, 0.0), vec3<f32>(0.0, -0.54, 0.0), 0.012, 74.0);
+            let wt = mm_life_blob(p, vec3<f32>(0.32, -0.40, 0.0), 0.034, 58.0);
+            col += c_gold * (beam + fulc) + c_red * wt;
+            dens += (beam + fulc) * 0.7 + wt * 0.8;
+        } else if (feat == 7u) {
+            // ventaja contextual: shifting environment ring with a protective shield arc
+            let env_r = doc_line_glow(sd_torus(p, 0.54, 0.008), 80.0);
+            let shift = 0.5 + 0.5 * sin(atan2(p.z, p.x) * 2.0 + time);
+            let shield = mm_life_shell(p, vec3<f32>(0.10, 0.0, 0.0), 0.26, 52.0) * step(0.18, p.x);
+            col += mix(c_cyan, c_amber, shift) * env_r + c_life * shield;
+            dens += env_r * 0.6 + shield * 0.6;
+        }
+    } else if (zone == 9u) {
+        // Z09: Multicellularity — Volvox colony lattice patterned by the live Gray-Scott morphogen field
+        let n = p / max(r, 1e-3);
+        let q = n * 6.5;
+        let cell_d = length(fract(q) - 0.5);
+        let shell_m = exp(-pow(abs(r - 0.36) * 30.0, 2.0));
+        let fg = doc_sample_field_grid(fract(n.xz * 0.5 + vec2<f32>(0.5)));
+        let morph = 0.65 + 0.7 * smoothstep(0.10, 0.35, fg.g);
+        let cells = exp(-pow(cell_d * 5.5, 2.0)) * shell_m * morph;
+        col += c_life * cells * 0.85;
+        dens += cells * 0.7;
+        if (feat == 0u) {
+            // adhesión: junctional links binding neighbouring cells
+            let ex = exp(-pow(min(fract(q.x), 1.0 - fract(q.x)) * 14.0, 2.0));
+            let ey = exp(-pow(min(fract(q.y), 1.0 - fract(q.y)) * 14.0, 2.0));
+            let ez = exp(-pow(min(fract(q.z), 1.0 - fract(q.z)) * 14.0, 2.0));
+            let edges = max(ex * ey, max(ey * ez, ex * ez)) * shell_m;
+            col += c_gold * edges;
+            dens += edges * 0.7;
+        } else if (feat == 1u) {
+            // comunicación: signalling wave sweeping across the colony
+            let wave = exp(-pow(abs(n.y - sin(time * 1.2) * 0.8) * 12.0, 2.0)) * shell_m;
+            col += c_cyan * wave * 1.1;
+            dens += wave * 0.8;
+        } else if (feat == 2u) {
+            // cooperación: shared nutrient channels crossing the interior
+            for (var k = 0; k < 3; k = k + 1) {
+                let a = f32(k) * 2.0943951;
+                let dir = vec3<f32>(cos(a), 0.35 * f32(k - 1), sin(a));
+                let tube = mm_life_seg(p, -dir * 0.32, dir * 0.32, 0.010, 76.0);
+                col += c_gold * tube;
+                dens += tube * 0.7;
+            }
+        } else if (feat == 3u) {
+            // especialización: germ-line cap differentiated from somatic cells
+            let cap = exp(-pow(cell_d * 5.5, 2.0)) * shell_m * smoothstep(0.35, 0.60, n.y);
+            col += c_gold * cap * 1.2;
+            dens += cap * 0.85;
+        } else if (feat == 4u) {
+            // muerte programada: apoptotic cells fading into red blebs
+            let apo = exp(-pow(cell_d * 5.5, 2.0)) * shell_m * smoothstep(-0.45, -0.70, n.x);
+            col += c_red * apo * 1.1;
+            dens += apo * 0.8;
+        } else if (feat == 5u) {
+            // desarrollo: inner founder cluster growing outward
+            let gr = 0.07 + 0.03 * sin(time * 0.8);
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.5707963;
+                let ib = mm_life_blob(p, vec3<f32>(cos(a) * gr, select(-0.04, 0.04, k % 2 == 0), sin(a) * gr), 0.030, 58.0);
+                col += c_cyan * ib;
+                dens += ib * 0.75;
+            }
+        } else if (feat == 6u) {
+            // conflicto: selfish cheater patch proliferating on the surface
+            let cheat = smoothstep(0.86, 0.96, dot(n, normalize(vec3<f32>(0.7, 0.7, 0.0)))) * shell_m;
+            col += c_red * cheat * 1.2;
+            dens += cheat * 0.85;
+        } else if (feat == 7u) {
+            // plan corporal: anterior-posterior axis with segment rings
+            let ax = mm_life_seg(p, vec3<f32>(-0.54, 0.0, 0.0), vec3<f32>(0.54, 0.0, 0.0), 0.008, 80.0);
+            col += c_gold * ax;
+            dens += ax * 0.65;
+            for (var k = 0; k < 3; k = k + 1) {
+                let sx = -0.20 + f32(k) * 0.20;
+                let seg_r = doc_line_glow(sd_torus(doc_rot_z(p - vec3<f32>(sx, 0.0, 0.0), 1.5708), 0.30, 0.007), 80.0);
+                col += c_cyan * seg_r;
+                dens += seg_r * 0.6;
+            }
+        }
+    } else if (zone == 10u) {
+        // Z10: Differentiation & Development — embryo with Hox stripes and live Turing morphogen field
+        let emb_d = length(p * vec3<f32>(0.90, 1.15, 1.0)) - 0.34;
+        let emb = exp(-pow(abs(emb_d) * 46.0, 2.0));
+        let fg = doc_sample_field_grid(fract(p.xy * 0.8 + vec2<f32>(0.5)));
+        let turing = smoothstep(0.12, 0.34, fg.g);
+        let g1 = doc_life_feat_gain(feat, 1u, cue);
+        let stripes = pow(0.5 + 0.5 * sin(p.x * 22.0), 6.0) * emb;
+        col += c_life * emb * (0.45 + 0.4 * turing) + c_gold * stripes * (0.35 + 0.6 * g1);
+        dens += emb * 0.55 + stripes * 0.45;
+        if (feat == 0u) {
+            // célula madre: pluripotent core budding daughter cells
+            let core = mm_life_blob(p, vec3<f32>(0.0), 0.05, 50.0);
+            col += c_gold * core * 1.1;
+            dens += core * 0.85;
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * 1.0471976;
+                let db = mm_life_blob(p, vec3<f32>(cos(a) * 0.15, sin(a * 2.0) * 0.04, sin(a) * 0.15), 0.018, 64.0);
+                col += c_cyan * db;
+                dens += db * 0.7;
+            }
+        } else if (feat == 1u) {
+            // regulación génica: alternating on/off Hox expression domains
+            let on_off = select(c_cyan, c_mag, sin(p.x * 11.0) > 0.0);
+            col += on_off * stripes * 1.1;
+            dens += stripes * 0.5;
+        } else if (feat == 2u) {
+            // gradiente químico: morphogen gradient pole-to-pole + Turing spots
+            let grad_t = smoothstep(0.34, -0.34, p.x);
+            col += c_amber * emb * grad_t * 1.1 + c_mag * emb * turing * 0.6;
+            dens += emb * (grad_t * 0.6 + turing * 0.4);
+        } else if (feat == 3u) {
+            // tejido: folding neural groove sheet along the dorsal surface
+            for (var k = 0; k < 3; k = k + 1) {
+                let oz = -0.05 + f32(k) * 0.05;
+                let fold = mm_life_seg(p, vec3<f32>(-0.28, 0.30 - abs(oz) * 0.6, oz), vec3<f32>(0.28, 0.30 - abs(oz) * 0.6, oz), 0.007, 82.0);
+                col += c_cyan * fold;
+                dens += fold * 0.65;
+            }
+        } else if (feat == 4u) {
+            // órgano: pulsing organ bud forming inside
+            let org = mm_life_shell(p, vec3<f32>(-0.12, -0.10, 0.10), 0.07 + 0.01 * sin(time * 3.0), 56.0);
+            col += c_red * org * 1.1;
+            dens += org * 0.8;
+        } else if (feat == 5u) {
+            // crecimiento: expanding growth shells
+            let gr_r = 0.36 + 0.16 * fract(time * 0.4);
+            let grow = mm_life_shell(p, vec3<f32>(0.0), gr_r, 40.0) * (1.0 - fract(time * 0.4));
+            col += c_life * grow;
+            dens += grow * 0.6;
+        } else if (feat == 6u) {
+            // forma: paired limb buds patterned with Turing digit stripes
+            for (var k = 0; k < 2; k = k + 1) {
+                let sz = select(-1.0, 1.0, k == 1);
+                let bud = exp(-pow(abs(sd_capsule(p, vec3<f32>(0.18, -0.20, 0.20 * sz), vec3<f32>(0.30, -0.38, 0.36 * sz), 0.05)) * 52.0, 2.0));
+                col += mix(c_amber, c_gold, turing) * bud;
+                dens += bud * 0.75;
+            }
+        } else if (feat == 7u) {
+            // desarrollo: zygote -> morula -> embryo timeline arc
+            let z1 = mm_life_shell(p, vec3<f32>(-0.36, 0.50, 0.0), 0.05, 60.0);
+            let z2 = mm_life_blob(p, vec3<f32>(0.0, 0.56, 0.0), 0.05, 46.0) * (0.6 + 0.4 * pow(0.5 + 0.5 * sin(p.x * 80.0) * sin(p.y * 80.0), 2.0));
+            let z3 = exp(-pow(abs(length((p - vec3<f32>(0.36, 0.50, 0.0)) * vec3<f32>(0.7, 1.2, 1.0)) - 0.05) * 56.0, 2.0));
+            col += c_cyan * z1 + c_gold * z2 + c_life * z3;
+            dens += (z1 + z2 + z3) * 0.7;
+        }
+    } else if (zone == 11u) {
+        // Z11: Organisms — integrated metazoan body with circulatory loop and core
+        let g0 = doc_life_feat_gain(feat, 0u, cue);
+        let body_d = length(p * vec3<f32>(0.62, 1.6, 1.25)) - 0.24;
+        let body = exp(-pow(abs(body_d) * 44.0, 2.0));
+        let circ = doc_line_glow(sd_torus(doc_rot_x(p, 1.5708), 0.14, 0.007), 80.0);
+        let heart = mm_life_blob(p, vec3<f32>(0.08, -0.02, 0.0), 0.028 + 0.006 * sin(time * 4.0), 58.0);
+        col += c_cyan * body * (0.5 + 0.55 * g0) + c_red * (circ * 0.8 + heart);
+        dens += body * 0.6 + circ * 0.55 + heart * 0.8;
+        if (feat == 0u) {
+            // cuerpo: tail and dorsal fins completing the body plan
+            let tf1 = mm_life_seg(p, vec3<f32>(-0.38, 0.0, 0.0), vec3<f32>(-0.52, 0.14, 0.0), 0.010, 76.0);
+            let tf2 = mm_life_seg(p, vec3<f32>(-0.38, 0.0, 0.0), vec3<f32>(-0.52, -0.14, 0.0), 0.010, 76.0);
+            let df = mm_life_seg(p, vec3<f32>(-0.06, 0.15, 0.0), vec3<f32>(0.04, 0.26, 0.0), 0.010, 76.0);
+            col += c_life * (tf1 + tf2 + df);
+            dens += (tf1 + tf2 + df) * 0.7;
+        } else if (feat == 1u) {
+            // alimentación: mouth ring and through-gut
+            let mouth = doc_line_glow(sd_torus(doc_rot_z(p - vec3<f32>(0.39, 0.0, 0.0), 1.5708), 0.05, 0.008), 80.0);
+            let gut = mm_life_seg(p, vec3<f32>(0.36, 0.0, 0.0), vec3<f32>(-0.30, -0.03, 0.0), 0.010, 76.0);
+            col += c_amber * (mouth + gut);
+            dens += (mouth + gut) * 0.7;
+        } else if (feat == 2u) {
+            // defensa: protective spines along back and belly
+            for (var k = 0; k < 6; k = k + 1) {
+                let sx = -0.22 + f32(k / 2) * 0.20;
+                let sy = select(-0.14, 0.14, k % 2 == 0);
+                let sp = mm_life_seg(p, vec3<f32>(sx, sy, 0.0), vec3<f32>(sx + 0.04, sy * 2.0, 0.0), 0.007, 82.0);
+                col += c_gold * sp;
+                dens += sp * 0.7;
+            }
+        } else if (feat == 3u) {
+            // reproducción: clutch of eggs released behind the body
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.2566371;
+                let eg = mm_life_shell(p, vec3<f32>(-0.52 + cos(a) * 0.06, -0.22 + sin(a) * 0.06, 0.0), 0.022, 70.0);
+                col += c_mag * eg;
+                dens += eg * 0.7;
+            }
+        } else if (feat == 4u) {
+            // esqueleto: vertebral column of beads
+            for (var k = 0; k < 9; k = k + 1) {
+                let vb = mm_life_blob(p, vec3<f32>(-0.32 + f32(k) * 0.075, 0.06, 0.0), 0.014, 66.0);
+                col += vec3<f32>(1.18, 1.02, 0.66) * vb;
+                dens += vb * 0.75;
+            }
+        } else if (feat == 5u) {
+            // músculo: chevron myomere bands along the flank
+            let myo = pow(0.5 + 0.5 * sin((p.x + abs(p.y) * 1.4) * 30.0), 8.0) * body;
+            col += c_red * myo * 1.2;
+            dens += myo * 0.75;
+        } else if (feat == 6u) {
+            // navegación: planned path arcing ahead of the animal
+            for (var k = 0; k < 5; k = k + 1) {
+                let t = f32(k) * 0.2;
+                let nb = mm_life_blob(p, vec3<f32>(0.44 + t * 0.20, t * t * 0.45, 0.0), 0.014, 66.0);
+                col += c_cyan * nb;
+                dens += nb * 0.7;
+            }
+        } else if (feat == 7u) {
+            // diversidad: three contrasting body plans orbiting
+            let a0 = time * 0.3;
+            let o1 = mm_life_shell(p, vec3<f32>(cos(a0) * 0.56, 0.30, sin(a0) * 0.56), 0.05, 60.0);
+            let o2 = exp(-pow(abs(sd_octahedron(p - vec3<f32>(cos(a0 + 2.09) * 0.56, 0.30, sin(a0 + 2.09) * 0.56), 0.07)) * 60.0, 2.0));
+            let o3c = vec3<f32>(cos(a0 + 4.19) * 0.56, 0.30, sin(a0 + 4.19) * 0.56);
+            let o3 = mm_life_seg(p, o3c - vec3<f32>(0.06, 0.0, 0.0), o3c + vec3<f32>(0.06, 0.0, 0.0), 0.02, 66.0);
+            col += c_gold * o1 + c_mag * o2 + c_life * o3;
+            dens += (o1 + o2 + o3) * 0.7;
+        }
+    } else if (zone == 12u) {
+        // Z12: Ecosystems — miniature biosphere terrarium (biome ground bands + dome)
+        let rho = length(p.xz);
+        let ang_g = atan2(p.z, p.x);
+        let ground = exp(-pow(abs(p.y + 0.30) * 50.0, 2.0)) * smoothstep(0.55, 0.40, rho);
+        let biome_t = 0.5 + 0.5 * sin(ang_g * 1.5);
+        let biome_c = mix(mix(c_blue, c_life, smoothstep(0.0, 0.5, biome_t)), c_amber, smoothstep(0.6, 1.0, biome_t));
+        let dome = mm_life_shell(p, vec3<f32>(0.0, -0.30, 0.0), 0.55, 40.0) * step(-0.30, p.y) * 0.35;
+        col += biome_c * ground * 0.85 + c_cyan * dome;
+        dens += ground * 0.65 + dome * 0.4;
+        if (feat == 0u) {
+            // productor: photosynthetic plants rising from the ground
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.2566371;
+                let base = vec3<f32>(cos(a) * 0.28, -0.30, sin(a) * 0.28);
+                let stem = mm_life_seg(p, base, base + vec3<f32>(0.0, 0.18, 0.0), 0.006, 84.0);
+                let leaf = mm_life_blob(p, base + vec3<f32>(0.0, 0.20, 0.0), 0.024, 60.0);
+                col += vec3<f32>(0.24, 1.22, 0.44) * (stem + leaf);
+                dens += (stem + leaf) * 0.7;
+            }
+        } else if (feat == 1u) {
+            // consumidor: herbivores feeding on producers
+            for (var k = 0; k < 3; k = k + 1) {
+                let a = f32(k) * 2.0943951 + 0.4;
+                let hp = vec3<f32>(cos(a) * 0.20, 0.06, sin(a) * 0.20);
+                let hb = mm_life_blob(p, hp, 0.030, 58.0);
+                let ln = mm_life_seg(p, hp, vec3<f32>(cos(a) * 0.28, -0.12, sin(a) * 0.28), 0.005, 86.0);
+                col += c_amber * hb + c_gold * ln * 0.7;
+                dens += hb * 0.8 + ln * 0.5;
+            }
+        } else if (feat == 2u) {
+            // descomponedor: violet mycelium network beneath the soil
+            let myc = exp(-pow(abs(p.y + 0.37) * 60.0, 2.0)) * smoothstep(0.50, 0.30, rho) * pow(0.5 + 0.5 * sin(p.x * 26.0 + sin(p.z * 19.0) * 2.0), 6.0);
+            col += c_violet * myc * 1.2;
+            dens += myc * 0.8;
+        } else if (feat == 3u) {
+            // red trófica: interlinked food web of five species
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.2566371;
+                let b = a + 2.5132741;
+                let na = vec3<f32>(cos(a) * 0.28, 0.20, sin(a) * 0.28);
+                let nb = vec3<f32>(cos(b) * 0.28, 0.20, sin(b) * 0.28);
+                let node = mm_life_blob(p, na, 0.022, 62.0);
+                let link = mm_life_seg(p, na, nb, 0.005, 86.0);
+                col += c_gold * node + c_cyan * link * 0.8;
+                dens += node * 0.75 + link * 0.5;
+            }
+        } else if (feat == 4u) {
+            // simbiosis: two partners in mutual orbit
+            let sc = vec3<f32>(-0.25, 0.22, 0.0);
+            let orb = doc_line_glow(sd_torus(p - sc, 0.09, 0.006), 82.0);
+            let sa = mm_life_blob(p, sc + vec3<f32>(cos(time) * 0.09, 0.0, sin(time) * 0.09), 0.022, 62.0);
+            let sb = mm_life_blob(p, sc - vec3<f32>(cos(time) * 0.09, 0.0, sin(time) * 0.09), 0.022, 62.0);
+            col += c_cyan * orb + c_life * sa + c_mag * sb;
+            dens += orb * 0.6 + (sa + sb) * 0.8;
+        } else if (feat == 5u) {
+            // competencia: two consumers converging on one resource
+            let res = mm_life_blob(p, vec3<f32>(0.0, 0.08, 0.0), 0.030, 58.0);
+            let la = mm_life_seg(p, vec3<f32>(-0.30, 0.36, 0.0), vec3<f32>(0.0, 0.10, 0.0), 0.007, 82.0);
+            let lb = mm_life_seg(p, vec3<f32>(0.30, 0.36, 0.0), vec3<f32>(0.0, 0.10, 0.0), 0.007, 82.0);
+            col += c_gold * res + c_red * (la + lb);
+            dens += res * 0.8 + (la + lb) * 0.65;
+        } else if (feat == 6u) {
+            // nicho: one partitioned niche wedge highlighted
+            let wedge = step(0.0, ang_g) * step(ang_g, 0.9);
+            let niche = ground * wedge;
+            let wall = exp(-pow(abs(p.z) * 60.0, 2.0)) * step(0.0, p.x) * smoothstep(0.5, 0.3, rho) * smoothstep(0.1, -0.3, p.y) * step(-0.30, p.y);
+            col += c_gold * niche * 1.2 + c_amber * wall * 0.8;
+            dens += niche * 0.8 + wall * 0.5;
+        } else if (feat == 7u) {
+            // ciclo de nutrientes: circulating nutrient loop with flowing beads
+            let cyc = doc_line_glow(sd_torus(doc_rot_x(p, 1.5708), 0.42, 0.008), 78.0);
+            col += c_life * cyc;
+            dens += cyc * 0.6;
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.5707963 + time * 0.6;
+                let bd = mm_life_blob(p, vec3<f32>(cos(a) * 0.42, sin(a) * 0.42, 0.0), 0.020, 62.0);
+                col += c_gold * bd;
+                dens += bd * 0.75;
+            }
+        }
+    } else if (zone == 13u) {
+        // Z13: Movement — articulated limb (bones, joint, contractile muscle belly)
+        let shoulder = vec3<f32>(-0.36, 0.20, 0.0);
+        let elbow = vec3<f32>(0.0, 0.0, 0.0);
+        let wrist = vec3<f32>(0.30, -0.30 + 0.04 * sin(time * 1.4), 0.0);
+        let g2 = doc_life_feat_gain(feat, 2u, cue);
+        let bone1 = mm_life_seg(p, shoulder, elbow, 0.014, 70.0);
+        let bone2 = mm_life_seg(p, elbow, wrist, 0.012, 72.0);
+        let joint = mm_life_blob(p, elbow, 0.026, 58.0);
+        let mid = (shoulder + elbow) * 0.5 + vec3<f32>(0.0, 0.06, 0.0);
+        let belly_d = length((p - mid) * vec3<f32>(0.55, 1.6, 1.4)) - 0.08;
+        let belly = exp(-pow(abs(belly_d) * 50.0, 2.0));
+        col += vec3<f32>(1.16, 1.00, 0.64) * (bone1 + bone2 + joint) * (0.55 + 0.6 * g2) + c_red * belly * 0.6;
+        dens += (bone1 + bone2 + joint) * 0.7 + belly * 0.55;
+        if (feat == 0u) {
+            // locomoción: swing arc of the stride + beating cilia
+            let arc = doc_line_glow(sd_torus(doc_rot_x(p - elbow, 1.5708), 0.42, 0.007), 80.0) * step(p.y, 0.0);
+            let cil = pow(0.5 + 0.5 * sin(p.x * 40.0 - time * 6.0), 6.0) * exp(-pow(abs(p.y + 0.52) * 50.0, 2.0)) * smoothstep(0.4, 0.2, abs(p.x));
+            col += c_cyan * arc + c_life * cil;
+            dens += arc * 0.6 + cil * 0.6;
+        } else if (feat == 1u) {
+            // músculo: actin/myosin sarcomere striations contracting
+            let along = dot(p - shoulder, normalize(elbow - shoulder));
+            let stri = pow(0.5 + 0.5 * sin(along * 60.0 + time * 2.0), 4.0) * smoothstep(0.02, -0.02, belly_d);
+            col += mix(c_red, c_gold, stri) * stri * 1.2;
+            dens += stri * 0.8;
+        } else if (feat == 3u) {
+            // alimentación: grasping claw closing on food
+            let cl1 = mm_life_seg(p, wrist, wrist + vec3<f32>(0.10, 0.06, 0.0), 0.008, 80.0);
+            let cl2 = mm_life_seg(p, wrist, wrist + vec3<f32>(0.10, -0.06, 0.0), 0.008, 80.0);
+            let food = mm_life_blob(p, wrist + vec3<f32>(0.14, 0.0, 0.0), 0.026, 60.0);
+            col += c_gold * (cl1 + cl2) + c_life * food;
+            dens += (cl1 + cl2) * 0.7 + food * 0.8;
+        } else if (feat == 4u) {
+            // huida: escape speed lines away from a predator eye
+            for (var k = 0; k < 3; k = k + 1) {
+                let ly = 0.05 + f32(k) * 0.10;
+                let sl = mm_life_seg(p, vec3<f32>(-0.64, ly, 0.0), vec3<f32>(-0.44, ly, 0.0), 0.005, 86.0);
+                col += c_cyan * sl;
+                dens += sl * 0.6;
+            }
+            let eye = mm_life_blob(p, vec3<f32>(0.52, 0.34, 0.0), 0.030, 58.0);
+            col += c_red * eye * 1.1;
+            dens += eye * 0.8;
+        } else if (feat == 5u) {
+            // búsqueda: expanding search rings scanning overhead
+            for (var k = 0; k < 3; k = k + 1) {
+                let sr = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.42, 0.0), 0.07 + f32(k) * 0.07, 0.006), 82.0) * step(0.0, sin(atan2(p.z, p.x) * 6.0 + f32(k)));
+                col += c_gold * sr;
+                dens += sr * 0.6;
+            }
+        } else if (feat == 6u) {
+            // orientación: compass ring with a heading needle
+            let cc = vec3<f32>(-0.38, -0.30, 0.0);
+            let ring_c = doc_line_glow(sd_torus(doc_rot_x(p - cc, 1.5708), 0.11, 0.007), 80.0);
+            let ndl = mm_life_seg(p, cc - vec3<f32>(0.0, 0.09, 0.0), cc + vec3<f32>(0.0, 0.09, 0.0), 0.008, 80.0);
+            col += c_cyan * ring_c + c_red * ndl;
+            dens += ring_c * 0.6 + ndl * 0.75;
+        } else if (feat == 7u) {
+            // conducta: branching behavioural decision arrows
+            let stem = mm_life_seg(p, vec3<f32>(0.0, 0.10, 0.0), vec3<f32>(0.0, 0.36, 0.0), 0.008, 80.0);
+            let br_a = mm_life_seg(p, vec3<f32>(0.0, 0.36, 0.0), vec3<f32>(-0.20, 0.56, 0.0), 0.008, 80.0);
+            let br_b = mm_life_seg(p, vec3<f32>(0.0, 0.36, 0.0), vec3<f32>(0.20, 0.56, 0.0), 0.008, 80.0);
+            col += c_gold * stem + c_cyan * br_a + c_mag * br_b;
+            dens += (stem + br_a + br_b) * 0.7;
+        }
+    } else if (zone == 14u) {
+        // Z14: Senses — sensory receptor ring feeding a central nerve trunk
+        let trunk = mm_life_seg(p, vec3<f32>(0.0, -0.46, 0.0), vec3<f32>(0.0, 0.18, 0.0), 0.012, 72.0);
+        let hub = mm_life_blob(p, vec3<f32>(0.0, 0.18, 0.0), 0.036, 56.0);
+        col += c_blue * trunk + c_cyan * hub;
+        dens += trunk * 0.65 + hub * 0.75;
+        for (var k = 0; k < 8; k = k + 1) {
+            let a = f32(k) * 0.78539816;
+            let rp = vec3<f32>(cos(a) * 0.42, 0.0, sin(a) * 0.42);
+            let rn = mm_life_blob(p, rp, 0.016, 64.0);
+            let ln = mm_life_seg(p, rp, vec3<f32>(0.0, 0.18, 0.0), 0.003, 92.0);
+            col += c_life * rn * 0.8 + c_blue * ln * 0.4;
+            dens += rn * 0.6 + ln * 0.3;
+        }
+        if (feat == 0u) {
+            // luz: camera eye (retina cup + lens) receiving light rays
+            let ec = vec3<f32>(0.40, 0.26, 0.0);
+            let eyeball = mm_life_shell(p, ec, 0.10, 56.0) * step(p.x, ec.x + 0.05);
+            let lens = mm_life_blob(p, ec + vec3<f32>(0.09, 0.0, 0.0), 0.022, 62.0);
+            let ray = mm_life_seg(p, ec + vec3<f32>(0.12, 0.0, 0.0), ec + vec3<f32>(0.28, 0.08, 0.0), 0.005, 86.0);
+            col += c_cyan * eyeball + c_gold * (lens + ray);
+            dens += eyeball * 0.7 + lens * 0.8 + ray * 0.5;
+        } else if (feat == 1u) {
+            // sustancia química: olfactory cilia fanning toward drifting odorants
+            let oc = vec3<f32>(-0.40, 0.26, 0.0);
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = -0.6 + f32(k) * 0.3;
+                let cil = mm_life_seg(p, oc, oc + vec3<f32>(-cos(a) * 0.12, sin(a) * 0.12, 0.0), 0.004, 88.0);
+                col += c_life * cil;
+                dens += cil * 0.6;
+            }
+            let od = mm_life_sparkle(p - oc, 30.0) * smoothstep(0.18, 0.06, length(p - oc - vec3<f32>(-0.16, 0.0, 0.0)));
+            col += c_mag * od * 1.3;
+            dens += od * 0.7;
+        } else if (feat == 2u) {
+            // vibración: cochlear spiral resonating with incoming waves
+            let qc = p - vec3<f32>(0.0, 0.46, 0.0);
+            let rad = length(qc.xz);
+            let ang_s = atan2(qc.z, qc.x);
+            let spiral = exp(-pow(abs(fract(rad * 14.0 - ang_s / TAU) - 0.5) * 7.0, 2.0)) * smoothstep(0.16, 0.12, rad) * exp(-pow(qc.y * 40.0, 2.0));
+            col += c_gold * spiral * 1.1;
+            dens += spiral * 0.8;
+        } else if (feat == 3u) {
+            // presión: layered Pacinian corpuscle under a pressing plate
+            let pc = vec3<f32>(-0.38, -0.26, 0.0);
+            for (var k = 0; k < 3; k = k + 1) {
+                let lay = exp(-pow(abs(length((p - pc) * vec3<f32>(1.0, 1.4, 1.0)) - (0.04 + f32(k) * 0.035)) * 60.0, 2.0));
+                col += mix(c_amber, c_gold, f32(k) * 0.5) * lay;
+                dens += lay * 0.6;
+            }
+            let plate = mm_life_seg(p, pc + vec3<f32>(-0.10, 0.14, 0.0), pc + vec3<f32>(0.10, 0.14, 0.0), 0.010, 76.0);
+            col += c_cyan * plate;
+            dens += plate * 0.7;
+        } else if (feat == 4u) {
+            // temperatura: hot-to-cold thermal bar against a thermoreceptor
+            let a0 = vec3<f32>(0.24, -0.42, 0.0);
+            let b0 = vec3<f32>(0.54, -0.12, 0.0);
+            let bar = mm_life_seg(p, a0, b0, 0.020, 64.0);
+            let tt = clamp(dot(p - a0, normalize(b0 - a0)) / length(b0 - a0), 0.0, 1.0);
+            col += mix(c_red, c_blue, tt) * bar;
+            dens += bar * 0.8;
+        } else if (feat == 5u) {
+            // orientación: three orthogonal semicircular canals
+            let vc = p - vec3<f32>(-0.22, 0.46, 0.0);
+            let c1 = doc_line_glow(sd_torus(vc, 0.08, 0.006), 82.0);
+            let c2 = doc_line_glow(sd_torus(doc_rot_x(vc, 1.5708), 0.08, 0.006), 82.0);
+            let c3 = doc_line_glow(sd_torus(doc_rot_z(vc, 1.5708), 0.08, 0.006), 82.0);
+            col += c_cyan * c1 + c_gold * c2 + c_mag * c3;
+            dens += (c1 + c2 + c3) * 0.65;
+        } else if (feat == 6u) {
+            // propiocepción: muscle spindle wrapped by a stretch-sensing coil
+            let sc = vec3<f32>(0.40, -0.06, 0.24);
+            let sp_d = length((p - sc) * vec3<f32>(0.5, 1.6, 1.6)) - 0.05;
+            let spindle = exp(-pow(abs(sp_d) * 56.0, 2.0));
+            let coil = pow(0.5 + 0.5 * sin((p.x - sc.x) * 70.0), 6.0) * exp(-pow(abs(sp_d - 0.012) * 40.0, 2.0));
+            col += c_red * spindle * 0.8 + c_gold * coil;
+            dens += spindle * 0.6 + coil * 0.7;
+        } else if (feat == 7u) {
+            // interocepción: internal heartbeat signalling up the trunk
+            let beat = 0.5 + 0.5 * sin(time * 4.0);
+            let hrt = mm_life_blob(p, vec3<f32>(0.0, -0.26, 0.0), 0.040 + 0.008 * beat, 54.0);
+            let sig = exp(-pow(abs(p.y - (-0.26 + fract(time * 0.5) * 0.44)) * 30.0, 2.0)) * exp(-pow(length(p.xz) * 40.0, 2.0));
+            col += c_red * hrt * 1.1 + c_gold * sig * 1.2;
+            dens += hrt * 0.85 + sig * 0.8;
+        }
+    } else if (zone == 15u) {
+        // Z15: Nervous Systems — neuron (soma, dendrites, axon, synaptic terminal)
+        let soma_c = vec3<f32>(-0.28, 0.05, 0.0);
+        let g0 = doc_life_feat_gain(feat, 0u, cue);
+        let soma = mm_life_shell(p, soma_c, 0.075, 56.0) + mm_life_blob(p, soma_c, 0.03, 54.0) * 0.6;
+        var dend: f32 = 0.0;
+        for (var k = 0; k < 5; k = k + 1) {
+            let a = 1.8 + f32(k) * 0.65;
+            dend += mm_life_seg(p, soma_c, soma_c + vec3<f32>(cos(a) * 0.20, sin(a) * 0.20, 0.06 * f32(k - 2)), 0.005, 86.0);
+        }
+        let axon = mm_life_seg(p, soma_c + vec3<f32>(0.07, 0.0, 0.0), vec3<f32>(0.40, -0.05, 0.0), 0.007, 80.0);
+        let term = mm_life_blob(p, vec3<f32>(0.44, -0.06, 0.0), 0.028, 58.0);
+        col += c_cyan * (soma + dend) * (0.55 + 0.6 * g0) + c_blue * axon * 0.8 + c_gold * term * 0.8;
+        dens += (soma + dend) * 0.65 + axon * 0.6 + term * 0.7;
+        if (feat == 1u) {
+            // impulso eléctrico: action potential leaping along myelinated axon
+            let px = mix(-0.21, 0.40, fract(time * 0.55));
+            let spike = exp(-pow(abs(p.x - px) * 18.0, 2.0)) * exp(-pow(abs(p.y + 0.02 + (p.x + 0.21) * 0.05) * 40.0, 2.0)) * exp(-pow(p.z * 40.0, 2.0));
+            let my = step(0.25, fract(p.x * 9.0)) * axon * 0.6;
+            col += c_gold * spike * 1.3 + c_cyan * my;
+            dens += spike * 0.9 + my * 0.5;
+        } else if (feat == 2u) {
+            // sinapsis: vesicles crossing the cleft to a dendritic spine
+            let spine = mm_life_shell(p, vec3<f32>(0.57, -0.06, 0.0), 0.035, 60.0);
+            col += c_life * spine;
+            dens += spine * 0.7;
+            for (var k = 0; k < 3; k = k + 1) {
+                let vx = 0.47 + fract(time * 0.6 + f32(k) * 0.33) * 0.07;
+                let ves = mm_life_blob(p, vec3<f32>(vx, -0.06 + 0.02 * f32(k - 1), 0.0), 0.010, 70.0);
+                col += c_mag * ves * 1.2;
+                dens += ves * 0.8;
+            }
+        } else if (feat == 3u) {
+            // reflejo: sensory -> spinal -> motor reflex arc
+            let arc = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, -0.30, 0.0), 1.5708), 0.28, 0.008), 78.0) * step(p.y, -0.30);
+            let cord = exp(-pow(abs(sd_box(p - vec3<f32>(0.0, -0.58, 0.0), vec3<f32>(0.05, 0.03, 0.05))) * 50.0, 2.0));
+            col += c_amber * arc + c_gold * cord;
+            dens += arc * 0.7 + cord * 0.7;
+        } else if (feat == 4u) {
+            // integración sensorial: three inputs converging on the soma
+            for (var k = 0; k < 3; k = k + 1) {
+                let sx = -0.48 + f32(k) * 0.20;
+                let inp = mm_life_seg(p, vec3<f32>(sx, 0.48, 0.0), soma_c, 0.006, 84.0);
+                col += select(select(c_mag, c_gold, k == 1), c_life, k == 2) * inp;
+                dens += inp * 0.65;
+            }
+        } else if (feat == 5u) {
+            // control motor: motor axon commanding a striated muscle fibre
+            let mot = mm_life_seg(p, vec3<f32>(0.44, -0.06, 0.0), vec3<f32>(0.44, -0.30, 0.0), 0.006, 84.0);
+            let fib = exp(-pow(abs(sd_box(p - vec3<f32>(0.44, -0.38, 0.0), vec3<f32>(0.14, 0.04, 0.04))) * 50.0, 2.0)) * (0.6 + 0.4 * step(0.5, fract(p.x * 30.0)));
+            col += c_blue * mot + c_red * fib;
+            dens += mot * 0.6 + fib * 0.75;
+        } else if (feat == 6u) {
+            // red distribuida: diffuse nerve net mesh (cnidarian)
+            let nq = (p / max(r, 1e-3)) * 5.0;
+            let mesh = exp(-pow(length(fract(nq) - 0.5) * 6.0, 2.0)) * exp(-pow(abs(r - 0.55) * 30.0, 2.0));
+            col += c_violet * mesh * 1.1;
+            dens += mesh * 0.7;
+        } else if (feat == 7u) {
+            // centralización: ganglia condensing into a ventral cord
+            for (var k = 0; k < 5; k = k + 1) {
+                let gx = -0.36 + f32(k) * 0.18;
+                let gang = mm_life_blob(p, vec3<f32>(gx, -0.44, 0.0), 0.024, 60.0);
+                col += c_gold * gang;
+                dens += gang * 0.8;
+            }
+            let cord = mm_life_seg(p, vec3<f32>(-0.36, -0.44, 0.0), vec3<f32>(0.36, -0.44, 0.0), 0.005, 86.0);
+            col += c_cyan * cord;
+            dens += cord * 0.5;
+        }
+    } else if (zone == 16u) {
+        // Z16: Brains & Learning — comparative cortex silhouette with learning circuits
+        let bp = p * 1.15;
+        let binfo = mm_brain_sdf(bp);
+        let bd = binfo.x / 1.15;
+        let reg = binfo.y;
+        let shell_g = exp(-pow(abs(bd) * 52.0, 2.0));
+        var region_col = vec3<f32>(0.36, 0.72, 1.18);
+        if (reg > 2.5) {
+            region_col = vec3<f32>(0.62, 0.44, 1.10);
+        } else if (reg > 1.5) {
+            region_col = vec3<f32>(0.26, 1.10, 0.84);
+        }
+        col += region_col * shell_g * (0.45 + 0.35 * smoothstep(-0.35, 0.65, binfo.z));
+        dens += shell_g * 0.55;
+        if (feat == 0u) {
+            // memoria: bilateral hippocampal C-arcs lighting up
+            let hp = vec3<f32>(abs(bp.x) - 0.12, bp.y + 0.06, bp.z + 0.02);
+            let hip = exp(-pow(abs(length(hp.yz) - 0.14) * 50.0, 2.0)) * exp(-pow(abs(hp.x) * 32.0, 2.0));
+            col += c_gold * hip * 1.2;
+            dens += hip * 0.85;
+        } else if (feat == 1u) {
+            // plasticidad: strengthening synapse between two neurons
+            let na = vec3<f32>(-0.10, 0.10, 0.10);
+            let nb = vec3<f32>(0.10, 0.12, 0.02);
+            let link = mm_life_seg(p, na, nb, 0.006 + 0.004 * sin(time * 2.0), 78.0);
+            let ends = mm_life_blob(p, na, 0.020, 62.0) + mm_life_blob(p, nb, 0.020, 62.0);
+            col += c_cyan * link * 1.1 + c_gold * ends;
+            dens += link * 0.75 + ends * 0.8;
+        } else if (feat == 2u) {
+            // predicción: frontal forward-model beam reaching ahead
+            let beam = mm_life_seg(p, vec3<f32>(0.0, 0.06, 0.38), vec3<f32>(0.0, 0.10, 0.66), 0.010, 76.0);
+            let ghost = mm_life_shell(p, vec3<f32>(0.0, 0.10, 0.70), 0.04, 60.0);
+            col += c_cyan * beam + c_violet * ghost;
+            dens += beam * 0.7 + ghost * 0.7;
+        } else if (feat == 3u) {
+            // recompensa: dopamine burst from the midbrain
+            let da = mm_life_blob(p, vec3<f32>(0.0, -0.12, -0.02), 0.035, 54.0);
+            col += c_gold * da * 1.2;
+            dens += da * 0.85;
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.5707963 + 0.4;
+                let ray = mm_life_seg(p, vec3<f32>(0.0, -0.12, -0.02), vec3<f32>(cos(a) * 0.20, 0.10, sin(a) * 0.20), 0.004, 88.0);
+                col += c_amber * ray;
+                dens += ray * 0.5;
+            }
+        } else if (feat == 4u) {
+            // atención: spotlight beam focusing on parietal cortex
+            let spot = mm_life_seg(p, vec3<f32>(0.30, 0.58, 0.0), vec3<f32>(0.12, 0.22, 0.0), 0.030, 40.0);
+            let focus = shell_g * smoothstep(0.14, 0.04, length(p - vec3<f32>(0.12, 0.22, 0.0)));
+            col += c_gold * spot * 0.7 + c_gold * focus * 1.2;
+            dens += spot * 0.45 + focus * 0.8;
+        } else if (feat == 5u) {
+            // decisión: prefrontal glow with a forking choice ahead
+            let pfc = shell_g * smoothstep(0.16, 0.26, p.z);
+            let fa = mm_life_seg(p, vec3<f32>(0.0, 0.0, 0.42), vec3<f32>(-0.14, 0.0, 0.60), 0.007, 82.0);
+            let fb = mm_life_seg(p, vec3<f32>(0.0, 0.0, 0.42), vec3<f32>(0.14, 0.0, 0.60), 0.007, 82.0);
+            col += c_mag * pfc * 1.1 + c_gold * (fa + fb);
+            dens += pfc * 0.75 + (fa + fb) * 0.65;
+        } else if (feat == 6u) {
+            // instinto: ancient brainstem circuits glowing
+            let stem = mm_life_seg(p, vec3<f32>(0.0, -0.12, -0.035), vec3<f32>(0.0, -0.45, -0.11), 0.05, 50.0);
+            col += c_red * stem * 0.9;
+            dens += stem * 0.7;
+        } else if (feat == 7u) {
+            // flexibilidad: switching loop alternating strategies around frontal cortex
+            let fl = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, 0.06, 0.30), 1.5708), 0.14, 0.008), 78.0);
+            let sw = select(c_cyan, c_mag, sin(atan2(p.y - 0.06, p.x) * 2.0 + time * 2.0) > 0.0);
+            col += sw * fl * 1.1;
+            dens += fl * 0.75;
+        }
+    } else if (zone == 17u) {
+        // Z17: Perception — thalamo-cortical predictive loop (bottom-up cyan vs top-down gold)
+        let thal = mm_life_blob(p, vec3<f32>(0.0, -0.10, 0.0), 0.06, 50.0);
+        let ctx = mm_life_shell(p, vec3<f32>(0.0, -0.10, 0.0), 0.46, 40.0) * smoothstep(0.02, 0.18, p.y);
+        let up_a = mm_life_seg(p, vec3<f32>(-0.06, -0.04, 0.0), vec3<f32>(-0.22, 0.32, 0.0), 0.006, 84.0);
+        let dn_a = mm_life_seg(p, vec3<f32>(0.22, 0.32, 0.0), vec3<f32>(0.06, -0.04, 0.0), 0.006, 84.0);
+        col += c_gold * thal * 0.9 + c_blue * ctx * 0.5 + c_cyan * up_a + c_gold * dn_a;
+        dens += thal * 0.75 + ctx * 0.45 + (up_a + dn_a) * 0.6;
+        if (feat == 0u) {
+            // color: spectral ring decoded into hue
+            let ring_s = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, 0.0, 0.30), 1.5708), 0.14, 0.012), 72.0);
+            let a = atan2(p.y, p.x);
+            let hue = vec3<f32>(0.55 + 0.5 * cos(a), 0.55 + 0.5 * cos(a - 2.094), 0.55 + 0.5 * cos(a + 2.094));
+            col += hue * ring_s;
+            dens += ring_s * 0.75;
+        } else if (feat == 1u) {
+            // sonido: concentric sound wavefronts arriving from the left
+            for (var k = 0; k < 3; k = k + 1) {
+                let sw = mm_life_shell(p, vec3<f32>(-0.66, 0.0, 0.0), 0.14 + f32(k) * 0.08, 60.0) * step(-0.62, p.x) * smoothstep(0.20, 0.10, abs(p.z));
+                col += c_violet * sw;
+                dens += sw * 0.65;
+            }
+        } else if (feat == 2u) {
+            // forma: wireframe solid being recognised as shape
+            let bq = doc_rot_y(p - vec3<f32>(0.40, 0.22, 0.0), 0.6);
+            let bx = exp(-pow(abs(sd_box(bq, vec3<f32>(0.08))) * 60.0, 2.0));
+            col += c_cyan * bx;
+            dens += bx * 0.75;
+        } else if (feat == 3u) {
+            // movimiento: moving target with motion trail
+            let mx = -0.40 + 0.80 * fract(time * 0.3);
+            let dot_m = mm_life_blob(p, vec3<f32>(mx, 0.40, 0.0), 0.024, 60.0);
+            let trail = mm_life_seg(p, vec3<f32>(mx - 0.20, 0.40, 0.0), vec3<f32>(mx, 0.40, 0.0), 0.006, 84.0);
+            col += c_gold * dot_m + c_amber * trail * 0.7;
+            dens += dot_m * 0.85 + trail * 0.5;
+        } else if (feat == 4u) {
+            // mapa espacial: hexagonal grid-cell lattice on the floor
+            let gp = vec2<f32>(p.x * 7.0, (p.z + p.x * 0.577) * 7.0);
+            let hexd = length(fract(gp) - 0.5);
+            let grid = exp(-pow(hexd * 6.0, 2.0)) * exp(-pow(abs(p.y + 0.40) * 50.0, 2.0)) * smoothstep(0.50, 0.30, length(p.xz));
+            col += c_life * grid * 1.1;
+            dens += grid * 0.75;
+        } else if (feat == 5u) {
+            // reconocimiento: face template matching (outline, eyes, mouth)
+            let fc = vec3<f32>(-0.34, 0.26, 0.0);
+            let outline = doc_line_glow(sd_torus(doc_rot_x(p - fc, 1.5708), 0.10, 0.007), 80.0);
+            let eyes = mm_life_blob(p, fc + vec3<f32>(-0.035, 0.03, 0.0), 0.012, 70.0) + mm_life_blob(p, fc + vec3<f32>(0.035, 0.03, 0.0), 0.012, 70.0);
+            let mouth = mm_life_seg(p, fc + vec3<f32>(-0.04, -0.04, 0.0), fc + vec3<f32>(0.04, -0.04, 0.0), 0.005, 86.0);
+            col += c_gold * outline + c_cyan * (eyes + mouth);
+            dens += outline * 0.65 + (eyes + mouth) * 0.75;
+        } else if (feat == 6u) {
+            // cuerpo: somatotopic body-map strip across the cortex
+            let strip = ctx * smoothstep(0.06, 0.02, abs(p.x));
+            col += c_mag * strip * 1.6;
+            dens += strip * 0.9;
+        } else if (feat == 7u) {
+            // interpretación: prediction meets evidence in a bright collision ring
+            let coll = doc_line_glow(sd_torus(p - vec3<f32>(0.0, 0.14, 0.0), 0.16, 0.010), 76.0);
+            let mix_c = mix(c_cyan, c_gold, 0.5 + 0.5 * sin(atan2(p.z, p.x) * 3.0));
+            col += mix_c * coll * 1.1;
+            dens += coll * 0.8;
+        }
+    } else {
+        // Z18: The Conscious Experience — global-workspace ignition + bridge portal into Exp 17
+        // A quiet cortical envelope locates the workspace nodes inside the brain.
+        let cortex_d = mm_brain_sdf(p * 0.82).x / 0.82;
+        let cortex = exp(-pow(abs(cortex_d) * 52.0, 2.0));
+        col += c_violet * cortex * 0.22;
+        dens += cortex * 0.12;
+        let core = mm_life_blob(p, vec3<f32>(0.0), 0.06, 40.0);
+        let g6 = doc_life_feat_gain(feat, 6u, cue);
+        col += c_gold * core * 0.8;
+        dens += core * 0.7;
+        for (var k = 0; k < 6; k = k + 1) {
+            let a = f32(k) * 1.0471976 + time * 0.12;
+            let np = vec3<f32>(cos(a) * 0.40, 0.08 * sin(a * 3.0), sin(a) * 0.40);
+            let node = mm_life_blob(p, np, 0.022, 60.0);
+            let link = mm_life_seg(p, vec3<f32>(0.0), np, 0.004, 88.0);
+            col += c_cyan * node * (0.6 + 0.6 * g6) + c_blue * link * 0.5;
+            dens += node * 0.7 + link * 0.4;
+        }
+        if (feat == 0u) {
+            // vigilia: arousal column rising from the brainstem with alpha ring
+            let col_v = mm_life_seg(p, vec3<f32>(0.0, -0.58, 0.0), vec3<f32>(0.0, -0.04, 0.0), 0.016, 66.0);
+            let alpha = doc_line_glow(sd_torus(p - vec3<f32>(0.0, -0.30, 0.0), 0.10, 0.007), 80.0);
+            col += c_amber * col_v + c_gold * alpha;
+            dens += col_v * 0.75 + alpha * 0.6;
+        } else if (feat == 1u) {
+            // experiencia subjetiva: warm inner qualia shell
+            let q1 = mm_life_shell(p, vec3<f32>(0.0), 0.13, 48.0);
+            col += vec3<f32>(1.22, 0.72, 0.52) * q1 * 1.1;
+            dens += q1 * 0.8;
+        } else if (feat == 2u) {
+            // atención: spotlight beam selecting one cortical node
+            let a0 = time * 0.12;
+            let tp = vec3<f32>(cos(a0) * 0.40, 0.08 * sin(a0 * 3.0), sin(a0) * 0.40);
+            let beam = mm_life_seg(p, vec3<f32>(0.0, 0.50, 0.0), tp, 0.020, 50.0);
+            col += c_gold * beam * 0.9;
+            dens += beam * 0.6;
+        } else if (feat == 3u) {
+            // modelo de sí: recursively nested self-model shells
+            for (var k = 0; k < 3; k = k + 1) {
+                let ns = mm_life_shell(p, vec3<f32>(0.0, 0.0, 0.0), 0.08 + f32(k) * 0.07, 60.0) * step(0.0, sin(atan2(p.z, p.x) * 4.0 + f32(k)));
+                col += mix(c_cyan, c_mag, f32(k) * 0.5) * ns;
+                dens += ns * 0.6;
+            }
+        } else if (feat == 4u) {
+            // comunicación: two minds linked by a shared arc
+            let ma = mm_life_shell(p, vec3<f32>(-0.40, 0.34, 0.0), 0.06, 58.0);
+            let mb = mm_life_shell(p, vec3<f32>(0.40, 0.34, 0.0), 0.06, 58.0);
+            let arc = doc_line_glow(sd_torus(doc_rot_x(p - vec3<f32>(0.0, 0.34, 0.0), 1.5708), 0.40, 0.007), 80.0) * step(0.34, p.y);
+            col += c_cyan * (ma + mb) + c_gold * arc;
+            dens += (ma + mb) * 0.7 + arc * 0.6;
+        } else if (feat == 5u) {
+            // conciencia animal: other animal minds around the lower ring
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.5707963 + 0.4;
+                let am = mm_life_shell(p, vec3<f32>(cos(a) * 0.36, -0.36, sin(a) * 0.36), 0.045, 60.0);
+                col += mix(c_life, c_amber, f32(k) / 3.0) * am;
+                dens += am * 0.7;
+            }
+        } else if (feat == 6u) {
+            // correlato neural: synchronous gamma ring binding every node
+            let sync = doc_line_glow(sd_torus(p, 0.40, 0.010), 74.0) * (0.7 + 0.3 * sin(time * 8.0));
+            col += c_cyan * sync * 1.1;
+            dens += sync * 0.75;
+        } else if (feat == 7u) {
+            // teorías: four candidate theory glyphs around the workspace
+            let t1 = exp(-pow(abs(sd_octahedron(p - vec3<f32>(-0.36, 0.36, 0.0), 0.07)) * 60.0, 2.0));
+            let t2 = exp(-pow(abs(sd_box(p - vec3<f32>(0.36, 0.36, 0.0), vec3<f32>(0.05))) * 60.0, 2.0));
+            let t3 = doc_line_glow(sd_torus(p - vec3<f32>(-0.36, -0.36, 0.0), 0.06, 0.008), 80.0);
+            let t4 = exp(-pow(abs(sd_cone_up(p - vec3<f32>(0.36, -0.42, 0.0), vec2<f32>(0.5, 0.86), 0.12)) * 60.0, 2.0));
+            col += c_gold * t1 + c_cyan * t2 + c_mag * t3 + c_life * t4;
+            dens += (t1 + t2 + t3 + t4) * 0.7;
+        } else if (feat == 8u) {
+            // siguiente viaje: emerald-to-violet portal bridging into Exp 17 Mind
+            let portal = doc_line_glow(sd_torus(doc_rot_z(p - vec3<f32>(0.44, 0.0, 0.0), 1.5708), 0.20, 0.014), 70.0);
+            let bridge = mm_life_seg(p, vec3<f32>(0.0), vec3<f32>(0.44, 0.0, 0.0), 0.008, 80.0);
+            let pt = 0.5 + 0.5 * p.y / 0.2;
+            col += mix(c_life, c_violet, clamp(pt, 0.0, 1.0)) * portal * 1.2 + c_gold * bridge;
+            dens += portal * 0.85 + bridge * 0.6;
+        }
+    }
+
+    let pulse = (1.0 + bass * 0.12 + voice * 0.08 + cue * 0.06) * (0.90 + 0.10 * w);
+    let zone_tint = mix(vec3<f32>(1.0), clamp(col_b, vec3<f32>(0.22), vec3<f32>(1.24)), 0.06);
+    return vec4<f32>(clamp(col * pulse * zone_tint, vec3<f32>(0.0), vec3<f32>(1.38)), clamp(dens, 0.0, 2.2));
+}
+
 fn march_doc_bio_mind(
     vid: u32,
     ro: vec3<f32>,
@@ -1928,6 +3364,10 @@ fn march_doc_bio_mind(
 
             if (is_canon && canon_exp == 15u) {
                 let st = shade_doc_complexity_stage(canon_zone, feat, p_raw, p, r, cue, weight, time, voice, bass, inst.color_a.rgb, inst.color_b.rgb);
+                col = st.rgb;
+                dens = st.a;
+            } else if (is_canon && canon_exp == 16u) {
+                let st = shade_doc_life_stage(canon_zone, feat, p, r, cue, weight, time, voice, bass, inst.color_a.rgb, inst.color_b.rgb);
                 col = st.rgb;
                 dens = st.a;
             } else if (mode_group == 0u) {

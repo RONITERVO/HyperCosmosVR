@@ -221,7 +221,7 @@ fn cs_advect_particles(@builtin(global_invocation_id) gid: vec3<u32>) {
         let spec = iridescence_spectral(dot(normalize(vel + vec3<f32>(1e-4)), u_frame.cam_forward.xyz), seed_v.z + time * 0.1, voice);
         tint = spec * (flash * flash * (0.95 + bass * 0.75));
     } else if (mode == 6u) {
-        // Mode 6: Complexity Turing / Belousov-Zhabotinsky Protocell Self-Organization (15)
+        // Mode 6: Turing / Belousov-Zhabotinsky Protocell & Cellular Self-Organization (15 Z09, 16 Z00..=Z14)
         let center = u_sim.attractor_a.xyz;
         let offset = pos - center;
         let r = max(length(offset), 1e-4);
@@ -236,7 +236,7 @@ fn cs_advect_particles(@builtin(global_invocation_id) gid: vec3<u32>) {
         let bio_teal = mix(vec3<f32>(0.12, 0.95, 0.78), vec3<f32>(0.95, 0.35, 1.35), 0.5 + 0.5 * bz_wave);
         tint = bio_teal * (0.7 + 0.9 * max(bz_wave, 0.0) + voice * 0.5);
     } else if (mode == 7u) {
-        // Mode 7: Living Neural Connectome Firing Cascades (16 / 17 Mind)
+        // Mode 7: Living Neural Connectome Firing Cascades (16 Z15..=Z18 / 17 Mind)
         let axon_dir = normalize(u_sim.attractor_b.xyz - u_sim.attractor_a.xyz + vec3<f32>(1e-4));
         let curl_branch = curl_noise3(pos / (radius_scale * 0.3) + vec3<f32>(seed_v.x * 5.0, time * 0.08, 0.0));
         let spike_speed = radius_scale * (0.8 + voice * 1.4 + sin(beat * TAU) * 0.35);
