@@ -50,6 +50,7 @@ Extracted directly from `cargo metadata`:
 | :--- | :--- | :--- |
 | `assets/hrir/irc_1040_c.bin` (`772,656 B`) | IRCAM Listen / `firewheel-ircam-hrtf` (`MIT OR Apache-2.0` compatible binary sphere) | Binaural HRTF sphere (`44.1/48 kHz` resampled at load by `hrtf`). |
 | `assets/textures/blue_noise_128.png` (`49,358 B`) | Project texture asset (`MIT OR Apache-2.0`) | `128x128` RGB triangular-PDF dithering texture sampled by `scene_pass.rs` / `post_pass.rs` (`BLUE_NOISE_PNG`). |
+| `assets/textures/earth/*.png` | NASA Earth Observatory / MODIS / VIIRS; NASA SVS / NOAA CPC; GEBCO via NASA. Educational visualization under [NASA media usage guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/). | Derived July 2004 Blue Marble, 2016 Black Marble, 2014-06-02 SVS/CPC clouds with 2002 polar cloud fill, and GEBCO 2008 relief. [Credits, processing and limits](assets/textures/earth/README.md); exact download URLs and SHA-256 in `sources.json`. No NASA endorsement. |
 | `assets/baked/universe_catalog.hcvb` & `.v1.json` | Derived from `RONITERVO/Spanish-Quick-Apps` & `RONITERVO/Spanish-Quick-Apps-audio` (`tools/bake_universe.py`) | Zero-copy catalog (`25` experiences, `376` zones, `2,456` features, `148,045` SyncVoice cues). |
 | `assets/baked/universe_audio.hcvp` *(GitHub Release `v0.1.0`)* | Derived from `RONITERVO/Spanish-Quick-Apps` & `RONITERVO/Spanish-Quick-Apps-audio` | Concatenated `18,898` MP3 narration recordings (`1,125,699,912 B`). |
 

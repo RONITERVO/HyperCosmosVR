@@ -29,6 +29,16 @@ impl ScaleSpline {
     /// Evaluates pose at parameter `t` (clamped at endpoints), interpolating `scale_exp` linearly in log-10 space
     /// (exponentially in meters) and interpolating sector coordinates smoothly in their `LCA` frame.
     pub fn evaluate(&self, tree: &SectorTree, t: f64) -> Result<ScalePose64, MathError> {
+        self.evaluate_segments(tree, t, true)
+    }
+
+    /// Evaluates a densely sampled path without braking at each interior knot.
+    /// The caller can ease the overall journey parameter once at its endpoints.
+    pub fn evaluate_without_segment_easing(&self, tree: &SectorTree, t: f64) -> Result<ScalePose64, MathError> {
+        self.evaluate_segments(tree, t, false)
+    }
+
+    fn evaluate_segments(&self, tree: &SectorTree, t: f64, ease_segments: bool) -> Result<ScalePose64, MathError> {
         if self.keyframes.is_empty() {
             return Err(MathError::EmptySpline);
         }
@@ -55,7 +65,7 @@ impl ScaleSpline {
         let k1 = &self.keyframes[idx + 1];
         let span = (k1.t - k0.t).max(1e-12);
         let alpha = ((t - k0.t) / span).clamp(0.0, 1.0);
-        let s = smoothstep(0.0, 1.0, alpha);
+        let s = if ease_segments { smoothstep(0.0, 1.0, alpha) } else { alpha };
 
         // Log-scale Catmull-Rom when interior neighbors exist, smooth Hermite at ends.
         let u0 = if idx > 0 { self.keyframes[idx - 1].scale_exp } else { k0.scale_exp };

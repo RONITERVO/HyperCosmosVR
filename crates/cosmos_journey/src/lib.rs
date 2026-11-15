@@ -1,5 +1,5 @@
 //! Modular Story-Journey plugin runtime, 5-act full-catalog Cosmic Odyssey generator,
-//! sentence-paced anti-boredom micro-choreography, elastic thumbstick override with
+//! authored observations and optional orbit choreography, elastic thumbstick override with
 //! non-occluding peripheral exit pearls, and in-game 3D waypoint/zoom recording.
 
 pub mod director;
@@ -222,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn sentence_budget_never_parks_camera_stationary_and_recorder_rdp_roundtrips() {
+    fn moving_profile_sentence_hops_and_recorder_rdp_roundtrip() {
         let catalog = load_real_catalog();
         let spatial = build_default_universe_index();
         let manifest = CosmicHighlightsPlugin
@@ -243,8 +243,11 @@ mod tests {
             6.6,
             DQuat::IDENTITY,
         );
+        let moving_beat = manifest.flatten_beats().iter().position(|(_, _, beat)| {
+            beat.motion.kind != MotionProfileKind::StaticHold
+        }).expect("remaining Highlights retain moving profiles");
         let mut director = JourneyDirector::from_manifest(manifest, start).unwrap();
-        director.start(&spatial.tree, &start, 0);
+        director.start(&spatial.tree, &start, moving_beat);
 
         // Advance past spline transition into Dwelling and verify camera never stalls across sentences.
         for _ in 0..80 {
@@ -307,6 +310,138 @@ mod tests {
     }
 
     #[test]
+    fn earth_observation_preserves_pose_through_head_turns_and_sentence_boundaries() {
+        let catalog = load_real_catalog();
+        let spatial = build_default_universe_index();
+        let manifest = CosmicHighlightsPlugin.build_manifest(&catalog, &spatial).unwrap();
+        let first = &manifest.chapters[0].beats[0];
+        let start = first.pose.to_pose64(&first.beat_id).unwrap();
+        let mut director = JourneyDirector::from_manifest(manifest, start).unwrap();
+        director.start(&spatial.tree, &start, 0);
+        for _ in 0..45 {
+            director.step(&spatial.tree, 0.05, &ManualOverrideInput::default(), Vec3::ZERO, Quat::IDENTITY, None, None, false);
+        }
+        let observation = *director.ghost_pose();
+        director.notify_beat_narration_finished();
+        for frame in 0..300 {
+            if frame % 20 == 0 {
+                director.notify_translation_sentence_finished(&spatial.tree);
+            }
+            let head_turn = Quat::from_rotation_y(frame as f32 * 0.01);
+            director.step(&spatial.tree, 0.05, &ManualOverrideInput::default(), Vec3::new(0.08, 0.0, 0.0), head_turn, None, None, false);
+            assert_eq!(*director.ghost_pose(), observation, "static observation moved at frame {frame}");
+            assert_eq!(director.active_beat_index(), 0, "narration skipped the visual observation interval");
+        }
+    }
+
+    #[test]
+    fn earth_highlights_paths_clear_the_surface_and_frame_the_nightside_aurora() {
+        let catalog = load_real_catalog();
+        let spatial = build_default_universe_index();
+        let manifest = CosmicHighlightsPlugin.build_manifest(&catalog, &spatial).unwrap();
+        let earth = &manifest.chapters[0].beats;
+        let radius = 6.371e6 / 10.0_f64.powf(6.8);
+        let required = [(0, None), (6, Some(0)), (5, None), (0, Some(0)), (0, Some(1)), (2, Some(0))];
+        for (beat, (zone, feature)) in earth.iter().zip(required) {
+            assert_eq!(beat.target, BeatTargetSelector::CatalogZone {
+                experience_id: 3,
+                zone_index: zone,
+                feature_index: feature,
+                is_macro_zoomed_out: feature.is_none(),
+            });
+            assert!(beat.motion.min_dwell_sec >= 18.0);
+            assert_eq!(beat.motion.kind, MotionProfileKind::StaticHold);
+        }
+        for pair in earth.windows(2) {
+            let from = pair[0].pose.to_pose64(&pair[0].beat_id).unwrap();
+            let to = pair[1].pose.to_pose64(&pair[1].beat_id).unwrap();
+            let spline = build_transition_spline(&spatial.tree, &from, &to, pair[1].transition_in.kind).unwrap();
+            for sample in 0..=256 {
+                let pose = spline.evaluate_without_segment_easing(&spatial.tree, f64::from(sample) / 256.0).unwrap();
+                assert!(pose.local_pos.length() > radius * 1.09, "{} crosses Earth at sample {sample}", pair[1].beat_id);
+            }
+        }
+        let wind = earth[3].pose.to_pose64(&earth[3].beat_id).unwrap();
+        let sun = DVec3::new(0.62, 0.35, -0.64).normalize();
+        assert!(wind.local_pos.dot(sun) > radius * 13.5, "incoming-wind observation must be sunward of the bow shock");
+        assert!(wind.local_pos.length() < radius * 24.0, "wind encounter must be closer than the global overview");
+        assert_ne!(earth[3].pose, earth[4].pose, "wind encounter and global field overview need distinct viewpoints");
+        let close = &earth[5];
+        let observer = close.pose.to_pose64(&close.beat_id).unwrap();
+        let target = close.look_at_pose.as_ref().unwrap().to_pose64(&close.beat_id).unwrap();
+        assert!(target.local_pos.normalize().dot(sun) < -0.5, "auroral target must lie on the nightside");
+        assert!((1.015..1.04).contains(&(target.local_pos.length() / radius)), "look at the emitting atmosphere, not Earth's center");
+        let to_earth = -observer.local_pos.normalize();
+        let forward = observer.orient * DVec3::NEG_Z;
+        assert!(forward.angle_between(to_earth).to_degrees() > 50.0, "close observation must look across the horizon");
+        let up = observer.orient * DVec3::Y;
+        assert!(up.dot(observer.local_pos.normalize()) > 0.8, "southern horizon must put space above and Earth below");
+        let global = earth[4].pose.to_pose64(&earth[4].beat_id).unwrap();
+        assert!(global.local_pos.length() > radius * 30.0, "global field view must frame the physical bow shock and magnetotail");
+    }
+
+    #[test]
+    fn highlights_earth_to_solar_cut_has_no_intermediate_camera_frame() {
+        let catalog = load_real_catalog();
+        let spatial = build_default_universe_index();
+        let manifest = CosmicHighlightsPlugin.build_manifest(&catalog, &spatial).unwrap();
+        let flat = manifest.flatten_beats();
+        let solar_index = flat.iter().position(|(_, _, beat)| beat.target.experience_id() == Some(4)).unwrap();
+        let source = flat[solar_index - 1].2.pose.to_pose64("source").unwrap();
+        let destination = flat[solar_index].2.pose.to_pose64("destination").unwrap();
+        let target = flat[solar_index].2.target.clone();
+        assert_eq!(source.sector_id, SectorId::EARTH_ORBIT);
+        assert_eq!(destination.sector_id, SectorId::SOLAR_SYSTEM);
+        assert_eq!(flat[solar_index].2.transition_in.kind, TransitionKind::InstantBookmark);
+        assert_eq!(flat.iter().filter(|(_, _, b)| b.transition_in.kind == TransitionKind::InstantBookmark).count(), 1,
+            "only the authored Earth-to-Solar boundary changes transition policy");
+        let step = |director: &mut JourneyDirector, dt| {
+            director.step(&spatial.tree, dt, &ManualOverrideInput::default(), Vec3::ZERO, Quat::IDENTITY, None, None, false)
+        };
+        // A previous 50ms implementation exposed several mixed-frame poses at
+        // 120Hz; even a zero-duration update must now arrive in a single frame.
+        for dt in [0.0, 0.000001, 0.0005, 1.0 / 120.0, 1.0 / 30.0] {
+            let mut director = JourneyDirector::from_manifest(manifest.clone(), source).unwrap();
+            director.start(&spatial.tree, &source, solar_index);
+            assert_eq!(*director.ghost_pose(), source);
+            let arrival = step(&mut director, dt);
+            assert_eq!(arrival.ghost_pose, Some(destination), "intermediate cut pose at dt={dt}");
+            let camera = arrival.desired_camera_pose.unwrap();
+            assert_eq!(camera.sector_id, destination.sector_id);
+            assert_eq!(camera.local_pos, destination.local_pos);
+            assert_eq!(camera.scale_exp, destination.scale_exp);
+            assert!(camera.orient.dot(destination.orient).abs() > 1.0 - 1e-12);
+            assert_eq!(arrival.trigger_target, Some(target.clone()), "camera and narration must arrive together");
+            assert!(step(&mut director, 0.0).trigger_target.is_none(), "arrival narration must trigger only once");
+        }
+        // A paused chapter seek must not silently resume or cut the view.
+        let mut director = JourneyDirector::from_manifest(manifest.clone(), source).unwrap();
+        director.start(&spatial.tree, &source, solar_index - 1);
+        director.toggle_play_pause(&spatial.tree, &source);
+        assert!(director.next_beat(&spatial.tree, &source));
+        let paused = step(&mut director, 1.0);
+        assert_eq!(paused.ghost_pose, Some(source));
+        assert!(paused.trigger_target.is_none());
+        director.toggle_play_pause(&spatial.tree, &source);
+        let resumed = step(&mut director, 0.0);
+        assert_eq!(resumed.ghost_pose, Some(destination));
+        assert_eq!(resumed.trigger_target, Some(target.clone()));
+
+        // Normal autoplay keeps the final physical Earth pose until the same
+        // update that supplies the Solar target; no reanchored travel is shown.
+        let mut director = JourneyDirector::from_manifest(manifest, source).unwrap();
+        director.start(&spatial.tree, &source, solar_index - 1);
+        step(&mut director, 14.0);
+        director.notify_beat_narration_finished();
+        let boundary = step(&mut director, 24.0);
+        assert!(boundary.beat_changed);
+        assert_eq!(boundary.ghost_pose, Some(source));
+        let arrival = step(&mut director, 0.0);
+        assert_eq!(arrival.ghost_pose, Some(destination));
+        assert_eq!(arrival.trigger_target, Some(target));
+    }
+
+    #[test]
     fn shipped_highlights_json_asset_loads_and_validates_against_catalog() {
         let catalog = load_real_catalog();
         let spatial = build_default_universe_index();
@@ -335,10 +470,10 @@ mod tests {
         let generated = CosmicHighlightsPlugin
             .build_manifest(&catalog, &spatial)
             .unwrap();
-        assert_eq!(
-            generated.chapters[0].beats[0].pose.local_pos,
-            first.pose.local_pos
-        );
+        // Compare the same JSON representation: the parser may round the final
+        // binary digit of a generated f64 camera coordinate on deserialization.
+        let generated_json = StoryJourneyManifest::from_json_str(&generated.to_json_pretty().unwrap()).unwrap();
+        assert_eq!(generated_json.chapters[0], manifest.chapters[0], "shipped Earth chapter drifted from its generator");
         let earth = ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::ZERO, 6.8, DQuat::IDENTITY);
         let relative = pose.project_entity(&spatial.tree, &earth, 6.371e6).unwrap();
         let half_angle = (relative.rel_scale as f64 / relative.distance_render_units)

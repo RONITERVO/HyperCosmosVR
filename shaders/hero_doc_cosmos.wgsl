@@ -8,6 +8,71 @@ fn doc_solar_feat_gate(inst: HeroVolumeInstance, target_feat: u32) -> f32 {
     return smoothstep(0.02, 0.45, doc_feat_focus(inst, target_feat) - 1.0);
 }
 
+// Earth maps use one shared geodetic frame: longitude [-180,180], north at v=0.
+// The array stores sRGB color and sRGB-encoded scalar maps, all sampled as linear values.
+// Layers: 0 observed surface color, 1 night emission, 2 cloud coverage,
+// 3 elevation / 6400 m in R (NASA source scale) and ocean fraction in G.
+fn doc_earth_uv(p: vec3<f32>) -> vec2<f32> {
+    let n = normalize(p);
+    return vec2<f32>(fract(atan2(-n.z, n.x) / TAU + 0.5), acos(clamp(n.y, -1.0, 1.0)) / PI);
+}
+
+fn doc_earth_zone(inst: HeroVolumeInstance) -> u32 {
+    if (doc_is_canonical_zone_vid(inst.kind_tags.y) && doc_vid_exp(inst.kind_tags.y) == 3u) {
+        return doc_vid_zone(inst.kind_tags.y);
+    }
+    return select(99u, doc_zone(inst), inst.kind_tags.y == 0u && doc_submode(inst) > 0u);
+}
+
+// Physical appearance is always present. Explanatory traces are opt-in, never five
+// simultaneously glowing overlays when a zone has no selected feature.
+fn doc_earth_feature(inst: HeroVolumeInstance, target_feat: u32) -> f32 {
+    return select(0.0, 0.65 + 0.35 * doc_weight(inst), doc_feat(inst) == target_feat);
+}
+
+fn doc_earth_map_point(p: vec3<f32>, time: f32) -> vec3<f32> {
+    // Slow documentary time compression; geography, relief and cities stay registered.
+    return doc_rot_y(p, -time * 0.001);
+}
+
+fn doc_earth_map(p: vec3<f32>, layer: i32, lod: f32) -> vec4<f32> {
+    return textureSampleLevel(earth_maps, earth_maps_samp, doc_earth_uv(p), layer, max(lod, 0.0));
+}
+
+fn doc_earth_cloud_coverage(p: vec3<f32>, time: f32, lod: f32, inst: HeroVolumeInstance) -> f32 {
+    // Differential rotation and latitude-dependent advection preserve the observed
+    // synoptic structures instead of dissolving them into time-varying white noise.
+    let lat = normalize(p).y;
+    let advect = time * (0.00108 + 0.00016 * (1.0 - lat * lat));
+    let cp = doc_rot_y(p, -advect);
+    let base = doc_earth_map(cp, 2, lod).r;
+    var coverage = smoothstep(0.045, 0.94, base);
+    // The observed synoptic map supplies location and extent. Kilometer-scale
+    // structure adds cloud-edge detail only when the footprint can resolve it.
+    let detail_weight = (1.0 - smoothstep(0.5, 2.5, lod)) * coverage * (1.0 - coverage);
+    coverage = clamp(coverage + fbm3(cp * 2800.0, 3) * detail_weight * 0.34, 0.0, 1.0);
+    if (doc_earth_zone(inst) == 5u && doc_feat(inst) == 1u) {
+        // An explicitly selected storm is a coherent rotating spiral, not random lightning.
+        let center = normalize(vec3<f32>(0.82, 0.18, -0.54));
+        let east = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), center));
+        let north = cross(center, east);
+        let local = vec2<f32>(dot(cp, east), dot(cp, north));
+        let radius = length(local);
+        let theta = atan2(local.y, local.x) + radius * 85.0 - time * 0.08;
+        let envelope = (1.0 - smoothstep(0.07, 0.15, radius)) * smoothstep(0.009, 0.018, radius) * smoothstep(0.90, 0.98, dot(normalize(cp), center));
+        let arms = pow(0.5 + 0.5 * sin(theta * 3.0), 1.7);
+        coverage = max(coverage * (1.0 - envelope * 0.8), envelope * (0.30 + 0.65 * arms));
+    }
+    return clamp(coverage, 0.0, 1.0);
+}
+
+fn doc_earth_cloud_shadow(p: vec3<f32>, sun: vec3<f32>, time: f32, lod: f32, inst: HeroVolumeInstance) -> f32 {
+    let hit = intersect_sphere(p, sun, 1.0019);
+    let cloud_pos = p + sun * max(hit.y, 0.0);
+    let coverage = doc_earth_cloud_coverage(normalize(cloud_pos), time, lod + 0.4, inst);
+    return exp(-coverage * 1.65 / max(dot(normalize(p), sun), 0.28));
+}
+
 fn shade_doc_earth_surface(
     p_surf: vec3<f32>,
     n_surf: vec3<f32>,
@@ -15,216 +80,67 @@ fn shade_doc_earth_surface(
     sun_local: vec3<f32>,
     inst: HeroVolumeInstance,
     time: f32,
+    pixel_footprint: f32,
 ) -> vec3<f32> {
-    let ndotl = max(dot(n_surf, sun_local), 0.0);
-    let view_dot = max(dot(n_surf, v_dir), 0.0);
-    let fresnel = pow(1.0 - view_dot, 3.6);
-    let raw_vid = inst.kind_tags.y;
-    let is_exp03 = (doc_is_canonical_zone_vid(raw_vid) && doc_vid_exp(raw_vid) == 3u)
-                || (raw_vid == 0u && doc_submode(inst) > 0u);
-    let is_exp04_earth = (raw_vid == 1403u);
-    let z_idx = select(
-        99u,
-        select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid)),
-        is_exp03,
-    );
-    let w_doc = doc_weight(inst);
+    let z_idx = doc_earth_zone(inst);
+    let spin_p = doc_earth_map_point(p_surf, time);
+    let uv = doc_earth_uv(spin_p);
+    let dims = vec2<f32>(textureDimensions(earth_maps, 0));
+    let view_dot = max(dot(n_surf, v_dir), 0.02);
+    let lod = max(0.0, log2(max(1.0, pixel_footprint * dims.x / (TAU * sqrt(view_dot)))));
+    let geography = doc_earth_map(spin_p, 3, lod);
+    let water = smoothstep(0.1, 0.9, geography.g);
+    var albedo = doc_earth_map(spin_p, 0, lod).rgb;
+    // Satellite composites contain sea color but no view-dependent reflected Sun.
+    // Deep water stays dark away from the glint; shallow shelves retain their observed color.
+    albedo = mix(albedo, albedo * vec3<f32>(0.38, 0.50, 0.60), water * 0.70);
 
-    let spin_p = doc_rot_y(p_surf, time * 0.03 + inst.phys_a.x * 0.5);
-    let cont = fbm3(spin_p * 2.4 + vec3<f32>(0.4, -0.2, 0.9), 5);
-    let mtn_raw = pow(max(0.0, snoise3(spin_p * 11.0)), 2.0) * smoothstep(0.04, 0.25, cont);
-    let coast = smoothstep(0.02, 0.08, cont);
-    let polar_ice = smoothstep(0.76, 0.92, abs(p_surf.y) + cont * 0.12);
-
-    // Z06 Surface 1:1 feature spotlights (0=ocean, 1=coast, 2=forest, 3=mountain, 4=soil)
-    let is_surface_zone = z_idx == 6u;
-    let f_ocean = select(1.0, doc_feat_focus(inst, 0u), is_surface_zone);
-    let f_coast = select(1.0, doc_feat_focus(inst, 1u), is_surface_zone);
-    let f_forest = select(1.0, doc_feat_focus(inst, 2u), is_surface_zone);
-    let f_mtn = select(1.0, doc_feat_focus(inst, 3u), is_surface_zone);
-    let f_soil = select(1.0, doc_feat_focus(inst, 4u), is_surface_zone);
-
-    let trench_gain = select(0.0, 0.72 * f_ocean, z_idx == 6u || z_idx == 7u);
-    let ocean_col = mix(vec3<f32>(0.01, 0.045, 0.16), vec3<f32>(0.02, 0.15, 0.38), smoothstep(-0.32, 0.01, cont)) * f_ocean;
-    let ocean_trench = exp(-abs(cont + 0.18) * 28.0) * (1.0 - coast) * trench_gain;
-    let shelf_ribbon = exp(-pow((cont - 0.035) * 34.0, 2.0)) * select(0.0, 0.85 * f_coast, is_surface_zone);
-    let mtn = mtn_raw * select(1.0, 1.35 * f_mtn, is_surface_zone);
-
-    let veg_mask = smoothstep(0.06, 0.24, cont) * (1.0 - polar_ice) * (1.0 - smoothstep(0.35, 0.65, abs(p_surf.y)));
-    let soil_band = smoothstep(0.18, 0.34, cont) * (1.0 - smoothstep(0.36, 0.48, cont)) * select(0.0, 1.0, is_surface_zone);
-    var land_base = mix(vec3<f32>(0.045, 0.18, 0.06), vec3<f32>(0.24, 0.18, 0.10), smoothstep(0.06, 0.38, cont));
-    land_base = mix(land_base, vec3<f32>(0.04, 0.34, 0.10) * f_forest, veg_mask * select(0.15, 0.75, is_surface_zone));
-    land_base = mix(land_base, vec3<f32>(0.42, 0.24, 0.12) * f_soil, soil_band * 0.72);
-    let alpine_col = vec3<f32>(0.24, 0.20, 0.16) * mtn + select(vec3<f32>(0.0), vec3<f32>(0.55, 0.58, 0.64) * smoothstep(0.32, 0.65, mtn_raw) * f_mtn, is_surface_zone);
-
-    var albedo = mix(
-        ocean_col + vec3<f32>(0.02, 0.38, 0.62) * ocean_trench + vec3<f32>(0.08, 0.68, 0.72) * shelf_ribbon,
-        land_base + alpine_col,
-        coast
-    );
-    albedo = mix(albedo, vec3<f32>(0.85, 0.90, 0.96), polar_ice);
-
-    // Z05 Troposphere 1:1 feature choreography (0=cloud, 1=storm cyclone+lightning, 2=wind ribbons, 3=airplanes, 4=water vapor)
-    let is_tropo_zone = z_idx == 5u;
-    let f_cloud = select(1.0, doc_feat_focus(inst, 0u), is_tropo_zone);
-    let f_storm = select(1.0, doc_feat_focus(inst, 1u), is_tropo_zone);
-    let f_wind = select(1.0, doc_feat_focus(inst, 2u), is_tropo_zone);
-    let f_plane = select(1.0, doc_feat_focus(inst, 3u), is_tropo_zone);
-    let f_vapor = select(1.0, doc_feat_focus(inst, 4u), is_tropo_zone);
-
-    let cloud_n = fbm3(spin_p * 4.4 + vec3<f32>(time * 0.016, 0.0, -time * 0.01), 4);
-    var clouds = smoothstep(0.14, 0.46, cloud_n) * select(1.0, clamp(f_cloud * 0.95, 0.55, 1.15), is_tropo_zone);
-    var storm_bolt = pow(max(0.0, snoise3(spin_p * 19.0 + vec3<f32>(time * 3.5))), 14.0) * clouds * select(0.15, 1.35 * f_storm, is_tropo_zone);
-    var tropo_fx = vec3<f32>(0.0);
-
-    if (is_tropo_zone) {
-        // Rotating synoptic cyclone vortex centered over sunlit ocean hemisphere
-        let cyc_center = normalize(vec3<f32>(0.24, 0.34, 0.90));
-        let cyc_vec = spin_p - cyc_center;
-        let cyc_r = length(cyc_vec);
-        let cyc_ang = atan2(cyc_vec.y, cyc_vec.x) - cyc_r * 16.0 + time * 0.65;
-        let cyc_arms = 0.5 + 0.5 * sin(cyc_ang * 3.0);
-        let cyc_mask = smoothstep(0.32, 0.06, cyc_r) * smoothstep(0.025, 0.06, cyc_r) * (0.45 + 0.55 * cyc_arms);
-        clouds = clamp(clouds + cyc_mask * 0.68 * f_storm, 0.0, 1.0);
-        storm_bolt += cyc_mask * pow(max(0.0, snoise3(spin_p * 26.0 + vec3<f32>(time * 5.2))), 10.0) * f_storm * 1.1;
-
-        // Equatorial Hadley & mid-latitude wind streamline ribbons
-        let lon = atan2(spin_p.z, spin_p.x);
-        let wind_wave = exp(-pow(sin(spin_p.y * 12.0 + sin(lon * 3.0 - time * 0.55) * 0.45) * 4.5, 2.0));
-        let wind_flow = 0.55 + 0.45 * sin(lon * 8.0 - time * 1.6);
-        tropo_fx += vec3<f32>(0.32, 0.78, 1.15) * wind_wave * wind_flow * 0.28 * f_wind * (0.25 + 0.75 * ndotl);
-
-        // Great-circle transoceanic commercial aviation tracks + pulsing strobe aircraft
-        let arc_d = min(abs(dot(spin_p, normalize(vec3<f32>(0.2, 0.85, -0.45)))), abs(dot(spin_p, normalize(vec3<f32>(-0.35, 0.78, 0.52)))));
-        let corridor = exp(-pow(arc_d * 52.0, 2.0));
-        let strobe = pow(max(0.0, sin(lon * 10.0 - time * 2.2)), 24.0) * corridor;
-        tropo_fx += vec3<f32>(0.95, 0.72, 0.28) * (corridor * 0.18 + strobe * 0.95) * f_plane;
-
-        // Column-integrated translucent water vapor plumes along ITCZ
-        let vapor_band = exp(-pow(spin_p.y * 2.8 + cloud_n * 1.1, 2.0)) * smoothstep(-0.1, 0.35, cloud_n);
-        tropo_fx += vec3<f32>(0.10, 0.72, 0.88) * vapor_band * 0.38 * f_vapor * (0.3 + 0.7 * ndotl);
-    }
-
-    // Z00..=Z04 Outer Space -> Stratosphere surface/limb overlays (paired with volumetric shell)
-    let is_feat_mode = doc_feat(inst) != 255u;
-    let feat_disk = select(0.05, 1.0, is_feat_mode);
-    let nat_rim = select(0.42, 1.0, is_feat_mode);
-    var atmo_disk_fx = vec3<f32>(0.0);
-    if (z_idx == 0u) {
-        let f_sw = doc_feat_focus(inst, 0u);
-        let f_mag = doc_feat_focus(inst, 1u);
-        let f_cr = doc_feat_focus(inst, 2u);
-        let f_geo = doc_feat_focus(inst, 3u);
-        let f_vac = doc_feat_focus(inst, 4u);
-        let bow = smoothstep(0.45, 0.98, dot(n_surf, sun_local)) * fresnel;
-        let cusp = exp(-pow((abs(p_surf.y) - 0.80) * 16.0, 2.0));
-        let cr_spark = pow(max(0.0, snoise3(spin_p * 18.0 + vec3<f32>(time * 1.4))), 10.0);
-        let geo_lat = exp(-pow(p_surf.y * 22.0, 2.0)) * pow(0.5 + 0.5 * cos(atan2(spin_p.z, spin_p.x) * 3.0 - time * 0.4), 6.0);
-        atmo_disk_fx += vec3<f32>(1.15, 0.72, 0.25) * bow * 0.65 * f_sw * nat_rim
-                      + vec3<f32>(0.24, 0.72, 1.45) * cusp * 0.52 * f_mag * nat_rim
-                      + vec3<f32>(0.55, 1.15, 1.48) * cr_spark * 0.75 * f_cr * feat_disk
-                      + vec3<f32>(1.35, 0.98, 0.35) * geo_lat * 0.78 * f_geo * feat_disk
-                      + vec3<f32>(0.18, 0.35, 0.72) * fresnel * 0.28 * f_vac * nat_rim;
-    } else if (z_idx == 1u) {
-        let f_h = doc_feat_focus(inst, 0u);
-        let f_he = doc_feat_focus(inst, 1u);
-        let f_esc = doc_feat_focus(inst, 2u);
-        let f_geo = doc_feat_focus(inst, 3u);
-        let f_sat = doc_feat_focus(inst, 4u);
-        let term = exp(-pow(dot(n_surf, sun_local) * 4.2, 2.0));
-        let esc_spark = pow(max(0.0, snoise3(spin_p * 14.0 - normalize(spin_p + vec3<f32>(1e-4)) * time * 0.8)), 8.0) * term;
-        let heo_trk = exp(-pow((p_surf.y - 0.82 * sin(atan2(spin_p.z, spin_p.x))) * 16.0, 2.0));
-        atmo_disk_fx += vec3<f32>(0.32, 0.78, 1.45) * fresnel * 0.55 * f_h * nat_rim
-                      + vec3<f32>(1.25, 0.92, 0.42) * pow(fresnel, 0.85) * 0.42 * f_he * nat_rim
-                      + vec3<f32>(0.42, 1.25, 1.48) * esc_spark * 0.85 * f_esc * feat_disk
-                      + vec3<f32>(0.88, 0.38, 1.45) * smoothstep(-0.1, 0.7, dot(n_surf, sun_local)) * fresnel * 0.65 * f_geo * nat_rim
-                      + vec3<f32>(0.95, 1.15, 1.45) * heo_trk * 0.55 * f_sat * feat_disk;
-    } else if (z_idx == 2u) {
-        let f_aur = doc_feat_focus(inst, 0u);
-        let f_ion = doc_feat_focus(inst, 1u);
-        let f_iss = doc_feat_focus(inst, 2u);
-        let f_o = doc_feat_focus(inst, 3u);
-        let f_rad = doc_feat_focus(inst, 4u);
-        let aur_oval = exp(-pow((abs(p_surf.y) - 0.75) * 14.0, 2.0)) * (0.45 + 0.55 * sin(atan2(spin_p.z, spin_p.x) * 8.0 + time * 1.1));
-        let ion_day = smoothstep(0.05, 0.85, dot(n_surf, sun_local)) * (0.28 + 0.72 * fresnel);
-        let lon_s = atan2(spin_p.z, spin_p.x);
-        let iss_path = p_surf.y - 0.62 * sin(lon_s);
-        let iss_trk = exp(-pow(iss_path * 24.0, 2.0));
-        let iss_dot = exp(-length(spin_p - normalize(vec3<f32>(cos(time * 0.5), 0.62 * sin(time * 0.5), sin(time * 0.5)))) * 18.0);
-        let hf_arc = pow(0.5 + 0.5 * sin(spin_p.x * 22.0 + spin_p.y * 14.0 - time * 3.4), 6.0)
-                   * smoothstep(0.28, 0.86, fresnel) * smoothstep(-0.1, 0.75, spin_p.y)
-                   * select(0.10, 0.58 * smoothstep(0.20, 1.0, f_rad), is_feat_mode);
-        atmo_disk_fx += vec3<f32>(0.14, 1.42, 0.55) * aur_oval * 0.85 * f_aur * select(0.52, 1.0, is_feat_mode)
-                      + vec3<f32>(0.32, 0.88, 1.48) * ion_day * 0.52 * f_ion * feat_disk
-                      + (vec3<f32>(0.95, 0.78, 0.32) * iss_trk * 0.42 + vec3<f32>(1.45, 1.15, 0.55) * iss_dot * 1.1) * f_iss * feat_disk
-                      + vec3<f32>(0.12, 1.35, 0.68) * fresnel * 0.72 * f_o * nat_rim
-                      + vec3<f32>(0.35, 1.25, 1.48) * hf_arc * feat_disk;
-    } else if (z_idx == 3u) {
-        let f_met = doc_feat_focus(inst, 0u);
-        let f_nlc = doc_feat_focus(inst, 1u);
-        let f_mp = doc_feat_focus(inst, 2u);
-        let f_rkt = doc_feat_focus(inst, 3u);
-        let f_brk = doc_feat_focus(inst, 4u);
-        let met_line = exp(-pow((p_surf.y - 0.35 * p_surf.x - 0.22) * 32.0, 2.0)) * smoothstep(-0.3, 0.6, p_surf.z);
-        let nlc = exp(-pow((abs(p_surf.y) - 0.68) * 11.0, 2.0)) * smoothstep(0.05, 0.55, snoise3(spin_p * 9.0 + vec3<f32>(time * 0.2)));
-        let rkt_flare = exp(-length(spin_p - vec3<f32>(-0.22, 0.42, 0.88)) * 16.0);
-        let brk_sparks = pow(max(0.0, snoise3(spin_p * 20.0 - vec3<f32>(time * 1.8, 0.0, 0.0))), 10.0);
-        atmo_disk_fx += vec3<f32>(1.48, 0.82, 0.24) * met_line * 0.92 * f_met * feat_disk
-                      + vec3<f32>(0.38, 1.12, 1.55) * nlc * 0.82 * f_nlc * nat_rim
-                      + vec3<f32>(0.55, 1.35, 1.55) * fresnel * 0.75 * f_mp * nat_rim
-                      + vec3<f32>(1.48, 0.62, 0.22) * rkt_flare * 0.95 * f_rkt * feat_disk
-                      + vec3<f32>(1.28, 0.92, 0.45) * brk_sparks * 0.72 * f_brk * feat_disk;
-    } else if (z_idx == 4u) {
-        let f_oz = doc_feat_focus(inst, 0u);
-        let f_bal = doc_feat_focus(inst, 1u);
-        let f_jet = doc_feat_focus(inst, 2u);
-        let f_inv = doc_feat_focus(inst, 3u);
-        let f_uv = doc_feat_focus(inst, 4u);
-        let bal_spot = exp(-length(spin_p - vec3<f32>(0.18, 0.32, 0.93)) * 20.0);
-        let jet_trail = exp(-pow(abs(dot(spin_p, normalize(vec3<f32>(0.15, 0.88, -0.45)))) * 38.0, 2.0));
-        let strata = (0.5 + 0.5 * sin(p_surf.y * 42.0)) * (1.0 - polar_ice) * 0.38;
-        let uv_day = smoothstep(0.1, 0.85, dot(n_surf, sun_local));
-        atmo_disk_fx += vec3<f32>(0.42, 0.26, 1.45) * fresnel * 0.52 * f_oz * nat_rim
-                      + vec3<f32>(1.42, 1.42, 1.48) * bal_spot * 0.95 * f_bal * feat_disk
-                      + vec3<f32>(1.32, 1.18, 0.92) * jet_trail * 0.72 * f_jet * feat_disk
-                      + vec3<f32>(0.52, 0.88, 1.25) * strata * f_inv * feat_disk
-                      + vec3<f32>(0.85, 0.35, 1.48) * uv_day * (0.22 + 0.78 * fresnel) * 0.65 * f_uv * feat_disk;
-    }
-
+    let eps = exp2(lod) / dims.x;
+    let h_e = textureSampleLevel(earth_maps, earth_maps_samp, uv + vec2<f32>(eps, 0.0), 3, lod).r;
+    let h_w = textureSampleLevel(earth_maps, earth_maps_samp, uv - vec2<f32>(eps, 0.0), 3, lod).r;
+    let h_n = textureSampleLevel(earth_maps, earth_maps_samp, uv - vec2<f32>(0.0, eps * 2.0), 3, lod).r;
+    let h_s = textureSampleLevel(earth_maps, earth_maps_samp, uv + vec2<f32>(0.0, eps * 2.0), 3, lod).r;
+    let east = normalize(vec3<f32>(p_surf.z, 0.0, -p_surf.x) + vec3<f32>(1e-8, 0.0, 0.0));
+    let north = normalize(cross(n_surf, east));
+    let slope_scale = 6400.0 / 6371000.0 / max(2.0 * eps * TAU, 1e-5);
+    let relief_emphasis = select(1.0, 1.65, z_idx == 6u && doc_feat(inst) == 3u);
+    let slope_e = (h_e - h_w) * slope_scale / max(length(spin_p.xz), 0.15);
+    let slope_n = (h_n - h_s) * slope_scale;
+    var normal = normalize(n_surf - (east * slope_e + north * slope_n) * (1.0 - water) * relief_emphasis);
+    // Only subpixel water normal variation moves rapidly. The globe itself stays stable.
+    let ripple = sin(spin_p.x * 980.0 + time * 0.48) * sin(spin_p.z * 850.0 - time * 0.32);
+    normal = normalize(normal + east * ripple * 0.012 * water * (1.0 - smoothstep(0.001, 0.02, pixel_footprint)));
+    let solar_cos = dot(n_surf, sun_local);
+    let ndotl = max(dot(normal, sun_local), 0.0);
+    let direct = smoothstep(-0.008, 0.018, solar_cos) * ndotl;
+    let cloud_shadow = doc_earth_cloud_shadow(p_surf, sun_local, time, lod, inst);
     let half_v = normalize(sun_local + v_dir);
-    let ocean_spec = pow(max(dot(n_surf, half_v), 0.0), 64.0) * (1.0 - coast) * (1.0 - clouds) * 1.35 * f_ocean;
+    let ndoth = max(dot(normal, half_v), 0.0);
+    let vdoth = max(dot(v_dir, half_v), 0.0);
+    let roughness = 0.14;
+    let alpha2 = roughness * roughness * roughness * roughness;
+    let denom = ndoth * ndoth * (alpha2 - 1.0) + 1.0;
+    let distribution = alpha2 / max(PI * denom * denom, 1e-6);
+    let fresnel = 0.0204 + 0.9796 * pow(1.0 - vdoth, 5.0);
+    let geom_v = view_dot / mix(view_dot, 1.0, 0.09);
+    let geom_l = max(ndotl, 0.001) / mix(max(ndotl, 0.001), 1.0, 0.09);
+    let specular = min(12.0, distribution * fresnel * geom_v * geom_l / max(4.0 * view_dot, 0.05));
+    let diffuse = albedo * (direct * cloud_shadow * 1.35 + 0.0018);
+    let reflected = vec3<f32>(1.0, 0.96, 0.89) * specular * water * cloud_shadow * smoothstep(0.0, 0.04, solar_cos);
+    let night = 1.0 - smoothstep(-0.13, 0.015, solar_cos);
+    let city_emission = doc_earth_map(spin_p, 1, lod).rgb * night * (1.0 - water) * 2.3;
+    var color = diffuse + reflected + city_emission;
 
-    let night_mask = smoothstep(0.08, -0.22, dot(n_surf, sun_local));
-    let city_spark = pow(max(0.0, snoise3(spin_p * 24.0)), 6.0) * coast * (1.0 - polar_ice);
-    let city_glow = vec3<f32>(1.75, 1.05, 0.34) * city_spark * night_mask * 1.5 * f_coast;
-
-    // Ozone indigo glint on stratosphere zone (4), blue Rayleigh atmospheric limb
-    let ozone_glow = vec3<f32>(0.38, 0.22, 1.65) * fresnel * select(0.1, 0.95 * doc_feat_focus(inst, 0u), z_idx == 4u);
-    let rayleigh = inst.color_b.rgb * fresnel * (0.35 + 1.35 * smoothstep(-0.2, 0.4, dot(n_surf, sun_local)));
-
-    var exp04_fx = vec3<f32>(0.0);
-    if (is_exp04_earth) {
-        let f4_atmo = doc_solar_feat_gate(inst, 0u);
-        let f4_ocean = doc_solar_feat_gate(inst, 1u);
-        let f4_cont = doc_solar_feat_gate(inst, 2u);
-        let f4_moon = doc_solar_feat_gate(inst, 3u);
-        let f4_mag = doc_solar_feat_gate(inst, 4u);
-
-        let gyre = sin(spin_p.y * 12.0 + cos(atan2(spin_p.z, spin_p.x) * 3.0) * 1.4);
-        let gyre_line = exp(-pow(gyre * 4.5, 2.0)) * (1.0 - coast) * (0.3 + 0.7 * ndotl);
-        let bulge = pow(max(0.0, 1.0 - abs(spin_p.y) * 1.4), 2.0) * (0.5 + 0.5 * cos(atan2(spin_p.z, spin_p.x) * 2.0)) * (1.0 - coast);
-        let cusp_ring = exp(-pow((abs(p_surf.y) - 0.78) * 14.0, 2.0));
-        let bow_rim = smoothstep(0.35, 0.96, dot(n_surf, sun_local)) * fresnel;
-        exp04_fx = vec3<f32>(0.36, 0.88, 1.65) * fresnel * 1.25 * f4_atmo
-                 + vec3<f32>(0.08, 0.72, 1.28) * (gyre_line * 0.65 + (1.0 - coast) * 0.32 * ndotl) * f4_ocean
-                 + (vec3<f32>(0.42, 0.88, 0.28) * coast * 0.48 + vec3<f32>(1.05, 0.78, 0.36) * mtn_raw * 0.95) * f4_cont * (0.2 + 0.8 * ndotl)
-                 + vec3<f32>(0.24, 1.05, 1.45) * bulge * 0.78 * f4_moon
-                 + (vec3<f32>(0.24, 0.88, 1.75) * cusp_ring * 0.92 + vec3<f32>(0.32, 0.72, 1.55) * bow_rim * 1.05) * f4_mag;
+    // Surface teaching stays geographically anchored; no arbitrary glowing dots.
+    if (z_idx == 6u && doc_feat(inst) == 1u) {
+        let coast = (1.0 - abs(geography.g * 2.0 - 1.0));
+        color += vec3<f32>(0.025, 0.12, 0.16) * coast * direct;
     }
-
-    let day_lit = mix(albedo, vec3<f32>(0.90), clouds) * (ndotl + 0.025) + vec3<f32>(ocean_spec);
-    let zone_rim = mix(1.0, 1.25, w_doc * fresnel);
-    return (day_lit + tropo_fx + atmo_disk_fx + exp04_fx + city_glow + rayleigh + ozone_glow + vec3<f32>(0.55, 0.85, 1.95) * storm_bolt) * inst.color_a.a * zone_rim;
+    if (z_idx == 6u && doc_feat(inst) == 2u) {
+        let vegetation = smoothstep(0.005, 0.05, albedo.g - max(albedo.r, albedo.b));
+        color += albedo * vegetation * direct * 0.22;
+    }
+    return color;
 }
 
 fn shade_doc_earth_cutaway(
@@ -745,7 +661,7 @@ fn shade_doc_solar_planet_surface(
             let mare = smoothstep(-0.15, 0.22, fbm3(p_surf * 3.8, 4));
             let m_crater = exp(-abs(abs(snoise3(p_surf * 11.0)) - 0.24) * 24.0);
             let m_col = mix(vec3<f32>(0.24, 0.25, 0.28), vec3<f32>(0.68, 0.70, 0.74), clamp(mare + m_crater * 0.35, 0.0, 1.0));
-            return (m_col * (ndotl * 1.15 + 0.02) + vec3<f32>(0.62, 0.92, 1.35) * fresnel * doc_solar_feat_gate(inst, 3u) * 0.75) * inst.color_a.a;
+            return (m_col * (ndotl * 1.15 + 0.02) + vec3<f32>(0.62, 0.92, 1.35) * fresnel * doc_solar_feat_gate(inst, 3u) * select(0.75, 0.0, sub == 1u)) * inst.color_a.a;
         }
         if (vid == 3645u && doc_feat(inst) == 2u) {
             // Asteroid Belt Fe-Ni Psyche metallic core sphere
@@ -1071,129 +987,538 @@ fn shade_doc_solar_planet_surface(
     return (surf_col * (ndotl * 1.12 + 0.018) + rim_glow) * inst.color_a.a;
 }
 
-fn raymarch_doc_earth_shell(
-    ro: vec3<f32>,
-    rd: vec3<f32>,
-    t0: f32,
-    t1: f32,
-    jitter: f32,
-    fovea_k: f32,
-    inst: HeroVolumeInstance,
-    time: f32,
-    bass: f32,
-) -> vec4<f32> {
-    // 03 Deep Earth Shell: Z00 Space, Z01 Exosphere, Z02 Thermosphere (ISS/Ionosphere/Aurora),
-    // Z03 Mesosphere (Meteors/NLCs/Rocket), Z04 Stratosphere (Ozone/Balloon/Contrails/UV), Z05 Troposphere, Z12 Geodynamo
-    var accum_rgb = vec3<f32>(0.0);
-    var accum_a: f32 = 0.0;
-    let raw_vid = inst.kind_tags.y;
-    let is_exp03 = (doc_is_canonical_zone_vid(raw_vid) && doc_vid_exp(raw_vid) == 3u)
-        || (!doc_is_canonical_zone_vid(raw_vid) && doc_submode(inst) > 0u);
-    let is_exp04_earth = raw_vid == 1403u;
-    let z_idx = select(
-        select(99u, 98u, is_exp04_earth),
-        select(doc_zone(inst), doc_vid_zone(raw_vid), doc_is_canonical_zone_vid(raw_vid)),
-        is_exp03,
-    );
-    let steps: i32 = i32(mix(16.0, 28.0, fovea_k));
-    let dt = (t1 - t0) / f32(steps);
-    let limb_r = select(inst.phys_a.y, 0.737, inst.phys_a.y < 0.05);
-    let shell_w = max(0.98 - limb_r, 0.15);
-    let show_magnetosphere = z_idx == 0u || z_idx == 12u || z_idx == 65535u || is_exp04_earth;
-    let exp04_mag = max(doc_feat_focus(inst, 3u), doc_feat_focus(inst, 4u) * 0.90) * select(0.28, 0.88, doc_feat(inst) == 3u || doc_feat(inst) == 4u);
-    let mag_gain = select(
-        select(0.22, exp04_mag, is_exp04_earth),
-        select(0.95 * doc_feat_focus(inst, 4u), 0.92 * doc_feat_focus(inst, 1u), z_idx == 0u),
-        z_idx == 0u || z_idx == 12u,
-    );
-    let f_tropo_wind = select(select(1.0, doc_feat_focus(inst, 2u), is_exp04_earth), doc_feat_focus(inst, 2u), z_idx == 5u);
-    let f_tropo_vapor = select(select(1.0, max(doc_feat_focus(inst, 0u), doc_feat_focus(inst, 1u)), is_exp04_earth), doc_feat_focus(inst, 4u), z_idx == 5u);
+// One shared 16-second causal clock: arrival -> deflection -> precipitation -> response.
+// This runs without narration; spoken cue progress controls emphasis only.
+fn doc_earth_process_phase(time: f32) -> f32 {
+    return fract(time / 16.0) * 16.0;
+}
 
-    for (var i: i32 = 0; i < 28; i = i + 1) {
-        if (i >= steps || accum_a > 0.95) {
-            break;
+fn doc_earth_bezier(a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>, t: f32) -> vec3<f32> {
+    let u = 1.0 - t;
+    return a * u*u*u + b * 3.0*u*u*t + c * 3.0*u*t*t + d * t*t*t;
+}
+
+// Analytic ray/finite-segment distance: global 30R bounds do not dictate a march
+// step, so narrow plasma tracers survive stereo and changes in viewing distance.
+fn doc_earth_transport_segment(ro: vec3<f32>, rd: vec3<f32>, stop_t: f32,
+    a: vec3<f32>, b: vec3<f32>, progress: vec2<f32>, pulse: f32,
+    event_weight: f32, trace_gain: f32, ambient_flow: f32, color: vec3<f32>) -> vec4<f32> {
+    let edge = b - a;
+    let edge2 = max(dot(edge, edge), 1e-7);
+    let w = ro - a;
+    let ray_edge = dot(rd, edge);
+    let denom = max(edge2 - ray_edge * ray_edge, 1e-6);
+    let ray_t = (ray_edge * dot(edge, w) - edge2 * dot(rd, w)) / denom;
+    let segment_u = clamp((dot(edge, w) + ray_edge * ray_t) / edge2, 0.0, 1.0);
+    let point = mix(a, b, segment_u);
+    let t = dot(point - ro, rd);
+    if (t <= 0.0 || t >= stop_t) { return vec4<f32>(0.0); }
+    let closest = ro + rd * t;
+    let separation2 = dot(closest - point, closest - point);
+    let screen_width = t * 2.0 * tan(u_frame.cam_forward.w * 0.5) / u_frame.viewport_params.y;
+    let base_width = max(0.035, screen_width * 0.8);
+    // The largest packet expands the radius by at most1.8. Reject all other rays
+    // before evaluating packet exponentials/trigonometry; this bound is exact.
+    if (separation2 > base_width * base_width * 3.24 * 12.0) { return vec4<f32>(0.0); }
+    let path_u = mix(progress.x, progress.y, segment_u);
+    let event_packet = exp(-pow((path_u - pulse) * 18.0, 2.0)) * event_weight;
+    // Continuous wind persists between the larger coupled events. It is confined
+    // to the incoming/sheath lanes; tail release and precipitation remain causal.
+    let wind_packets = ambient_flow * pow(max(0.0, cos((path_u * 6.0 - u_frame.scale_params.w * 0.7) * TAU)), 18.0);
+    let packet = max(event_packet, wind_packets);
+    let width = base_width * (1.0 + packet * 0.8);
+    if (separation2 > width * width * 12.0) { return vec4<f32>(0.0); }
+    let radial = exp(-separation2 / (width * width));
+    let alpha = min(radial * (trace_gain + packet * 0.72), 0.82);
+    return vec4<f32>(color * alpha * (0.55 + packet * 1.6), alpha);
+}
+
+// A cubic Bezier lies inside its control-point hull. The expanded hull rejects
+// complete off-screen/missed paths before any of their segment-distance work.
+fn doc_earth_path_visible(ro: vec3<f32>, rd: vec3<f32>, stop: f32, margin: f32,
+    a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) -> bool {
+    let lo = min(min(a, b), min(c, d)) - vec3<f32>(margin);
+    let hi = max(max(a, b), max(c, d)) + vec3<f32>(margin);
+    let hit = intersect_box(ro, rd, lo, hi);
+    return hit.y > max(hit.x, 0.0) && hit.x < stop;
+}
+
+fn doc_earth_global_transport(ro_local: vec3<f32>, rd: vec3<f32>, t0: f32, t1: f32,
+    inst: HeroVolumeInstance, time: f32) -> vec4<f32> {
+    let earth_r = inst.phys_a.y;
+    let ro = ro_local / earth_r;
+    let sun = normalize(quat_rotate(quat_conj(normalize(inst.rot_quat)), normalize(inst.phys_b.xyz)));
+    let transverse = normalize(vec3<f32>(0.0, 1.0, 0.0) - sun * sun.y);
+    let depth_axis = normalize(cross(sun, transverse));
+    let antisolar_equator = -normalize(vec3<f32>(sun.x, 0.0, sun.z));
+    var stop = t1 / earth_r;
+    let planet = intersect_sphere(ro, rd, 1.0);
+    if (planet.x > 0.0 && planet.y > 0.0) { stop = min(stop, planet.x); }
+    let path_margin = max(0.035, stop * 2.0 * tan(u_frame.cam_forward.w * 0.5) / u_frame.viewport_params.y * 0.8) * 6.236;
+    let phase = doc_earth_process_phase(time);
+    let field_lesson = doc_feat(inst) == 1u;
+    let traces = select(0.025, 0.11, field_lesson);
+    let tail = -sun * 18.0;
+    var rgb = vec3<f32>(0.0);
+    var alpha = 0.0;
+    for (var branch = 0; branch < 4; branch = branch + 1) {
+        let sign_y = select(-1.0, 1.0, branch >= 2);
+        let lane_angle = select(-0.65, 0.65, (branch % 2) == 1);
+        let side = transverse * (sign_y * cos(lane_angle)) + depth_axis * sin(lane_angle);
+        let lane_equator_dir = doc_rot_y(antisolar_equator, lane_angle * 0.42);
+        let equator = lane_equator_dir * 6.6;
+        let entry = sun * 13.5 + side * 1.4;
+        let lobe = tail + side * 6.0;
+        let wind_visible = doc_earth_path_visible(ro, rd, stop, path_margin,
+            sun * 23.0 + side * 1.4, entry, entry, entry);
+        let sheath_visible = doc_earth_path_visible(ro, rd, stop, path_margin,
+            entry, sun * 13.5 + side * 12.0, -sun * 5.0 + side * 11.0, lobe);
+        let reconnect_visible = doc_earth_path_visible(ro, rd, stop, path_margin,
+            lobe, tail - sun * 2.0 + side * 4.0, tail - sun * 2.0 + side, tail);
+        // Dipole branch horizontal coordinates monotonically approach zero;
+        // max vertical extent is L*2/(3*sqrt(3)) =2.541R for L=6.6.
+        let precip_visible = doc_earth_path_visible(ro, rd, stop, path_margin,
+            equator, vec3<f32>(0.0, sign_y * 2.542, 0.0), equator, vec3<f32>(0.0));
+        let earthward_visible = branch < 2 && doc_earth_path_visible(ro, rd, stop, path_margin,
+            tail, tail + sun * 4.0, equator - sun * 4.0, equator);
+        let boundary_visible = field_lesson && doc_earth_path_visible(ro, rd, stop, path_margin,
+            sun * 10.5, sun * 10.5 + side * 8.0, -sun * 5.0 + side * 7.0, tail + side * 4.5);
+        if (!(wind_visible || sheath_visible || reconnect_visible || precip_visible || earthward_visible || boundary_visible)) { continue; }
+        for (var seg = 0; seg < 20; seg = seg + 1) {
+            let u0 = f32(seg) / 20.0;
+            let u1 = f32(seg + 1) / 20.0;
+            let progress = vec2<f32>(u0, u1);
+            var sample_v = vec4<f32>(0.0);
+            if (wind_visible) {
+                // Solar wind stays outside the magnetopause, meeting the bow shock at13.5R.
+                let wind_a = mix(sun * 23.0 + side * 1.4, entry, u0);
+                let wind_b = mix(sun * 23.0 + side * 1.4, entry, u1);
+                sample_v = doc_earth_transport_segment(ro, rd, stop, wind_a, wind_b, progress,
+                    clamp(phase / 2.5, 0.0, 1.0), 1.0 - smoothstep(2.3, 2.8, phase), traces * 0.35, 0.32, vec3<f32>(0.85, 0.58, 0.22));
+                rgb += (1.0 - alpha) * sample_v.rgb;
+                alpha += (1.0 - alpha) * sample_v.a;
+            }
+            if (sheath_visible) {
+                // Deflected magnetosheath flow carries energy into the tail lobes.
+                let sheath_a = doc_earth_bezier(entry, sun * 13.5 + side * 12.0, -sun * 5.0 + side * 11.0, lobe, u0);
+                let sheath_b = doc_earth_bezier(entry, sun * 13.5 + side * 12.0, -sun * 5.0 + side * 11.0, lobe, u1);
+                sample_v = doc_earth_transport_segment(ro, rd, stop, sheath_a, sheath_b, progress,
+                    clamp((phase - 2.5) / 3.5, 0.0, 1.0), smoothstep(2.2, 2.7, phase) * (1.0 - smoothstep(5.8, 6.3, phase)), traces * 0.55, 0.16, vec3<f32>(0.67, 0.62, 0.38));
+                rgb += (1.0 - alpha) * sample_v.rgb;
+                alpha += (1.0 - alpha) * sample_v.a;
+            }
+            if (reconnect_visible) {
+                // A separately colored lobe convergence marks magnetic energy transfer,
+                // not a claim that one solar-wind parcel circles directly into the atmosphere.
+                let reconnect_a = doc_earth_bezier(lobe, tail - sun * 2.0 + side * 4.0, tail - sun * 2.0 + side, tail, u0);
+                let reconnect_b = doc_earth_bezier(lobe, tail - sun * 2.0 + side * 4.0, tail - sun * 2.0 + side, tail, u1);
+                sample_v = doc_earth_transport_segment(ro, rd, stop, reconnect_a, reconnect_b, progress,
+                    clamp((phase - 6.0) / 2.0, 0.0, 1.0), smoothstep(5.7, 6.2, phase) * (1.0 - smoothstep(7.8, 8.3, phase)), traces * 0.7, 0.0, vec3<f32>(0.42, 0.50, 0.88));
+                rgb += (1.0 - alpha) * sample_v.rgb;
+                alpha += (1.0 - alpha) * sample_v.a;
+            }
+            if (precip_visible) {
+                // Physical dipole r=L*cos(latitude)^2 connects the earthward release
+                // continuously at6.6R to the atmospheric footpoint near67degrees.
+                let latitude0 = u0 * acos(sqrt(1.018 / 6.6));
+                let latitude1 = u1 * acos(sqrt(1.018 / 6.6));
+                let precip_a = (lane_equator_dir * cos(latitude0) + vec3<f32>(0.0, sign_y * sin(latitude0), 0.0)) * (6.6 * pow(cos(latitude0), 2.0));
+                let precip_b = (lane_equator_dir * cos(latitude1) + vec3<f32>(0.0, sign_y * sin(latitude1), 0.0)) * (6.6 * pow(cos(latitude1), 2.0));
+                sample_v = doc_earth_transport_segment(ro, rd, stop, precip_a, precip_b, progress,
+                    clamp((phase - 10.0) / 2.5, 0.0, 1.0), smoothstep(9.7, 10.2, phase) * (1.0 - smoothstep(12.3, 12.8, phase)), traces, 0.0, vec3<f32>(0.23, 0.72, 0.45));
+                rgb += (1.0 - alpha) * sample_v.rgb;
+                alpha += (1.0 - alpha) * sample_v.a;
+            }
+            if (earthward_visible) {
+                let earthward_a = doc_earth_bezier(tail, tail + sun * 4.0, equator - sun * 4.0, equator, u0);
+                let earthward_b = doc_earth_bezier(tail, tail + sun * 4.0, equator - sun * 4.0, equator, u1);
+                sample_v = doc_earth_transport_segment(ro, rd, stop, earthward_a, earthward_b, progress,
+                    clamp((phase - 8.0) / 2.0, 0.0, 1.0), smoothstep(7.7, 8.2, phase) * (1.0 - smoothstep(9.8, 10.3, phase)), traces, 0.0, vec3<f32>(0.27, 0.68, 0.89));
+                rgb += (1.0 - alpha) * sample_v.rgb;
+                alpha += (1.0 - alpha) * sample_v.a;
+            }
+            // Magnetopause is a selected teaching trace at its actual10.5R nose.
+            if (boundary_visible) {
+                let boundary_a = doc_earth_bezier(sun * 10.5, sun * 10.5 + side * 8.0, -sun * 5.0 + side * 7.0, tail + side * 4.5, u0);
+                let boundary_b = doc_earth_bezier(sun * 10.5, sun * 10.5 + side * 8.0, -sun * 5.0 + side * 7.0, tail + side * 4.5, u1);
+                sample_v = doc_earth_transport_segment(ro, rd, stop, boundary_a, boundary_b, progress, -1.0, 0.0, 0.06, 0.0, vec3<f32>(0.18, 0.36, 0.55));
+                rgb += (1.0 - alpha) * sample_v.rgb;
+                alpha += (1.0 - alpha) * sample_v.a;
+            }
         }
-        let t = t0 + (f32(i) + jitter) * dt;
-        let p = ro + rd * t;
+    }
+    return vec4<f32>(rgb, alpha);
+}
+
+fn doc_earth_cloud_layer(ro: vec3<f32>, rd: vec3<f32>, stop_t: f32, limb_r: f32,
+    sun: vec3<f32>, inst: HeroVolumeInstance, time: f32) -> vec4<f32> {
+    let cloud_r = limb_r * 1.0019;
+    let hit = intersect_sphere(ro, rd, cloud_r);
+    let t = select(hit.x, hit.y, hit.x < 0.0);
+    if (hit.y <= 0.0 || t < 0.0 || t >= stop_t) { return vec4<f32>(0.0); }
+    let p = ro + rd * t;
+    let n = normalize(p);
+    let is_cutaway = doc_submode(inst) == 1u && doc_earth_zone(inst) <= 13u;
+    if (is_cutaway && n.x > 0.0 && n.y > -0.119 && n.z > 0.0) { return vec4<f32>(0.0); }
+    let footprint = max(t * 2.0 * tan(u_frame.cam_forward.w * 0.5) / u_frame.viewport_params.y / limb_r, 1e-6);
+    let dims = vec2<f32>(textureDimensions(earth_maps, 0));
+    let lod = max(0.0, log2(max(1.0, footprint * dims.x / TAU / sqrt(max(abs(dot(n, rd)), 0.03)))));
+    let coverage = doc_earth_cloud_coverage(n, time, lod, inst);
+    let slant = min(4.5, 1.0 / max(abs(dot(n, rd)), 0.15));
+    let alpha = 1.0 - exp(-pow(coverage, 1.5) * 2.1 * slant);
+    let light_cos = dot(n, sun);
+    let cloud_east = normalize(vec3<f32>(-n.z, 0.0, n.x) + vec3<f32>(1e-8, 0.0, 0.0));
+    let cloud_north = cross(cloud_east, n);
+    let normal_step = max(0.0004, footprint);
+    let cloud_e = doc_earth_cloud_coverage(normalize(n + cloud_east * normal_step), time, lod, inst);
+    let cloud_n = doc_earth_cloud_coverage(normalize(n + cloud_north * normal_step), time, lod, inst);
+    let cloud_normal = normalize(n - (cloud_east * (cloud_e - coverage) + cloud_north * (cloud_n - coverage)) * min(3.0, 0.0012 / normal_step));
+    let cloud_ahead = doc_earth_cloud_coverage(normalize(n + sun * 0.0024), time, lod, inst);
+    let self_shadow = exp(-max(cloud_ahead - coverage * 0.55, 0.0) * 1.25);
+    let day = max(dot(cloud_normal, sun), 0.0) * smoothstep(-0.008, 0.012, light_cos);
+    let silver = pow(max(dot(-rd, sun), 0.0), 18.0) * (1.0 - coverage) * smoothstep(-0.025, 0.06, light_cos) * 0.35;
+    let twilight = exp(-pow((light_cos + 0.015) * 24.0, 2.0)) * 0.09;
+    var radiance = vec3<f32>(0.93, 0.96, 1.0) * (day * self_shadow * 0.85 + 0.0002 + silver)
+                 + vec3<f32>(1.0, 0.34, 0.10) * twilight;
+    // Lightning is geographically inside the selected storm and sporadic, not star-like noise.
+    if (doc_earth_zone(inst) == 5u && doc_feat(inst) == 1u) {
+        let storm_center = normalize(vec3<f32>(0.82, 0.18, -0.54));
+        let storm_area = pow(max(dot(doc_earth_map_point(n, time), storm_center), 0.0), 250.0);
+        let flash = pow(max(sin(time * 1.7) * sin(time * 11.3), 0.0), 24.0);
+        radiance += vec3<f32>(0.48, 0.64, 1.0) * flash * storm_area * coverage * 1.5;
+    }
+    var tracer_rgb = vec3<f32>(0.0);
+    var tracer_a = 0.0;
+    if (doc_earth_zone(inst) == 5u) {
+        let cp = doc_earth_map_point(n, time);
+        let lon = atan2(cp.z, cp.x);
+        if (doc_feat(inst) == 2u) {
+            // Explicit wind lesson: tracers follow latitude bands through the observed cloud field.
+            let jet_lat = cp.y - 0.48 - sin(lon * 3.0) * 0.035;
+            let stream = exp(-jet_lat * jet_lat * 8500.0);
+            let parcels = pow(max(0.0, cos(lon * 26.0 - time * 1.15)), 10.0);
+            tracer_a = stream * parcels * 0.30;
+            tracer_rgb = vec3<f32>(0.28, 0.60, 0.85) * tracer_a;
+        } else if (doc_feat(inst) == 3u) {
+            let flight = normalize(vec3<f32>(cos(time * 0.015), 0.30 * sin(time * 0.015), sin(time * 0.015)));
+            let aircraft = exp(-pow(length(cp - flight) * 320.0, 2.0));
+            let route = exp(-pow((cp.y - 0.30 * cp.z) * 380.0, 2.0));
+            let strobe = 0.6 + 0.4 * pow(max(sin(time * 5.0), 0.0), 12.0);
+            tracer_a = aircraft * 0.9 + route * 0.025;
+            tracer_rgb = vec3<f32>(0.95, 0.88, 0.72) * aircraft * strobe + vec3<f32>(0.18, 0.30, 0.40) * route * 0.025;
+        } else if (doc_feat(inst) == 4u) {
+            // Water-vapor tracer is confined to actual cloudy, moist columns.
+            tracer_a = coverage * (0.5 + 0.5 * sin(cp.y * 65.0 - time * 0.35)) * 0.06;
+            tracer_rgb = vec3<f32>(0.12, 0.32, 0.42) * tracer_a;
+        }
+    }
+    return vec4<f32>(tracer_rgb + radiance * alpha * (1.0 - tracer_a), tracer_a + alpha * (1.0 - tracer_a));
+}
+
+fn doc_earth_atmosphere(ro: vec3<f32>, rd: vec3<f32>, stop_t: f32, limb_r: f32,
+    sun: vec3<f32>) -> vec4<f32> {
+    // Scale height and extinction use actual ratios to Earth's radius. Enlarging
+    // the shell bounding cube never inflates the visible atmosphere.
+    // The virtual geological cutaway removes surface geometry, not the physical
+    // atmosphere's lower bound. Never integrate sea-level air through the planet.
+    if (length(ro) < limb_r) { return vec4<f32>(0.0); }
+    let hit = intersect_sphere(ro, rd, limb_r * 1.018);
+    let first = max(hit.x, 0.0);
+    var last = min(hit.y, stop_t);
+    let solid = intersect_sphere(ro, rd, limb_r);
+    if (solid.x > 0.0 && solid.y > 0.0) { last = min(last, solid.x); }
+    if (last <= first) { return vec4<f32>(0.0); }
+    let dt = (last - first) / 32.0;
+    let beta_ray = vec3<f32>(37.0, 86.0, 211.0);
+    let beta_mie = vec3<f32>(17.0);
+    let mu = dot(rd, sun);
+    let phase_ray = 0.0596831 * (1.0 + mu * mu);
+    let g = 0.76;
+    let phase_mie = (1.0 - g * g) / (4.0 * PI * pow(max(1.0 + g * g - 2.0 * g * mu, 0.01), 1.5));
+    var transmittance = vec3<f32>(1.0);
+    var scattering = vec3<f32>(0.0);
+    for (var i = 0; i < 32; i = i + 1) {
+        let p = ro + rd * (first + (f32(i) + 0.5) * dt);
         let r = length(p);
-        let alt = clamp((r - limb_r) / shell_w, 0.0, 1.0);
+        let h = max(r / limb_r - 1.0, 0.0);
+        let ray_density = exp(-h / 0.0012557);
+        let mie_density = exp(-h / 0.0001884);
+        let extinction = (beta_ray * ray_density + beta_mie * mie_density) * dt / limb_r;
+        let sample_trans = exp(-extinction);
+        let sun_cos = dot(p / r, sun);
+        let ground_hit = intersect_sphere(p, sun, limb_r);
+        let lit = select(1.0, 0.0, ground_hit.x > 0.0 && ground_hit.y > 0.0);
+        // Curvature-aware optical path approximation stays finite at the terminator.
+        let slant = 1.0 / max(sun_cos + sqrt(max(h * 2.0, 0.0)), 0.035);
+        let sun_trans = exp(-(beta_ray * ray_density * 0.0012557 + beta_mie * mie_density * 0.0001884) * slant);
+        let source = (beta_ray * ray_density * phase_ray + beta_mie * mie_density * phase_mie) * sun_trans * lit * 1.5;
+        scattering += transmittance * source * (dt / limb_r);
+        transmittance *= sample_trans;
+    }
+    // Premultiplied blending has scalar extinction; preserve the strongest spectral
+    // attenuation while scattering retains the wavelength-dependent color.
+    let alpha = clamp(1.0 - (transmittance.r + transmittance.g + transmittance.b) / 3.0, 0.0, 0.98);
+    return vec4<f32>(scattering, alpha);
+}
 
-        // 0. Z05 Troposphere low-altitude atmospheric limb shell (jet stream & water vapor wisps)
-        if (z_idx == 5u && r > limb_r && r < (limb_r + 0.09)) {
-            let lat = p.y / r;
-            let jet = exp(-pow((abs(lat) - 0.52) * 10.0, 2.0));
-            let vapor_ring = exp(-pow(lat * 4.0, 2.0));
-            let limb_env = smoothstep(limb_r, limb_r + 0.02, r) * smoothstep(limb_r + 0.09, limb_r + 0.04, r);
-            let wisp = 0.5 + 0.5 * sin(atan2(p.z, p.x) * 6.0 - time * 1.4);
-            let tropo_limb = vec3<f32>(0.24, 0.74, 1.05) * jet * f_tropo_wind * 0.42
-                           + vec3<f32>(0.10, 0.78, 0.88) * vapor_ring * f_tropo_vapor * 0.48;
-            let sample_a = limb_env * wisp * dt * 1.8;
-            if (sample_a > 0.002) {
-                accum_rgb += (1.0 - accum_a) * tropo_limb * sample_a;
-                accum_a += (1.0 - accum_a) * min(sample_a, 0.25);
+// Smooth error-function approximation for the analytic integral of a Gaussian
+// emissive sheet. Integrating its thickness avoids a visible ray-march lattice.
+fn doc_earth_erf(value: f32) -> f32 {
+    let x = abs(value);
+    let t = 1.0 / (1.0 + 0.3275911 * x);
+    let polynomial = (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t;
+    return sign(value) * (1.0 - polynomial * exp(-x * x));
+}
+
+fn doc_earth_aurora_fold(azimuth: vec3<f32>, time: f32) -> f32 {
+    let slow_drift = vec3<f32>(0.0, time * 0.025, 0.0);
+    return snoise3(azimuth * 7.0 + slow_drift) * 0.0034
+             + snoise3(azimuth * 24.0 - slow_drift * 1.4) * 0.0011
+             + snoise3(azimuth * 71.0 + slow_drift * 0.7) * 0.00025;
+}
+
+// Table 0 returns fold and its exact piecewise-linear angular derivative.
+// Tables 1..3 return the broad/strand noises for each curtain. The finest noise
+// remains procedural where resolved, retaining detail beyond this table's band.
+// Explicit neighboring loads wrap the logical 1D table without filtering across
+// physical texture rows. Hermite strands retain the 310-domain variation.
+fn doc_earth_aurora_profile(azimuth: vec3<f32>, time: f32, profile: u32, use_lut: bool) -> vec3<f32> {
+    let angle = atan2(azimuth.z, azimuth.x);
+    if (use_lut) {
+        let size = textureDimensions(field_grid_tex);
+        let table_size = size.x * size.y / 4u;
+        let coordinate = fract(angle / TAU - 0.5 / f32(table_size)) * f32(table_size);
+        let index = u32(floor(coordinate));
+        let a = profile * table_size + index;
+        let b = profile * table_size + (index + 1u) % table_size;
+        let v0 = textureLoad(field_grid_tex, vec2<i32>(i32(a % size.x), i32(a / size.x)), 0).xyz;
+        let v1 = textureLoad(field_grid_tex, vec2<i32>(i32(b % size.x), i32(b / size.x)), 0).xyz;
+        if (profile == 0u) {
+            let fold0 = v0.x + v0.y / 65536.0;
+            let fold1 = v1.x + v1.y / 65536.0;
+            return vec3<f32>(mix(fold0, fold1, fract(coordinate)), (fold1 - fold0) * f32(table_size) / TAU, 0.0);
+        }
+        let u = fract(coordinate);
+        let u2 = u * u;
+        let u3 = u2 * u;
+        let derivative_scale = 310.0 * TAU / f32(table_size);
+        let strand = (2.0 * u3 - 3.0 * u2 + 1.0) * v0.y + (u3 - 2.0 * u2 + u) * v0.z * derivative_scale
+            + (-2.0 * u3 + 3.0 * u2) * v1.y + (u3 - u2) * v1.z * derivative_scale;
+        return vec3<f32>(mix(v0.x, v1.x, u), strand, 0.0);
+    }
+    // Direct-render fixtures can omit the field dispatch; preserve their
+    // procedural result instead of interpreting an uninitialized/PDE texture.
+    if (profile == 0u) {
+        let epsilon = 0.0001;
+        let before = vec3<f32>(cos(angle - epsilon), 0.0, sin(angle - epsilon));
+        let after = vec3<f32>(cos(angle + epsilon), 0.0, sin(angle + epsilon));
+        return vec3<f32>(doc_earth_aurora_fold(azimuth, time),
+            (doc_earth_aurora_fold(after, time) - doc_earth_aurora_fold(before, time)) / (2.0 * epsilon), 0.0);
+    }
+    let drift = vec3<f32>(0.0, time * 0.055 + f32(profile - 1u) * 3.7, 0.0);
+    return vec3<f32>(snoise3(azimuth * 27.0 + drift * 0.4), snoise3(azimuth * 310.0 + drift), 0.0);
+}
+
+fn doc_earth_aurora_distance_gradient(p: vec3<f32>, rd: vec3<f32>, time: f32, use_lut: bool) -> vec2<f32> {
+    let r = length(p);
+    let horizontal_squared = max(dot(p.xz, p.xz), 1e-8);
+    let azimuth = vec3<f32>(p.x, 0.0, p.z) * inverseSqrt(horizontal_squared);
+    let fold = doc_earth_aurora_profile(azimuth, time, 0u, use_lut);
+    let dipole = sqrt(max(1.0 - r / 6.6, 1e-8));
+    let distance = abs(p.y) / r - dipole - fold.x;
+    let radial_derivative = dot(p, rd) / r;
+    let angular_derivative = (p.x * rd.z - p.z * rd.x) / horizontal_squared;
+    let gradient = sign(p.y) * rd.y / r - abs(p.y) * radial_derivative / (r * r)
+        + radial_derivative / (13.2 * dipole) - fold.y * angular_derivative;
+    return vec2<f32>(distance, gradient);
+}
+
+fn doc_earth_aurora_emission(p: vec3<f32>, sun: vec3<f32>, time: f32, layer: i32, angular_footprint: f32, use_lut: bool) -> vec3<f32> {
+    let r = length(p);
+    let n = p / r;
+    let h = r - 1.0;
+    let azimuth = normalize(vec3<f32>(n.x, 0.0, n.z) + vec3<f32>(1e-8, 0.0, 0.0));
+    // Aperiodic intensity follows each field-aligned column through altitude.
+    // Nested scales form groups of unequal rays rather than a regular picket fence.
+    let profile = doc_earth_aurora_profile(azimuth, time, u32(layer + 1), use_lut);
+    let broad = smoothstep(-0.65, 0.65, profile.x);
+    let strand_detail = 1.0 - smoothstep(0.25, 0.8, angular_footprint * 310.0);
+    let fine_detail = 1.0 - smoothstep(0.25, 0.8, angular_footprint * 970.0);
+    let strands = mix(0.55, smoothstep(-0.5, 0.62, profile.y), strand_detail);
+    var fine = 0.72;
+    if (fine_detail > 0.0) {
+        let drift = vec3<f32>(0.0, time * 0.055 + f32(layer) * 3.7, 0.0);
+        fine += 0.28 * snoise3(azimuth * 970.0 + drift * 1.15) * fine_detail;
+    }
+    let filament = (0.18 + 0.82 * broad) * (0.22 + 0.78 * strands * strands) * fine;
+    let low_alt = smoothstep(0.0125, 0.0160, h);
+    let green = exp(-pow((h - 0.021) / 0.012, 2.0)) * low_alt;
+    let red = exp(-pow((h - 0.052) / 0.023, 2.0)) * smoothstep(0.024, 0.040, h) * 0.08;
+    let violet = exp(-pow((h - 0.015) / 0.0024, 2.0)) * 0.025;
+    let top_fade = 1.0 - smoothstep(0.072, 0.095, h);
+    let night = 1.0 - smoothstep(-0.07, 0.045, dot(n, sun));
+    return (vec3<f32>(0.055, 1.0, 0.18) * green + vec3<f32>(0.85, 0.04, 0.03) * red
+        + vec3<f32>(0.26, 0.055, 0.55) * violet) * filament * top_fade * night;
+}
+
+fn doc_earth_integrate_aurora(ro: vec3<f32>, rd: vec3<f32>, first: f32, last: f32,
+    limb_r: f32, sun: vec3<f32>, time: f32, gain: f32, use_lut: bool) -> vec3<f32> {
+    let ro_r = ro / limb_r;
+    let t_first = first / limb_r;
+    let t_last = last / limb_r;
+    let count = 56;
+    let dt = (t_last - t_first) / f32(count);
+    let sigma = 0.00085;
+    var f0 = doc_earth_aurora_distance_gradient(ro_r + rd * t_first, rd, time, use_lut).x;
+    var emission = vec3<f32>(0.0);
+    for (var step = 0; step < count; step = step + 1) {
+        let a = t_first + f32(step) * dt;
+        let b = a + dt;
+        let f1 = doc_earth_aurora_distance_gradient(ro_r + rd * b, rd, time, use_lut).x;
+        for (var layer = 0; layer < 3; layer = layer + 1) {
+            let offset = select(select(0.0, 0.0030, layer == 1), -0.0037, layer == 2);
+            let d0 = f0 - offset;
+            let d1 = f1 - offset;
+            // Both endpoints far on the same side cannot contribute in this local
+            // linear interval; avoid all color/noise work for empty space.
+            if (min(d0, d1) > sigma * 4.0 || max(d0, d1) < -sigma * 4.0) { continue; }
+            let delta = d1 - d0;
+            var u = 0.5;
+            if (abs(delta) > 1e-7) { u = clamp(-d0 / delta, 0.0, 1.0); }
+            var sample_t = mix(a, b, u);
+            // Refine the actual curved-sheet crossing. A raw linear root shifts
+            // with the integration intervals and makes distant rays wiggle.
+            if (d0 * d1 < 0.0) {
+                for (var refine = 0; refine < 2; refine = refine + 1) {
+                    let p = ro_r + rd * sample_t;
+                    let field = doc_earth_aurora_distance_gradient(p, rd, time, use_lut);
+                    if (abs(field.y) > 1e-4) { sample_t = clamp(sample_t - (field.x - offset) / field.y, a, b); }
+                }
+            }
+            let sample_p = ro_r + rd * sample_t;
+            var integral: f32;
+            if (abs(delta) < sigma * 0.02) {
+                integral = exp(-pow((d0 + d1) * 0.5 / sigma, 2.0)) * dt;
+            } else {
+                let derivative = doc_earth_aurora_distance_gradient(sample_p, rd, time, use_lut).y;
+                let fraction = abs(doc_earth_erf(d1 / sigma) - doc_earth_erf(d0 / sigma));
+                integral = min(dt, sigma * 0.886226925 * fraction / max(abs(derivative), 1e-4));
+            }
+            let layer_gain = select(select(1.0, 0.48, layer == 1), 0.32, layer == 2);
+            let angular_footprint = sample_t * 2.0 * tan(u_frame.cam_forward.w * 0.5)
+                / u_frame.viewport_params.y / max(length(sample_p.xz), 0.1);
+            emission += doc_earth_aurora_emission(sample_p, sun, time, layer, angular_footprint, use_lut) * integral * layer_gain * gain * 95.0;
+        }
+        f0 = f1;
+    }
+    return emission;
+}
+
+fn raymarch_doc_earth_shell(
+    ro: vec3<f32>, rd: vec3<f32>, t0: f32, t1: f32, jitter: f32,
+    fovea_k: f32, inst: HeroVolumeInstance, time: f32, bass: f32,
+) -> vec4<f32> {
+    if (doc_submode(inst) == 4u) { return doc_earth_global_transport(ro, rd, t0, t1, inst, time); }
+    let z_idx = doc_earth_zone(inst);
+    let is_exp04_earth = inst.kind_tags.y == 1403u;
+    let limb_r = select(inst.phys_a.y, 0.737, inst.phys_a.y <= 0.0);
+    let sun = normalize(quat_rotate(quat_conj(normalize(inst.rot_quat)), normalize(inst.phys_b.xyz)));
+    let ground = intersect_sphere(ro, rd, limb_r);
+    var stop_t = t1;
+    let cutaway = doc_submode(inst) == 1u && z_idx <= 13u;
+    if (ground.x > 0.0 && ground.y > 0.0) {
+        let hit_p = ro + rd * ground.x;
+        let open_quarter = cutaway && hit_p.x > 0.0 && hit_p.y > -limb_r * 0.119 && hit_p.z > 0.0;
+        if (!open_quarter) { stop_t = min(stop_t, ground.x); }
+    }
+    let clouds = doc_earth_cloud_layer(ro, rd, stop_t + 1e-5, limb_r, sun, inst, time);
+    let atmosphere = doc_earth_atmosphere(ro, rd, stop_t, limb_r, sun);
+    var base = vec4<f32>(atmosphere.rgb + clouds.rgb * (1.0 - atmosphere.a), atmosphere.a + clouds.a * (1.0 - atmosphere.a));
+    let phase = doc_earth_process_phase(time);
+    let process = (z_idx == 0u && (doc_feat(inst) == 0u || doc_feat(inst) == 1u))
+               || (z_idx == 2u && doc_feat(inst) == 0u)
+               || (z_idx == 12u && doc_feat(inst) == 4u)
+               || (is_exp04_earth && doc_feat(inst) == 4u);
+
+    // Polar curtains are an elevated emissive volume, visible on the night side.
+    // Their position follows one magnetic oval; motion travels along sheets.
+    let aurora_hit = intersect_sphere(ro, rd, limb_r * 1.095);
+    var aurora_first = max(aurora_hit.x, max(t0, 0.0));
+    var aurora_last = min(aurora_hit.y, stop_t);
+    var aurora_rgb = vec3<f32>(0.0);
+    var aurora_a = 0.0;
+    let show_aurora = z_idx <= 2u || z_idx == 12u || is_exp04_earth;
+    if (show_aurora && aurora_last > aurora_first) {
+        let use_aurora_lut = abs(textureLoad(field_grid_tex, vec2<i32>(0, 0), 0).w - 13.0) < 0.25;
+        let response = smoothstep(12.5, 13.2, phase) * (1.0 - smoothstep(14.0, 16.0, phase));
+        let gain = select(0.13, 0.20 + response * 0.72, process);
+        // Conservative bounds include the full altitude range, all three sheets,
+        // the maximum noise displacement and their four-sigma Gaussian support:
+        // abs(y)/R in[0.919,1.013], horizontal radius<0.475R. Extra margin below
+        // prevents clipping while avoiding expensive noise in empty space.
+        for (var pole = 0; pole < 2; pole = pole + 1) {
+            let south = pole == 0;
+            let lo = vec3<f32>(-0.50, select(0.90, -1.03, south), -0.50) * limb_r;
+            let hi = vec3<f32>(0.50, select(1.03, -0.90, south), 0.50) * limb_r;
+            let polar_hit = intersect_box(ro, rd, lo, hi);
+            let first = max(aurora_first, polar_hit.x);
+            let last = min(aurora_last, polar_hit.y);
+            if (last > first) {
+                aurora_rgb += doc_earth_integrate_aurora(ro, rd, first, last, limb_r, sun, time, gain, use_aurora_lut);
             }
         }
+        // Optically thin airglow emits light without behaving as a solid sheet.
+        aurora_a = 0.0;
+    }
 
-        // 1. Polar Auroral Oval Curtains touching Earth limb (strongest on Z02 Thermosphere)
-        if (r > limb_r && r < (limb_r + 0.18)) {
-            let lat = abs(p.y / r);
-            let oval = exp(-pow((lat - 0.75) * 15.0, 2.0));
-            if (oval > 0.01) {
-                let h_alt = clamp((r - limb_r) / 0.17, 0.0, 1.0);
-                let alt_env = smoothstep(0.0, 0.09, h_alt) * exp(-h_alt * 2.7);
-                let b_dir = normalize(vec3<f32>(p.x, p.y * 0.12, p.z) + vec3<f32>(1e-4));
-                let field_uv = fract(vec2<f32>(b_dir.x * 0.35 + b_dir.z * 0.25 + 0.5, h_alt));
-                let field_s = textureSampleLevel(field_grid_tex, field_grid_samp, clamp(field_uv, vec2<f32>(0.01), vec2<f32>(0.99)), 0.0);
-                let shear = curl_noise3(b_dir * 3.8 + vec3<f32>(0.0, time * 0.14, 0.0));
-                let curtain = snoise3(b_dir * 7.8 + shear * 0.65 + vec3<f32>(0.0, h_alt * 1.4, time * 0.22));
-                let sheet = exp(-pow(curtain * 5.0, 2.0)) * oval * alt_env;
-                let aur_gain = select(0.45, 1.68 * doc_feat_focus(inst, 0u), z_idx == 2u);
-                let pde_mod = mix(vec3<f32>(0.08, 1.75, 0.58), field_s.rgb, clamp(field_s.a * 0.45, 0.0, 0.55));
-                let alt_col = mix(pde_mod, vec3<f32>(0.95, 0.18, 1.85), smoothstep(0.32, 0.86, h_alt)) * aur_gain;
-                let sample_a = sheet * dt * (2.2 + bass * 0.9);
-                accum_rgb += (1.0 - accum_a) * alt_col * sample_a;
-                accum_a += (1.0 - accum_a) * min(sample_a, 0.42);
+    var accum_rgb = vec3<f32>(0.0);
+    var accum_a = 0.0;
+    let has_teaching = (doc_feat(inst) != 255u) && (z_idx == 1u || z_idx == 3u || z_idx == 4u || (z_idx == 0u && doc_feat(inst) >= 2u) || (z_idx == 2u && doc_feat(inst) >= 1u));
+    if (has_teaching) {
+        let steps = 48;
+        let dt = max(stop_t - t0, 0.0) / f32(steps);
+        let shell_w = max(0.98 - limb_r, 0.15);
+        for (var i = 0; i < steps; i = i + 1) {
+            let p = ro + rd * (t0 + (f32(i) + 0.5) * dt);
+            let r = length(p);
+            let alt = clamp((r - limb_r) / shell_w, 0.0, 1.0);
+            if (z_idx == 0u && r > limb_r * 1.05) {
+                let nr = p / limb_r;
+                var selected_emission = vec3<f32>(0.0);
+                var selected_a = 0.0;
+                if (doc_feat(inst) == 2u) {
+                    let ray_axis = normalize(vec3<f32>(0.8, -0.35, -0.4));
+                    let travel = dot(nr, ray_axis);
+                    let ray_offset = nr - ray_axis * travel - vec3<f32>(0.0, 1.13, 0.0);
+                    let trail = exp(-dot(ray_offset, ray_offset) * 1800.0);
+                    let photon = pow(max(0.0, cos(travel * 12.0 + time * 5.5)), 12.0);
+                    selected_a = trail * photon * dt / limb_r * 3.0;
+                    selected_emission = vec3<f32>(0.55, 0.68, 1.0) * selected_a;
+                } else if (doc_feat(inst) == 3u) {
+                    // Deliberately magnified orbital teaching marker; no ring in the natural view.
+                    let az = atan2(nr.z, nr.x);
+                    let track = exp(-pow((length(nr.xz) - 1.7) * 65.0, 2.0)) * exp(-nr.y * nr.y * 1600.0);
+                    let satellite = pow(max(0.0, cos(az - time * 0.025)), 900.0);
+                    selected_a = track * (0.035 + satellite) * dt / limb_r;
+                    selected_emission = vec3<f32>(0.65, 0.63, 0.48) * selected_a;
+                }
+                accum_rgb += (1.0 - accum_a) * selected_emission;
+                accum_a += (1.0 - accum_a) * min(selected_a, 0.2);
             }
-        }
-
-        // 2. Z00 Space (Dayside Bow Shock, Van Allen L-shells, Cosmic Rays, GEO Satellites, Interplanetary Vacuum)
-        if (z_idx == 0u && r > limb_r && r < 0.94) {
-            let f_sw = doc_feat_focus(inst, 0u);
-            let f_cr = doc_feat_focus(inst, 2u);
-            let f_geo = doc_feat_focus(inst, 3u);
-            let f_vac = doc_feat_focus(inst, 4u);
-            let az = atan2(p.z, p.x);
-            let dayside = smoothstep(0.05, 0.85, p.x / r);
-            let bow = exp(-pow((alt - (0.56 - dayside * 0.22)) * 22.0, 2.0)) * dayside * pow(0.5 + 0.5 * sin(p.y * 18.0 - time * 1.8), 2.0);
-            let cosmic = pow(max(0.0, snoise3(doc_rot_z(p * 12.0, 0.45) - vec3<f32>(time * 1.2, 0.0, 0.0))), 12.0) * smoothstep(0.94, 0.72, r);
-            let geo_ring = exp(-pow((alt - 0.68) * 28.0, 2.0)) * exp(-pow(p.y * 34.0, 2.0));
-            let geo_node = pow(max(0.0, cos(az * 3.0 - time * 0.35)), 18.0) * geo_ring;
-            let vac_wave = exp(-pow((alt - 0.80) * 26.0, 2.0)) * pow(0.5 + 0.5 * sin(az * 6.0 - time * 0.8), 6.0) * 0.45;
-            let s_a = (bow * 0.55 + cosmic * 0.85 + geo_ring * 0.75 + geo_node + vac_wave) * dt * 1.5;
-            if (s_a > 0.012) {
-                let s_col = vec3<f32>(1.25, 0.72, 0.22) * bow * 0.75 * f_sw
-                          + vec3<f32>(0.45, 1.18, 1.55) * cosmic * 1.25 * f_cr
-                          + vec3<f32>(1.35, 0.98, 0.35) * (geo_ring * 0.45 + geo_node * 1.35) * f_geo
-                          + vec3<f32>(0.24, 0.55, 1.15) * vac_wave * f_vac;
-                accum_rgb += (1.0 - accum_a) * s_col * dt * 1.5;
-                accum_a += (1.0 - accum_a) * min(s_a, 0.28);
-            }
-        }
-
         // 2b. Z01 Exosphere (Hydrogen Halo, Helium Band, Jeans Escape, UV Geocorona, HEO Orbit)
         if (z_idx == 1u && r > limb_r && r < 0.94) {
-            let f_h = doc_feat_focus(inst, 0u);
-            let f_he = doc_feat_focus(inst, 1u);
-            let f_esc = doc_feat_focus(inst, 2u);
-            let f_geo = doc_feat_focus(inst, 3u);
-            let f_heo = doc_feat_focus(inst, 4u);
+            let f_h = doc_earth_feature(inst, 0u);
+            let f_he = doc_earth_feature(inst, 1u);
+            let f_esc = doc_earth_feature(inst, 2u);
+            let f_geo = doc_earth_feature(inst, 3u);
+            let f_heo = doc_earth_feature(inst, 4u);
             let h_halo = exp(-pow((alt - 0.14) * 18.0, 2.0)) * 0.55;
             let he_band = exp(-pow((alt - 0.24) * 20.0, 2.0)) * 0.72;
             let escape_ray = pow(max(0.0, sin(atan2(p.z, p.x) * 10.0) * cos(p.y * 8.0 - alt * 9.0 + time * 1.6)), 10.0) * smoothstep(0.10, 0.38, alt) * smoothstep(0.94, 0.65, r);
             let uv_geo = smoothstep(0.15, 0.75, p.x / r) * exp(-pow((alt - 0.48) * 18.0, 2.0));
             let p_heo = doc_rot_x(p, 0.85);
             let heo_ring = exp(-pow((alt - 0.58) * 26.0, 2.0)) * exp(-pow(p_heo.y * 30.0, 2.0));
-            let e_a = (h_halo * 0.45 + he_band * 0.55 + escape_ray * 0.75 + uv_geo * 0.55 + heo_ring * 0.9) * dt * 1.5;
+            let e_a = (h_halo * 0.45 * f_h + he_band * 0.55 * f_he + escape_ray * 0.75 * f_esc + uv_geo * 0.55 * f_geo + heo_ring * 0.9 * f_heo) * dt * 1.5;
             if (e_a > 0.012) {
                 let e_col = vec3<f32>(0.32, 0.82, 1.48) * h_halo * f_h
                           + vec3<f32>(1.32, 0.96, 0.42) * he_band * f_he
@@ -1207,10 +1532,10 @@ fn raymarch_doc_earth_shell(
 
         // 2c. Z02 Thermosphere (Sunlit Ionosphere, 51.6-deg ISS + Solar Arrays, Atomic O2->2O, HF Radio Bounce)
         if (z_idx == 2u && r > limb_r && r < 0.94) {
-            let f_ion = doc_feat_focus(inst, 1u);
-            let f_iss = doc_feat_focus(inst, 2u);
-            let f_o = doc_feat_focus(inst, 3u);
-            let f_rad = doc_feat_focus(inst, 4u);
+            let f_ion = doc_earth_feature(inst, 1u);
+            let f_iss = doc_earth_feature(inst, 2u);
+            let f_o = doc_earth_feature(inst, 3u);
+            let f_rad = doc_earth_feature(inst, 4u);
             let ion_shell = exp(-pow((alt - 0.42) * 18.0, 2.0)) * smoothstep(-0.05, 0.75, p.x / r);
             let p_iss = doc_rot_z(p, -0.90); // 51.6 deg inclination
             let iss_ring = exp(-pow((alt - 0.28) * 28.0, 2.0)) * exp(-pow(p_iss.y * 34.0, 2.0));
@@ -1218,7 +1543,7 @@ fn raymarch_doc_earth_shell(
             let iss_body = exp(-length(p - iss_pos) * 32.0);
             let o_band = exp(-pow((alt - 0.16) * 22.0, 2.0));
             let radio_hop = pow(0.5 + 0.5 * sin(atan2(p.z, p.x) * 12.0 - time * 2.5), 12.0) * exp(-pow((alt - (0.24 + 0.14 * sin(atan2(p.z, p.x) * 6.0))) * 22.0, 2.0));
-            let t_a = (ion_shell * 0.5 + iss_ring * 0.8 + iss_body + o_band * 0.6 + radio_hop * 0.85) * dt * 1.65;
+            let t_a = (ion_shell * 0.5 * f_ion + (iss_ring * 0.8 + iss_body) * f_iss + o_band * 0.6 * f_o + radio_hop * 0.85 * f_rad) * dt * 1.65;
             if (t_a > 0.012) {
                 let t_col = vec3<f32>(0.36, 0.85, 1.52) * ion_shell * 0.75 * f_ion
                           + (vec3<f32>(0.95, 0.78, 0.28) * iss_ring * 0.72 + vec3<f32>(1.55, 1.35, 0.65) * iss_body * 1.45) * f_iss
@@ -1231,18 +1556,18 @@ fn raymarch_doc_earth_shell(
 
         // 2d. Z03 Mesosphere (Meteor Ablation Trails, Noctilucent Clouds, Mesopause -90C Ring, Sounding Rocket, Braking)
         if (z_idx == 3u && r > limb_r && r < 0.94) {
-            let f_met = doc_feat_focus(inst, 0u);
-            let f_nlc = doc_feat_focus(inst, 1u);
-            let f_mp = doc_feat_focus(inst, 2u);
-            let f_rkt = doc_feat_focus(inst, 3u);
-            let f_brk = doc_feat_focus(inst, 4u);
+            let f_met = doc_earth_feature(inst, 0u);
+            let f_nlc = doc_earth_feature(inst, 1u);
+            let f_mp = doc_earth_feature(inst, 2u);
+            let f_rkt = doc_earth_feature(inst, 3u);
+            let f_brk = doc_earth_feature(inst, 4u);
             let met_d = abs(p.y - 0.24 - 0.12 * sin(atan2(p.z, p.x) * 3.0)) + abs(alt - 0.26) * 0.85;
             let meteor = exp(-pow(met_d * 24.0, 2.0)) * (0.4 + 0.6 * sin(atan2(p.z, p.x) * 5.0 - time * 2.2));
             let nlc = exp(-pow((abs(p.y / r) - 0.72) * 14.0, 2.0)) * exp(-pow((alt - 0.24) * 18.0, 2.0)) * smoothstep(0.05, 0.6, snoise3(p * 12.0));
             let mesopause = exp(-pow((alt - 0.40) * 24.0, 2.0));
             let rkt_plume = exp(-pow((alt - 0.28) * 18.0, 2.0)) * exp(-pow((p.x - 0.35) * 14.0, 2.0)) * smoothstep(0.05, 0.6, p.y);
             let brake_arc = pow(max(0.0, snoise3(p * 15.0 + vec3<f32>(time * 1.6, 0.0, 0.0))), 10.0) * exp(-pow((alt - 0.18) * 16.0, 2.0));
-            let m_a = (meteor * 0.85 + nlc * 0.8 + mesopause * 0.6 + rkt_plume * 0.9 + brake_arc * 0.75) * dt * 1.75;
+            let m_a = (meteor * 0.85 * f_met + nlc * 0.8 * f_nlc + mesopause * 0.6 * f_mp + rkt_plume * 0.9 * f_rkt + brake_arc * 0.75 * f_brk) * dt * 1.75;
             if (m_a > 0.012) {
                 let m_col = vec3<f32>(1.55, 0.88, 0.24) * meteor * 1.15 * f_met
                           + vec3<f32>(0.35, 1.18, 1.62) * nlc * 1.05 * f_nlc
@@ -1256,17 +1581,17 @@ fn raymarch_doc_earth_shell(
 
         // 2e. Z04 Stratosphere (Ozone Shield, Weather Balloon, Supersonic Contrails, Inversion Strata, UV Quenching)
         if (z_idx == 4u && r > limb_r && r < 0.94) {
-            let f_oz = doc_feat_focus(inst, 0u);
-            let f_bal = doc_feat_focus(inst, 1u);
-            let f_jet = doc_feat_focus(inst, 2u);
-            let f_inv = doc_feat_focus(inst, 3u);
-            let f_uv = doc_feat_focus(inst, 4u);
+            let f_oz = doc_earth_feature(inst, 0u);
+            let f_bal = doc_earth_feature(inst, 1u);
+            let f_jet = doc_earth_feature(inst, 2u);
+            let f_inv = doc_earth_feature(inst, 3u);
+            let f_uv = doc_earth_feature(inst, 4u);
             let oz_ring = exp(-pow((alt - 0.22) * 20.0, 2.0));
             let bal = exp(-length(p - normalize(vec3<f32>(0.25, 0.52, 0.82)) * (limb_r + shell_w * (0.28 + 0.04 * sin(time * 0.6)))) * 28.0);
             let jet_ring = exp(-pow((alt - 0.12) * 28.0, 2.0)) * exp(-pow((p.y / r - 0.22) * 16.0, 2.0));
             let inv_strata = exp(-pow((alt - 0.34) * 22.0, 2.0)) * pow(0.5 + 0.5 * sin(p.y * 28.0), 4.0) * 0.55;
             let uv_rays = exp(-pow((alt - 0.44) * 16.0, 2.0)) * pow(max(0.0, sin(p.y * 22.0 + time * 1.5)), 10.0) * smoothstep(0.0, 0.65, p.x / r);
-            let st_a = (oz_ring * 0.65 + bal + jet_ring * 0.75 + inv_strata * 0.55 + uv_rays * 0.7) * dt * 1.70;
+            let st_a = (oz_ring * 0.65 * f_oz + bal * f_bal + jet_ring * 0.75 * f_jet + inv_strata * 0.55 * f_inv + uv_rays * 0.7 * f_uv) * dt * 1.70;
             if (st_a > 0.012) {
                 let st_col = vec3<f32>(0.42, 0.26, 1.55) * oz_ring * 0.88 * f_oz
                            + vec3<f32>(1.48, 1.48, 1.55) * bal * 1.45 * f_bal
@@ -1278,23 +1603,12 @@ fn raymarch_doc_earth_shell(
             }
         }
 
-        // 3. Dipole Magnetosphere Van Allen Flux Arcs (Z00 Space, Z12 Geodynamo Coupling, Exp 04 Earth)
-        if (show_magnetosphere && r > (limb_r + 0.02) && r < 0.94) {
-            let sin2_t = 1.0 - (p.y * p.y) / (r * r);
-            let r_eq_norm = r / max(limb_r, 0.4);
-            let l_shell = r_eq_norm / max(sin2_t, 0.08);
-            let flux_ring = exp(-abs(l_shell - 1.22) * 32.0) + exp(-abs(l_shell - 1.48) * 34.0) * 0.68;
-            let phi_ribbons = exp(-abs(sin(atan2(p.z, p.x) * 4.0 + time * 0.08)) * 14.0);
-            let rayleigh_rim = select(0.0, exp(-abs(r - (limb_r + 0.04)) * 42.0) * 0.28 * doc_feat_focus(inst, 1u), is_exp04_earth);
-            let mag_a = flux_ring * phi_ribbons * mag_gain * dt * 1.5;
-            if (mag_a > 0.010 || rayleigh_rim > 0.008) {
-                let mag_rgb = vec3<f32>(0.24, 0.72, 1.85) * mag_a + vec3<f32>(0.22, 0.56, 1.28) * rayleigh_rim * dt * 2.2;
-                accum_rgb += (1.0 - accum_a) * mag_rgb;
-                accum_a += (1.0 - accum_a) * min((mag_a * 0.55) + rayleigh_rim * dt * 0.8, 0.24);
-            }
+
         }
     }
-    return vec4<f32>(accum_rgb, accum_a);
+    let outer_rgb = aurora_rgb + accum_rgb * (1.0 - aurora_a);
+    let outer_a = aurora_a + accum_a * (1.0 - aurora_a);
+    return vec4<f32>(outer_rgb + base.rgb * (1.0 - outer_a), outer_a + base.a * (1.0 - outer_a));
 }
 
 fn shade_doc_milky_way_stage(

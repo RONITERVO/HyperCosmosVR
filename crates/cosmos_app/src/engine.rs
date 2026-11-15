@@ -373,13 +373,39 @@ impl UniverseRuntime {
         self.vr_hologram_anchor = Some((self.vr_tracking_head, self.vr_tracking_orientation));
     }
 
-    fn tracked_render_pose(&self) -> cosmos_math::ScalePose64 {
+    fn tracked_render_pose(&self, physical_earth: bool) -> cosmos_math::ScalePose64 {
         let mut pose = self.flight.pose;
         if let Some(origin) = self.vr_tracking_origin {
             let displacement = self.vr_rig_orientation * (self.vr_tracking_head - origin);
-            let _ = pose.translate_render_units(displacement.as_dvec3(), &self.spatial.tree);
+            let observer_units_per_meter = if physical_earth {
+                10.0_f64.powf(-pose.scale_exp)
+            } else {
+                1.0
+            };
+            let _ = pose.translate_render_units(
+                displacement.as_dvec3() * observer_units_per_meter, &self.spatial.tree,
+            );
         }
         pose
+    }
+
+    fn active_experience_for_frame(&self, visible: &[VisibleEntity], forced: Option<u8>) -> u8 {
+        forced.or_else(|| {
+            // A destination beat becomes active before its transition starts.
+            // Do not change the current orbital world's units on that selection
+            // frame; navigation releases ownership when it changes sector.
+            if cosmos_render::universe_scene::earth_environment_is_physical(&self.flight.pose, 3) {
+                return Some(3);
+            }
+            let director = self.journey_director.as_ref().filter(|director| director.is_active())?;
+            match director.active_beat().target {
+                BeatTargetSelector::CatalogZone { experience_id, .. }
+                | BeatTargetSelector::LexiconKey { experience_id, .. } => Some(experience_id),
+                BeatTargetSelector::ChromaticRgb { .. } | BeatTargetSelector::ChromaticKey { .. } => Some(1),
+                BeatTargetSelector::MusicFilament { .. } => Some(2),
+                BeatTargetSelector::None => None,
+            }
+        }).unwrap_or_else(|| infer_active_experience(&self.flight.pose, visible))
     }
 
     pub fn toggle_spatial_help(&mut self) {
@@ -987,7 +1013,7 @@ impl UniverseRuntime {
                 .spatial
                 .query_visible(
                     &self.flight.pose,
-                    next_camera.eyes[0].view_proj,
+                    next_camera.cyclopean_view_projection(),
                     0.05_f32.to_radians(),
                     Some(256),
                 )
@@ -1040,12 +1066,18 @@ impl UniverseRuntime {
         if vr_input.home_pressed {
             self.trigger_home();
         }
-        let render_pose = self.tracked_render_pose();
+        let untracked_visible = self.spatial.query_visible(
+            &self.flight.pose, vr_camera.cyclopean_view_projection(), 0.05_f32.to_radians(), Some(512),
+        ).map(|q| q.visible).unwrap_or_default();
+        let physical_earth = cosmos_render::universe_scene::earth_environment_is_physical(
+            &self.flight.pose, self.active_experience_for_frame(&untracked_visible, None),
+        );
+        let render_pose = self.tracked_render_pose(physical_earth);
         let visible_pre = self
             .spatial
             .query_visible(
                 &render_pose,
-                vr_camera.eyes[0].view_proj,
+                vr_camera.cyclopean_view_projection(),
                 0.05_f32.to_radians(),
                 Some(512),
             )
@@ -1195,7 +1227,7 @@ impl UniverseRuntime {
             .spatial
             .query_visible(
                 &self.flight.pose,
-                camera.eyes[0].view_proj,
+                camera.cyclopean_view_projection(),
                 0.05_f32.to_radians(),
                 Some(512),
             )
@@ -1369,19 +1401,14 @@ impl UniverseRuntime {
         self.vr_ring_visible = ring_visible;
         self.sync_narration_pause();
 
-        // OpenXR eye matrices are head-centered. Apply room-scale head translation
-        // to the world query/render pose once, without feeding it to tour steering.
-        let render_pose = if vr_hint.is_some() {
-            self.tracked_render_pose()
-        } else {
-            self.flight.pose
-        };
-        // 2) Spatial octree frustum query.
-        let visible = self
+        // Resolve the experience and its unit policy from the untracked flight
+        // anchor. A lean across Earth's surface cannot switch the scene's units.
+        let mut render_pose = self.flight.pose;
+        let mut visible = self
             .spatial
             .query_visible(
                 &render_pose,
-                camera.eyes[0].view_proj,
+                camera.cyclopean_view_projection(),
                 0.05_f32.to_radians(),
                 Some(512),
             )
@@ -1389,9 +1416,18 @@ impl UniverseRuntime {
             .unwrap_or_default();
 
         let cam_orient = self.flight.pose.orient.as_quat();
-        let active_experience_id = verification_override
-            .map(|o| o.active_experience_id)
-            .unwrap_or_else(|| infer_active_experience(&self.flight.pose, &visible));
+        let active_experience_id = self.active_experience_for_frame(
+            &visible, verification_override.map(|o| o.active_experience_id),
+        );
+        let physical_earth_units = cosmos_render::universe_scene::earth_environment_is_physical(
+            &self.flight.pose, active_experience_id,
+        );
+        if vr_hint.is_some() {
+            render_pose = self.tracked_render_pose(physical_earth_units);
+            visible = self.spatial.query_visible(
+                &render_pose, camera.cyclopean_view_projection(), 0.05_f32.to_radians(), Some(512),
+            ).map(|q| q.visible).unwrap_or_default();
+        }
 
         // Update zone drone synth gently when changing active cosmic experience/zone.
         self.sync_zone_ambient_audio(active_experience_id, &visible);
@@ -1500,6 +1536,18 @@ impl UniverseRuntime {
                 spec.anchor_world_pos,
                 verification_override,
             );
+            if physical_earth_units {
+                let meters_per_unit = 10.0_f64.powf(render_pose.scale_exp) as f32;
+                if let Some(earth_center) = self.spatial.find_experience_anchor(3).and_then(|entity| {
+                    cosmos_render::universe_scene::physical_entity_position_m(&self.spatial, &render_pose, entity)
+                }) {
+                    spec.anchor_world_pos = earth_center;
+                    spec.surface_distance_m = Some((earth_center.length() - 6_371_000.0).max(0.0));
+                } else {
+                    spec.anchor_world_pos *= meters_per_unit;
+                    spec.surface_distance_m = spec.surface_distance_m.map(|distance| distance * meters_per_unit);
+                }
+            }
         }
         let focused_id = if verification_override.is_some() {
             self.active_session
@@ -1509,14 +1557,33 @@ impl UniverseRuntime {
         } else {
             fsm_out.state.target().map(|t| t.entity_id)
         };
+        let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
+        let documentary = self.build_documentary_focus_state(
+            active_experience_id,
+            &fsm_out,
+            &visible,
+            &audio_uniforms,
+            verification_override,
+        );
         let mut ambient_inputs = build_ambient_label_inputs(
             &self.catalog,
             &visible,
             self.flight.pose.scale_exp,
             active_experience_id,
+            documentary.active_zone_index,
             focused_id,
             self.locale,
         );
+        if physical_earth_units {
+            let meters_per_unit = 10.0_f64.powf(render_pose.scale_exp) as f32;
+            for label in &mut ambient_inputs {
+                // Glyph vergence remains in its comfort band, while its tether
+                // ends at the actual distant planet instead of a miniature proxy.
+                label.world_pos_cam_rel = self.spatial.iter_entities().find(|entity| entity.id == label.id)
+                    .and_then(|entity| cosmos_render::universe_scene::physical_entity_position_m(&self.spatial, &render_pose, entity))
+                    .unwrap_or(label.world_pos_cam_rel * meters_per_unit);
+            }
+        }
         self.append_diegetic_msdf_labels(camera, &mut ambient_inputs);
         let guide = if verification_override.is_none() {
             self.guide_frame(camera)
@@ -1578,8 +1645,6 @@ impl UniverseRuntime {
         guide.append_typography(&self.atlas, camera, &mut typo);
 
         // 5) Build RenderSceneFrame (compute, far shell, volumetric heroes, diegetic pearls).
-        let audio_uniforms = to_render_audio_uniforms(self.audio.reactive_uniforms());
-
         let diegetic = DiegeticUiInput {
             wrist_pos: None, // Emitted directly with exact WristResonanceRing bead poses below.
             wrist_orient: self.wrist_ring.anchor_rot,
@@ -1590,13 +1655,6 @@ impl UniverseRuntime {
             show_focus_shimmer: true,
         };
 
-        let documentary = self.build_documentary_focus_state(
-            active_experience_id,
-            &fsm_out,
-            &visible,
-            &audio_uniforms,
-            verification_override,
-        );
         // Cold start (`u = 6.60`) and Surface (`Z00..=Z06`) present an intact Earth; deep mantle cutaway opens below `u = 6.42` for interior zones (`Z07..` or overview).
         let earth_cutaway_blend = verification_override
             .and_then(|o| o.force_earth_cutaway)
@@ -1615,6 +1673,7 @@ impl UniverseRuntime {
             &self.spatial,
             &SceneBuildInput {
                 cam_pose: render_pose,
+                physical_earth_units: Some(physical_earth_units),
                 camera: *camera,
                 viewport_width: width,
                 viewport_height: height,
@@ -2032,6 +2091,24 @@ impl UniverseRuntime {
         audio: &RenderAudioUniforms,
         verification_override: Option<&VerificationNarrationOverride>,
     ) -> DocumentaryFocusState {
+        // The flagship's visual sequence belongs to its authored beat, not to
+        // the current audio sentence. It remains intact with muted/missing audio.
+        if active_experience_id == 3 && verification_override.is_none()
+            && let Some(director) = self.journey_director.as_ref().filter(|d| {
+                d.is_active() && d.manifest().id == "cosmic_highlights_tour"
+            })
+            && let BeatTargetSelector::CatalogZone { experience_id: 3, zone_index, feature_index, .. } = director.active_beat().target
+        {
+            let zone = self.catalog.zones(3).get(zone_index as usize);
+            return DocumentaryFocusState {
+                active_zone_index: zone_index,
+                active_feature_index: feature_index.unwrap_or(u16::MAX),
+                scene_index: zone.map_or(-1, |z| z.scene_index),
+                zone_accent_rgb: zone.map_or([0.0; 3], |z| srgb_to_linear_hdr(z.color_rgb)),
+                telemetry: zone.map_or([0.0; 4], |z| [z.range_start, z.range_end, z.phys_low, z.phys_high]),
+                ..Default::default()
+            };
+        }
         let matching_sess = self
             .active_session
             .as_ref()
@@ -2103,6 +2180,13 @@ impl UniverseRuntime {
             .state
             .target()
             .filter(|t| t.experience_id == active_experience_id);
+        if hovered_target.is_none() && verification_override.is_none()
+            && cosmos_render::universe_scene::earth_environment_is_physical(&self.flight.pose, active_experience_id)
+        {
+            // Invisible catalog selectors are not a request to turn on field,
+            // weather or surface teaching overlays in the natural opening view.
+            return DocumentaryFocusState { active_zone_index: 0, ..Default::default() };
+        }
         let hovered_vis = hovered_target
             .and_then(|t| visible.iter().find(|v| v.id == t.entity_id));
         let fallback_vis = hovered_vis.or_else(|| {
@@ -2420,6 +2504,11 @@ fn non_empty_es(seg: &NarrationSegment) -> String {
 }
 
 fn infer_active_experience(pose: &cosmos_math::ScalePose64, visible: &[VisibleEntity]) -> u8 {
+    // Orbit is a place, not whichever shell happens to cross the current head
+    // view. Keep its physical-unit policy stable until navigation changes sector.
+    if cosmos_render::universe_scene::earth_environment_is_physical(pose, 3) {
+        return 3;
+    }
     // 1. Direct sector match (exact for 01 Colors Prism, 02 Music Harp, 17 Mind, 25 Lotus, etc.).
     let placements = all_experience_placements();
     if let Some(p) = placements.iter().find(|p| p.sector_id == pose.sector_id)
@@ -3262,7 +3351,14 @@ mod tests {
         guide_test_step(&mut rt, Some(GuideAction::ToggleTour), false);
         guide_test_step(&mut rt, None, false);
         assert!(rt.audio.playback_clock().source_ms > frozen_clock.source_ms);
-        assert_ne!(rt.flight.pose, frozen_pose);
+        assert_eq!(
+            rt.journey_director.as_ref().unwrap().play_state(),
+            JourneyPlayState::Playing
+        );
+        assert_eq!(
+            rt.flight.pose, frozen_pose,
+            "resuming a static orbital observation must not add camera drift"
+        );
         rt.toggle_spatial_help();
         assert_eq!(rt.guide_page, GuidePage::Help);
         assert_eq!(
@@ -3360,6 +3456,103 @@ mod tests {
                 rt.audio.reactive_uniforms().synth_b[2] < sustained_energy * 0.01,
                 "transition {transition} must release the old music note"
             );
+        }
+    }
+
+    #[test]
+    fn earth_orbit_ownership_survives_every_authored_stop_and_head_turn() {
+        let mut rt = test_runtime();
+        rt.activate_journey("cosmic_highlights_tour", true).unwrap();
+        let beats = rt.journey_director.as_ref().unwrap().manifest().chapters[0].beats.clone();
+        assert_eq!(beats.len(), 6);
+        let lean = Vec3::new(0.1, 0.0, 0.0);
+        rt.update_vr_tracking(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        rt.update_vr_tracking(lean, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        for (index, beat) in beats.iter().enumerate() {
+            let pose = beat.pose.to_pose64(&beat.beat_id).unwrap();
+            rt.journey_director.as_mut().unwrap().start(&rt.spatial.tree, &pose, index);
+            rt.flight.pose = pose;
+            rt.active_session = None;
+            for turn in [0.0, std::f32::consts::PI] {
+                let orientation = pose.orient.as_quat() * glam::Quat::from_rotation_y(turn);
+                let mut camera = RenderCamera::mono(orientation, 72.0_f32.to_radians(), 1.0, 0.002);
+                camera.is_stereo = true;
+                let packet = rt.step_common(&camera, &WristSummonInput::default(), Vec3::NEG_Z,
+                    0.0, Some(&pose.orient.as_quat()), 1.0 / 120.0, 384, 384, None);
+                assert_eq!(packet.active_experience_id, 3, "{} turn {turn}", beat.beat_id);
+                let earth = packet.scene.heroes_surface.iter().find(|hero| hero.kind_tags[0] == 0)
+                    .expect("the same physical Earth remains in the scene when looking away");
+                assert!((earth.pos_radius[3] * 0.84 - 6_371_000.0).abs() < 5.0);
+                let expected_center = (-pose.local_pos * 10.0_f64.powf(6.8)).as_vec3() - lean;
+                assert!(Vec3::from_slice(&earth.pos_radius).distance(expected_center) < 32.0,
+                    "{} must retain physical Earth coordinates", beat.beat_id);
+            }
+        }
+        // Explicit verification has higher priority than the active route.
+        assert_eq!(rt.active_experience_for_frame(&[], Some(18)), 18);
+        let next_beat = rt.journey_director.as_ref().unwrap().manifest().chapters[1].beats[0].clone();
+        let from_earth = rt.flight.pose;
+        rt.journey_director.as_mut().unwrap().start(&rt.spatial.tree, &from_earth, 6);
+        assert_eq!(rt.active_experience_for_frame(&[], None), 3,
+            "selecting the next chapter must not shrink Earth before navigation begins");
+        rt.flight.pose = next_beat.pose.to_pose64(&next_beat.beat_id).unwrap();
+        assert_eq!(rt.active_experience_for_frame(&[], None), 4,
+            "completed navigation to the Solar System releases Earth ownership");
+        rt.journey_confirm_exit();
+        rt.flight.pose = beats[3].pose.to_pose64(&beats[3].beat_id).unwrap();
+        assert_eq!(rt.active_experience_for_frame(&[], None), 3,
+            "free orbital exploration also survives an empty head-view query");
+        // Navigating into a different owning sector must release Earth ownership.
+        rt.flight.pose = ScalePose64::new(SectorId::CULTURE_WEB, DVec3::new(0.0, 0.0, 3.0),
+            6.2, DQuat::IDENTITY);
+        assert_eq!(rt.active_experience_for_frame(&[], None), 18);
+    }
+
+    #[test]
+    fn orbital_head_translation_stays_in_real_meters_across_zoom_levels() {
+        let mut rt = test_runtime();
+        let lean = Vec3::new(0.1, 0.2, 0.3);
+        rt.update_vr_tracking(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        rt.update_vr_tracking(lean, glam::Quat::IDENTITY, glam::Quat::IDENTITY);
+        for scale in [5.65, 6.6, 7.3] {
+            rt.flight.pose = cosmos_math::ScalePose64::new(
+                SectorId::EARTH_ORBIT, DVec3::new(0.0, 0.0, 3.0), scale, glam::DQuat::IDENTITY,
+            );
+            let tracked = rt.tracked_render_pose(true);
+            let displacement_meters = (tracked.local_pos - rt.flight.pose.local_pos) * 10.0_f64.powf(6.8);
+            assert!(displacement_meters.distance(lean.as_dvec3()) < 1e-7,
+                "head motion must remain physical meters at observer scale {scale}");
+        }
+        let forced_sibling_policy = cosmos_render::universe_scene::earth_environment_is_physical(&rt.flight.pose, 18);
+        assert!(!forced_sibling_policy);
+        let tracked = rt.tracked_render_pose(forced_sibling_policy);
+        let mut expected = rt.flight.pose;
+        expected.translate_render_units(lean.as_dvec3(), &rt.spatial.tree).unwrap();
+        assert!(tracked.local_pos.distance(expected.local_pos) < 1e-12,
+            "forced experiences must use the same explicit unit policy for tracking and scene assembly");
+    }
+
+    #[test]
+    fn earth_highlights_visuals_do_not_depend_on_audio_or_arbitrary_catalog_nodes() {
+        let mut rt = test_runtime();
+        let camera = RenderCamera::mono(glam::Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
+        let visible = rt.spatial.query_visible(&rt.flight.pose, camera.cyclopean_view_projection(), 0.001, None).unwrap().visible;
+        assert!(visible.iter().any(|v| v.kind == EntityKind::FeatureNode));
+        let idle = FsmOutput {
+            state: cosmos_narration::FsmState::Moving,
+            dwell_progress: 0.0, smoothed_ray_dir_cam: Vec3::NEG_Z,
+            ray_angular_deg_per_sec: 0.0, start_narration_for: None,
+            should_cancel_audio: false, cancel_fade_remaining_ms: 0.0, cancel_fade_alpha: 0.0,
+        };
+        let quiet = rt.build_documentary_focus_state(3, &idle, &visible, &RenderAudioUniforms::default(), None);
+        assert_eq!((quiet.active_zone_index, quiet.active_feature_index), (0, u16::MAX));
+        rt.activate_journey("cosmic_highlights_tour", true).unwrap();
+        for (beat, expected) in [(0, (0, u16::MAX)), (3, (0, 0)), (4, (0, 1)), (5, (2, 0))] {
+            rt.journey_director.as_mut().unwrap().start(&rt.spatial.tree, &rt.flight.pose, beat);
+            rt.active_session = None;
+            let state = rt.build_documentary_focus_state(3, &idle, &visible, &RenderAudioUniforms::default(), None);
+            assert_eq!((state.active_zone_index, state.active_feature_index), expected,
+                "authored Earth beat must survive absent/muted audio");
         }
     }
 

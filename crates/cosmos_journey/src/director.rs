@@ -314,9 +314,12 @@ impl JourneyDirector {
     }
 
     /// Called when one bilingual sentence pair completes within the current narration plan.
-    /// Triggers a smooth 1.25s micro-spline vantage shift once `max_sentences_per_vantage` (`1..=2`) is reached.
+    /// Moving profiles can shift vantage after their sentence budget. An authored
+    /// static observation stays still regardless of audio timing or language.
     pub fn notify_translation_sentence_finished(&mut self, tree: &SectorTree) {
-        if self.play_state != JourneyPlayState::Playing {
+        if self.play_state != JourneyPlayState::Playing
+            || self.active_beat().motion.kind == MotionProfileKind::StaticHold
+        {
             return;
         }
         let max_sent = self.active_beat().motion.max_sentences_per_vantage.max(1);
@@ -454,7 +457,12 @@ impl JourneyDirector {
                 } else {
                     1.0
                 };
-                if let Ok(mut p) = spline.evaluate(tree, smoothstep(t as f64)) {
+                let sample = if beat_meta.beat.transition_in.kind == TransitionKind::EarthOrbitArc {
+                    spline.evaluate_without_segment_easing(tree, smoothstep(t as f64))
+                } else {
+                    spline.evaluate(tree, smoothstep(t as f64))
+                };
+                if let Ok(mut p) = sample {
                     let _ = p.reanchor(tree, beat_meta.pose.sector_id);
                     self.ghost_pose = p;
                 }
@@ -562,7 +570,10 @@ impl JourneyDirector {
         let target_ref = &self.flat_beats[next_idx];
         let mut duration_sec = target_ref.beat.transition_in.duration_sec.max(0.05);
         if target_ref.beat.transition_in.kind == TransitionKind::InstantBookmark {
-            duration_sec = 0.05;
+            // A cut has no interpolated frames, even with a zero/tiny update.
+            // The normal arrival path emits its narration target on that same
+            // update; a paused seek remains paused until playback resumes.
+            duration_sec = 0.0;
         }
         // Automatically adapt duration slightly when diving many orders of magnitude so speed feels luminous, not jarring.
         let du = (target_ref.pose.scale_exp - from_pose.scale_exp).abs() as f32;
@@ -613,8 +624,48 @@ pub fn build_transition_spline(
     to: &ScalePose64,
     kind: TransitionKind,
 ) -> Result<ScaleSpline, cosmos_math::MathError> {
+    if kind == TransitionKind::InstantBookmark {
+        // Do not reanchor the source into the destination sector: that can
+        // switch physical/normalized observer units before a chapter arrives.
+        return Ok(ScaleSpline::new(vec![ScaleSplineKeyframe {
+            t: 0.0,
+            sector_id: to.sector_id,
+            local_pos: to.local_pos,
+            scale_exp: to.scale_exp,
+            orient: to.orient,
+        }]));
+    }
     let mut from_local = *from;
     from_local.reanchor(tree, to.sector_id)?;
+    if kind == TransitionKind::EarthOrbitArc
+        && from.sector_id == SectorId::EARTH_ORBIT
+        && to.sector_id == SectorId::EARTH_ORBIT
+        && from_local.local_pos.length() > 1.01
+        && to.local_pos.length() > 1.01
+    {
+        // Interpolate angular position and altitude independently. A chord from
+        // daylight to the polar night can otherwise pass through solid Earth.
+        // Dense spherical knots keep each short chord close to the orbital arc,
+        // including the low-altitude atmospheric approaches. The director eases
+        // the whole transition once, rather than braking at each interior knot.
+        let start_radius = from_local.local_pos.length();
+        let end_radius = to.local_pos.length();
+        let start_direction = from_local.local_pos / start_radius;
+        let end_direction = to.local_pos / end_radius;
+        let arc = DQuat::from_rotation_arc(start_direction, end_direction);
+        let keyframes = (0..=32).map(|index| {
+            let t = f64::from(index) / 32.0;
+            let direction = DQuat::IDENTITY.slerp(arc, t) * start_direction;
+            ScaleSplineKeyframe {
+                sector_id: to.sector_id,
+                local_pos: direction * (start_radius + (end_radius - start_radius) * t),
+                scale_exp: from_local.scale_exp + (to.scale_exp - from_local.scale_exp) * t,
+                orient: from_local.orient.slerp(to.orient, t).normalize(),
+                t,
+            }
+        }).collect();
+        return Ok(ScaleSpline::new(keyframes));
+    }
     let mid_pos = from_local.local_pos.lerp(to.local_pos, 0.5);
     let mid_rot = from_local.orient.slerp(to.orient, 0.5).normalize();
     let mid_scale = 0.5 * (from_local.scale_exp + to.scale_exp);
@@ -629,7 +680,7 @@ pub fn build_transition_spline(
             let right = mid_rot * DVec3::X;
             right * 0.38
         }
-        TransitionKind::CatmullRomScaleSpline | TransitionKind::InstantBookmark => {
+        TransitionKind::CatmullRomScaleSpline | TransitionKind::InstantBookmark | TransitionKind::EarthOrbitArc => {
             let right = mid_rot * DVec3::X;
             right * (0.18 * (from_local.local_pos.distance(to.local_pos)).min(1.8))
         }
@@ -668,6 +719,9 @@ fn step_motion_profile(
     profile: &BeatMotionProfile,
     elapsed_sec: f32,
 ) -> ScalePose64 {
+    if profile.kind == MotionProfileKind::StaticHold {
+        return *base_pose;
+    }
     let t = elapsed_sec as f64;
     let yaw_rad = (profile.yaw_deg_per_sec as f64).to_radians() * t;
     let pitch_rad = (profile.pitch_wave_deg as f64).to_radians() * (t * 0.85).sin();
@@ -709,12 +763,7 @@ fn step_motion_profile(
             profile.scale_breathing_du * (t * 0.9).cos(),
             1.0,
         ),
-        MotionProfileKind::StaticHold => (
-            0.35_f64.to_radians() * (t * 0.5).sin(),
-            0.25_f64.to_radians() * (t * 0.4).cos(),
-            0.015 * (t * 0.5).sin(),
-            1.0,
-        ),
+        MotionProfileKind::StaticHold => unreachable!("static observations return before choreography"),
     };
 
     if forward_to_pivot.length_squared() < 1e-6 {

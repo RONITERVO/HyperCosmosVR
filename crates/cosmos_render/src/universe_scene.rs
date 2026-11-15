@@ -1,6 +1,6 @@
-use cosmos_math::ScalePose64;
-use cosmos_spatial::{CosmosSpatialIndex, EntityKind, LodTier, VisibleEntity};
-use glam::{DQuat, DVec3, Quat, Vec3};
+use cosmos_math::{CameraRelativePose, ScalePose64, SectorId};
+use cosmos_spatial::{CosmosSpatialIndex, EntityKind, LodTier, SpatialEntity, VisibleEntity};
+use glam::{DQuat, DVec3, Vec3};
 
 use crate::doc_stages::{emit_celestial_or_landmark, emit_doc_stage_hero};
 use crate::scene_pass::seed_particles_for_mode;
@@ -11,6 +11,30 @@ use crate::types::{
 };
 
 const DEFAULT_PARTICLE_COUNT: u32 = 32_768;
+
+/// Outside Earth, the environment uses real meters so tracked IPD and head
+/// motion cannot turn a planet into a room-sized model. Interior/microscopic
+/// demonstrations keep the normalized observer scale used by ScalePose64.
+pub fn earth_environment_is_physical(pose: &ScalePose64, experience_id: u8) -> bool {
+    const EARTH_RADIUS_IN_ORBIT_SECTOR: f64 = 6.371e6 / 6.309_573_444_801_93e6;
+    experience_id == 3 && pose.sector_id == SectorId::EARTH_ORBIT
+        && pose.local_pos.length_squared() >= EARTH_RADIUS_IN_ORBIT_SECTOR.powi(2)
+}
+
+/// Exact camera-relative physical position for an environment entity or its
+/// semantic annotation, without the navigation index's distant-shell proxy.
+pub fn physical_entity_position_m(
+    index: &CosmosSpatialIndex,
+    camera: &ScalePose64,
+    entity: &SpatialEntity,
+) -> Option<Vec3> {
+    let (entity_in_camera_sector, _) = index.tree.transform_between(
+        entity.sector_id, entity.local_pos, entity.orient, camera.sector_id,
+    ).ok()?;
+    let sector_scale = index.tree.get(camera.sector_id)?.scale_exp;
+    let position = ((entity_in_camera_sector - camera.local_pos) * 10.0_f64.powf(sector_scale)).as_vec3();
+    position.is_finite().then_some(position)
+}
 
 /// Live documentary zone, feature, cue, and domain telemetry fed from runtime/narration into scene assembly.
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -48,6 +72,9 @@ impl Default for DocumentaryFocusState {
 #[derive(Clone, Debug)]
 pub struct SceneBuildInput {
     pub cam_pose: ScalePose64,
+    /// Per-frame unit policy resolved from the untracked observer and active
+    /// experience. Standalone callers may leave this unset for automatic choice.
+    pub physical_earth_units: Option<bool>,
     pub camera: RenderCamera,
     pub viewport_width: u32,
     pub viewport_height: u32,
@@ -76,6 +103,7 @@ impl SceneBuildInput {
     ) -> Self {
         Self {
             cam_pose,
+            physical_earth_units: None,
             camera,
             viewport_width: width.max(1),
             viewport_height: height.max(1),
@@ -93,6 +121,12 @@ impl SceneBuildInput {
             post: PostSettings::default(),
             documentary: DocumentaryFocusState::default(),
         }
+    }
+
+    pub fn uses_physical_earth_units(&self) -> bool {
+        self.physical_earth_units.unwrap_or_else(|| {
+            earth_environment_is_physical(&self.cam_pose, self.active_experience_id)
+        })
     }
 }
 
@@ -117,6 +151,12 @@ impl UniverseSceneBuilder {
         self.frame_index = self.frame_index.wrapping_add(1);
         let u_cam = input.cam_pose.scale_exp as f32;
         let accent = experience_accent_linear(input.active_experience_id);
+        let mut post = input.post;
+        if input.camera.is_stereo {
+            // The headset runtime already calibrates each eye's optics. An
+            // artistic RGB offset here adds fringing to that corrected image.
+            post.dispersion = 0.0;
+        }
 
         let vp0 = input.camera.eyes[0].view_proj.to_cols_array_2d();
         let vp1 = input.camera.eyes[1].view_proj.to_cols_array_2d();
@@ -152,12 +192,12 @@ impl UniverseSceneBuilder {
                 input.camera.cam_up.z,
                 input.camera.near_plane,
             ],
-            scale_params: [u_cam, input.scale_speed, input.post.exposure, input.time_sec],
+            scale_params: [u_cam, input.scale_speed, post.exposure, input.time_sec],
             post_params: [
-                input.post.bloom_thresh.max(1.05),
-                input.post.bloom_gain.max(0.0),
-                input.post.dispersion.max(0.0),
-                input.post.dither_amp.max(0.0),
+                post.bloom_thresh.max(1.05),
+                post.bloom_gain.max(0.0),
+                post.dispersion.max(0.0),
+                post.dither_amp.max(0.0),
             ],
             viewport_params: [
                 input.viewport_width as f32,
@@ -184,7 +224,19 @@ impl UniverseSceneBuilder {
 
         let compute_mode = select_compute_mode(u_cam, input.active_experience_id, &input.documentary);
         let particle_count = input.particle_budget.max(256);
-        let reseed_compute_particles = if self.last_compute_mode != Some(compute_mode) {
+        // Exterior Earth has authored solar transport, clouds and auroral
+        // precipitation in its shell. The generic simulation's toroidal field
+        // adds unrelated luminous dots, particularly across a nearby horizon.
+        let exterior_earth = input.active_experience_id == 3
+            && (input.documentary.active_zone_index <= 6
+                || input.documentary.active_zone_index == u16::MAX);
+        let live_particle_count = if exterior_earth { 0 } else { particle_count };
+        let reseed_compute_particles = if live_particle_count == 0 {
+            // Seed on the next visible mode, including an exterior-to-interior
+            // transition that continues using the same simulation shader.
+            self.last_compute_mode = None;
+            None
+        } else if self.last_compute_mode != Some(compute_mode) {
             self.last_compute_mode = Some(compute_mode);
             Some((compute_mode, particle_count))
         } else {
@@ -217,7 +269,7 @@ impl UniverseSceneBuilder {
             params_b: [particle_field_radius, 2.2, 0.9, 6.0 + input.audio.levels_a[2] * 4.0],
             attractor_a: [0.0, 0.0, 0.0, 1.15],
             attractor_b: [1.8, 0.35, -1.4, 0.65],
-            counts: [compute_mode, particle_count, 256, 256],
+            counts: [compute_mode, live_particle_count, 256, 256],
         };
 
         let dispatch_field_grid = match (compute_mode, input.active_experience_id) {
@@ -225,7 +277,8 @@ impl UniverseSceneBuilder {
             // Exp 16 Z09 multicellular / Z10 development: Gray-Scott morphogen (Turing) patterning
             (_, 16) if matches!(input.documentary.active_zone_index, 9 | 10) => Some(0),
             (_, 2) | (8, _) => Some(1),
-            (_, 3) => Some(2),
+            // Shared four-curtain azimuth LUT: Earth and the Solar Earth body.
+            (_, 3 | 4) => Some(3),
             _ => None,
         };
 
@@ -233,49 +286,49 @@ impl UniverseSceneBuilder {
             1 | 2 | 7 | 14 => 1.0, // Flow/Filament/Bus splats
             _ => 0.0,              // Luminance blackbody/quantum sprites
         };
-        let particle_batch = SpriteBatchUniforms {
+        let mut particle_batch = SpriteBatchUniforms {
             sector_origin_scale: [anchor_rel.x, anchor_rel.y, anchor_rel.z, 1.0],
             batch_params: [particle_kind, 0.68, 0.44, input.time_sec],
         };
 
-        // Spatial octree query (use left eye / mono frustum)
+        // The index is normalized to observer scale; raw meter-valued IPD
+        // would become a planetary translation in this coordinate system.
         let mut heroes_surface = Vec::with_capacity(16);
         let mut heroes_volume = Vec::with_capacity(32);
         let mut sprites = Vec::with_capacity(512);
+        let selected_landmark = index.iter_entities().find(|entity| {
+            entity.kind == EntityKind::GalacticLandmark
+                && entity.experience_id == input.active_experience_id
+                && entity.zone_index == input.documentary.active_zone_index
+        });
+        let mut selected_landmark_emitted = false;
 
         let min_angular = 0.05_f32.to_radians();
-        let mut active_zone_shell: Option<(Vec3, f32, [f32; 4], f32)> = None;
         if let Ok(query) = index.query_visible(
             &input.cam_pose,
-            input.camera.eyes[0].view_proj,
+            input.camera.cyclopean_view_projection(),
             min_angular,
             Some(4096),
         ) {
             for vis in &query.visible {
-                if vis.kind == EntityKind::ZoneShell
+                if selected_landmark.is_some() && vis.kind == EntityKind::ExperienceAnchor
                     && vis.experience_id == input.active_experience_id
-                    && vis.zone_index == input.documentary.active_zone_index
                 {
-                    let z_pos = vis.pose.pos;
-                    let z_dist = z_pos.length();
-                    let z_fwd = z_pos.normalize_or_zero().dot(input.camera.cam_forward);
-                    if z_pos.is_finite() && (0.25..=6.0).contains(&z_dist) && z_fwd > 0.65 {
-                        let z_rot = vis.pose.orient;
-                        let z_dwell = if input.focused_entity_id == Some(vis.id) {
-                            input.diegetic.dwell_progress.clamp(0.0, 1.0)
-                        } else {
-                            input.diegetic.dwell_progress
-                        };
-                        active_zone_shell = Some((
-                            z_pos,
-                            vis.pose.rel_scale.clamp(0.65, 2.8),
-                            [z_rot.x, z_rot.y, z_rot.z, z_rot.w],
-                            z_dwell,
-                        ));
-                    }
+                    // The selected landmark already renders the full canonical
+                    // zone shader. A second copy at the experience anchor can
+                    // envelop the observer and obscure the actual destination.
+                    continue;
                 }
+                let mut selected_vis;
+                let vis = if selected_landmark.is_some_and(|entity| entity.id == vis.id) {
+                    selected_landmark_emitted = true;
+                    selected_vis = vis.clone();
+                    selected_vis.lod = LodTier::Hero;
+                    &selected_vis
+                } else { vis };
                 emit_visible_entity(
                     vis,
+                    index,
                     input,
                     &mut heroes_surface,
                     &mut heroes_volume,
@@ -283,31 +336,50 @@ impl UniverseSceneBuilder {
                 );
             }
         }
+        if let Some(entity) = selected_landmark.filter(|_| !selected_landmark_emitted)
+            && let Some(pose) = project_stage_entity(index, entity, input)
+        {
+            // Looking away keeps the same real destination behind the head.
+            // Other visible bodies must not suppress this owner's fallback.
+            emit_visible_entity(&VisibleEntity {
+                id: entity.id, experience_id: entity.experience_id,
+                zone_index: entity.zone_index, feature_index: entity.feature_index,
+                kind: entity.kind, pose, lod: LodTier::Hero, salience_score: 1.0,
+            }, index, input, &mut heroes_surface, &mut heroes_volume, &mut sprites);
+        }
 
-        // Ensure hero prism / harp / Earth / stage are richly populated even when looking near/inside anchor or at a ZoneShell
+        // A culled anchor may still own the active environment (including when
+        // the viewer is inside it). Project that same world location explicitly;
+        // looking away must never summon a second exhibit in front of the head.
         if heroes_surface.is_empty() && heroes_volume.is_empty() {
-            if let Some((zs_pos, zs_scale, zs_rot, zs_dwell)) = active_zone_shell {
-                emit_doc_stage_hero(
-                    input.active_experience_id,
-                    zs_pos,
-                    zs_scale,
-                    zs_rot,
-                    Vec3::new(0.62, 0.45, -0.64).normalize(),
-                    zs_dwell,
-                    input,
-                    &mut heroes_surface,
-                    &mut heroes_volume,
-                    &mut sprites,
-                );
-            } else {
-                emit_fallback_hero(
-                    input.active_experience_id,
-                    u_cam,
-                    input,
-                    &mut heroes_surface,
-                    &mut heroes_volume,
-                    &mut sprites,
-                );
+            emit_fallback_hero(
+                input.active_experience_id,
+                index,
+                input,
+                &mut heroes_surface,
+                &mut heroes_volume,
+                &mut sprites,
+            );
+        }
+
+        if input.uses_physical_earth_units() {
+            // The spatial index remains scale-normalized for robust navigation.
+            // Restore physical distance only for environment draw data; the raw
+            // OpenXR eye matrices then give a planet its real binocular depth.
+            // Room-scale holograms are emitted after this conversion.
+            let meters_per_render_unit = 10.0_f64.powf(input.cam_pose.scale_exp) as f32;
+            for hero in heroes_surface.iter_mut().chain(heroes_volume.iter_mut()) {
+                for component in &mut hero.pos_radius {
+                    *component *= meters_per_render_unit;
+                }
+            }
+            for sprite in &mut sprites {
+                for component in &mut sprite.pos_size {
+                    *component *= meters_per_render_unit;
+                }
+            }
+            for component in &mut particle_batch.sector_origin_scale {
+                *component *= meters_per_render_unit;
             }
         }
 
@@ -321,7 +393,7 @@ impl UniverseSceneBuilder {
             reseed_compute_particles,
             dispatch_field_grid,
             particle_batch,
-            particle_draw_count: particle_count,
+            particle_draw_count: live_particle_count,
             heroes_surface,
             heroes_volume,
             sprite_batch: SpriteBatchUniforms {
@@ -329,7 +401,7 @@ impl UniverseSceneBuilder {
                 batch_params: [0.0, 1.4, 1.0, input.time_sec],
             },
             sprites,
-            post: input.post,
+            post,
         }
     }
 }
@@ -461,7 +533,7 @@ pub fn build_far_shell_uniforms(
         (smoothstep(23.5, 24.8, u_cam) * (1.0 - smoothstep(25.95, 26.4, u_cam))).clamp(0.0, 1.0);
 
     let north = Vec3::new(0.18, 0.96, 0.21).normalize();
-    let sun = Vec3::new(0.62, 0.45, -0.64).normalize();
+    let sun = Vec3::new(0.62, 0.35, -0.64).normalize();
     let mut star_density = if u_cam < -20.0 {
         0.0
     } else if u_cam > 26.5 {
@@ -535,6 +607,7 @@ pub fn build_far_shell_uniforms(
 
 fn emit_visible_entity(
     vis: &VisibleEntity,
+    index: &CosmosSpatialIndex,
     input: &SceneBuildInput,
     heroes_surface: &mut Vec<HeroVolumeInstance>,
     heroes_volume: &mut Vec<HeroVolumeInstance>,
@@ -544,8 +617,15 @@ fn emit_visible_entity(
     if !pos.is_finite() || pos.length_squared() < 1e-8 {
         return;
     }
-    let rot = vis.pose.orient;
-    let rot_arr = [rot.x, rot.y, rot.z, rot.w];
+    if input.active_experience_id == 3 && vis.experience_id == 3
+        && (input.documentary.active_zone_index <= 6
+            || input.documentary.active_zone_index == u16::MAX)
+        && matches!(vis.kind, EntityKind::ZoneShell | EntityKind::FeatureNode)
+    {
+        // Catalog selectors are navigation metadata, not stars or physical
+        // particles suspended over the atmosphere. Focus still uses the index.
+        return;
+    }
     let accent = experience_accent_linear(vis.experience_id);
     let is_focused = input.focused_entity_id == Some(vis.id);
     let dwell = if is_focused {
@@ -553,7 +633,7 @@ fn emit_visible_entity(
     } else {
         0.0
     };
-    let sun_dir = Vec3::new(0.62, 0.45, -0.64).normalize();
+    let sun_dir = Vec3::new(0.62, 0.35, -0.64).normalize();
 
     match vis.kind {
         EntityKind::ExperienceAnchor => {
@@ -568,18 +648,15 @@ fn emit_visible_entity(
                     || dist <= max_r * 1.85
                     || forward_cos < 0.85);
             if vis.lod == LodTier::Hero && !coaxial_other {
-                // When zoomed deeper than Planck anchor scale (e.g. u = -35 vs anchor -30), keep Exp 14 centered in view.
-                let (hero_pos, hero_scale) =
-                    if vis.experience_id == 14 && input.active_experience_id == 14 && dist > 40.0 {
-                        (input.camera.cam_forward * 2.95, 1.45)
-                    } else {
-                        (pos, vis.pose.rel_scale)
-                    };
+                let stage_pose = index
+                    .find_experience_anchor(vis.experience_id)
+                    .and_then(|entity| project_stage_entity(index, entity, input))
+                    .unwrap_or(vis.pose);
                 emit_doc_stage_hero(
                     vis.experience_id,
-                    hero_pos,
-                    hero_scale,
-                    rot_arr,
+                    stage_pose.pos,
+                    stage_pose.rel_scale,
+                    stage_pose.orient.to_array(),
                     sun_dir,
                     dwell,
                     input,
@@ -673,26 +750,59 @@ fn emit_visible_entity(
 
 fn emit_fallback_hero(
     experience_id: u8,
-    _u_cam: f32,
+    index: &CosmosSpatialIndex,
     input: &SceneBuildInput,
     heroes_surface: &mut Vec<HeroVolumeInstance>,
     heroes_volume: &mut Vec<HeroVolumeInstance>,
     sprites: &mut Vec<SpriteInstance>,
 ) {
-    let center = input.camera.cam_forward * 3.2;
-    let rot = Quat::IDENTITY;
+    let Some(entity) = index.find_experience_anchor(experience_id).or_else(|| {
+        index.find_zone_entity(experience_id, input.documentary.active_zone_index)
+    }) else {
+        return;
+    };
+    let Some(pose) = project_stage_entity(index, entity, input) else {
+        return;
+    };
     emit_doc_stage_hero(
         experience_id,
-        center,
-        1.5,
-        [rot.x, rot.y, rot.z, rot.w],
-        Vec3::new(0.62, 0.45, -0.64).normalize(),
+        pose.pos,
+        pose.rel_scale,
+        pose.orient.to_array(),
+        Vec3::new(0.62, 0.35, -0.64).normalize(),
         input.diegetic.dwell_progress,
         input,
         heroes_surface,
         heroes_volume,
         sprites,
     );
+}
+
+/// Broad experience bounds select spatial shells, but are not the size of the
+/// authored sculpture: e.g. Matter spans many orders of magnitude. Give content
+/// a stable scale in its own sector instead of resizing it to fit the camera.
+fn project_stage_entity(
+    index: &CosmosSpatialIndex,
+    entity: &SpatialEntity,
+    input: &SceneBuildInput,
+) -> Option<CameraRelativePose> {
+    let radius_m = cosmos_spatial::documentary_anchor_radius_m(entity);
+    let mut projected = input.cam_pose.project_entity(
+        &index.tree,
+        &ScalePose64::new(entity.sector_id, entity.local_pos, entity.scale_exp, entity.orient),
+        radius_m,
+    ).ok()?;
+    if input.uses_physical_earth_units() && entity.experience_id == 3 && projected.is_far_shell {
+        // The physical Earth must retain its true distance, even when the
+        // navigation observer is zoomed far below the generic far-shell band.
+        let relative = physical_entity_position_m(index, &input.cam_pose, entity)?
+            * 10.0_f64.powf(-input.cam_pose.scale_exp) as f32;
+        projected.pos = relative;
+        projected.rel_scale = (radius_m * 10.0_f64.powf(-input.cam_pose.scale_exp)) as f32;
+        projected.distance_render_units = relative.length() as f64;
+        projected.is_far_shell = false;
+    }
+    (projected.pos.is_finite() && projected.rel_scale.is_finite()).then_some(projected)
 }
 
 fn emit_diegetic_ui(

@@ -257,13 +257,13 @@ pub fn emit_celestial_or_landmark(
     sprites: &mut Vec<SpriteInstance>,
 ) {
     let pos = vis.pose.pos;
-    let dist = pos.length().max(1e-4);
     let accent = experience_accent_linear(vis.experience_id);
     let sun = [sun_dir.x, sun_dir.y, sun_dir.z, 1.0];
     let rot = vis.pose.orient;
     let rot_arr = [rot.x, rot.y, rot.z, rot.w];
-    let stage_right = input.camera.cam_right.normalize_or(Vec3::X);
-    let stage_up = input.camera.cam_up.normalize_or(Vec3::Y);
+    // Companion placements belong to the body's frame, not the viewer's head.
+    let stage_right = rot * Vec3::X;
+    let stage_up = rot * Vec3::Y;
 
     if vis.kind == EntityKind::CelestialBody {
         // Prevent Solar System bodies (which share EARTH_ORBIT / lower shell pad)
@@ -285,14 +285,14 @@ pub fn emit_celestial_or_landmark(
             let canon_vid = canonical_zone_vid(4, vis.zone_index);
             let comp_vid = canonical_companion_vid(4, (vis.zone_index as u8).min(11));
 
-            let max_r = (dist * 0.42).clamp(0.04, 10.0);
+            let max_r = 10.0;
             let floor_r = match body_idx {
-                0 => (dist * 0.014).clamp(0.04, 0.14),
-                6 | 7 => (dist * 0.0072).clamp(0.032, 0.088),
-                _ => (dist * 0.0048).clamp(0.022, 0.056),
+                0 => 0.04,
+                6 | 7 => 0.032,
+                _ => 0.022,
             };
             let r_b = vis.pose.rel_scale.max(floor_r).clamp(0.022, max_r);
-            let max_comp_r = (dist * 0.16).clamp(0.02, 0.42);
+            let max_comp_r = 0.42;
             match body_idx {
                 0 => {
                     let surf_vid = if is_active_body { canon_vid } else { 1 };
@@ -767,13 +767,8 @@ pub fn emit_celestial_or_landmark(
         if (vis.lod == LodTier::Hero && (vis.experience_id == input.active_experience_id || matches!(input.active_experience_id, 5..=9)))
             || (is_active_landmark && matches!(vis.lod, LodTier::Hero | LodTier::Impostor | LodTier::MacroCloud))
         {
-            let max_r = (dist * 0.40).clamp(0.05, 16.0);
-            let floor_r = if is_active_landmark {
-                let min_floor = 0.08_f32.min(max_r);
-                (dist * 0.24).clamp(min_floor, max_r)
-            } else {
-                0.05_f32.min(max_r)
-            };
+            let max_r = 16.0;
+            let floor_r = if is_active_landmark { 0.08 } else { 0.05 };
             let r_l = vis.pose.rel_scale.max(floor_r).clamp(0.05_f32.min(max_r), max_r);
             if matches!(vis.experience_id, 5..=7) {
                 let max_z = match vis.experience_id {
@@ -814,7 +809,7 @@ pub fn emit_celestial_or_landmark(
                     kind_tags: pack_doc_tags(3, primary_vid, 0, base_sub, &lm_doc),
                 });
                 if is_active_landmark && z_idx <= max_comp_z {
-                    let comp_max_r = (dist * 0.16).clamp(0.04, 4.0);
+                    let comp_max_r = 4.0;
                     let comp_r = (r_l * 0.42).clamp(0.04_f32.min(comp_max_r), comp_max_r);
                     let comp_pos = pos + stage_right * (r_l * 1.15) + stage_up * (r_l * 0.22);
                     let comp_sub = lm_doc.active_feature_index.min(4) as u32;
@@ -910,7 +905,7 @@ pub fn emit_doc_stage_hero(
     input: &SceneBuildInput,
     heroes_surface: &mut Vec<HeroVolumeInstance>,
     heroes_volume: &mut Vec<HeroVolumeInstance>,
-    sprites: &mut Vec<SpriteInstance>,
+    _sprites: &mut Vec<SpriteInstance>,
 ) {
     let default_doc = DocumentaryFocusState::default();
     let doc = if input.active_experience_id == 0 || experience_id == input.active_experience_id {
@@ -923,24 +918,19 @@ pub fn emit_doc_stage_hero(
     let u_cam = input.cam_pose.scale_exp as f32;
     let sun = [sun_dir.x, sun_dir.y, sun_dir.z, 1.0];
 
-    let view_fwd = pos.normalize_or(input.camera.cam_forward);
-    let stage_right = view_fwd.cross(Vec3::Y).normalize_or(Vec3::X);
-    let stage_up = stage_right.cross(view_fwd).normalize_or(Vec3::Y);
-
-    // Zero-roll horizontal viewer-facing basis (+Z toward camera XZ, +X along stage_right, +Y world up)
-    // so raymarched sculptural dioramas never collapse edge-on when approached from side azimuths.
-    let fwd_h = Vec3::new(-pos.x, 0.0, -pos.z).normalize_or(-view_fwd);
-    let right_h = Vec3::Y.cross(fwd_h).normalize_or(stage_right);
-    let up_h = fwd_h.cross(right_h).normalize_or(Vec3::Y);
-    let face_q = Quat::from_mat3(&glam::Mat3::from_cols(right_h, up_h, fwd_h));
-    let face_quat = [face_q.x, face_q.y, face_q.z, face_q.w];
+    // A documentary assembly is a place the viewer can inspect from every side.
+    // Keep its authored frame fixed when the viewer turns, leans, or flies around it.
+    let stage_q = Quat::from_array(rot_quat).normalize();
+    let stage_right = stage_q * Vec3::X;
+    let stage_up = stage_q * Vec3::Y;
+    let face_quat = stage_q.to_array();
 
     match experience_id {
         // --------------------------------------------------------------------
         // EXP 01: COLORS — Dispersion Prism + Interactive 3D HSL Bicone + 3 PBR Spheres
         // --------------------------------------------------------------------
         1 => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
+            let max_r = 6.0;
             let r_p = (rel_scale * 0.72).clamp(0.04, max_r);
             let (hsl_phys, mat_submode) = normalized_colors_telemetry(doc);
 
@@ -995,7 +985,7 @@ pub fn emit_doc_stage_hero(
         // EXP 02: MUSIC — Chladni Nodal Plate + 48-String Plucked Harp + 4 Timbre Chambers
         // --------------------------------------------------------------------
         2 => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
+            let max_r = 6.0;
             let r_h = (rel_scale * 0.68).clamp(0.04, max_r);
             let (music_phys, active_timbre) = normalized_music_telemetry(doc, input.audio.synth_b);
 
@@ -1038,8 +1028,9 @@ pub fn emit_doc_stage_hero(
             if u_cam < 1.2 || (input.active_experience_id != 3 && u_cam < 5.2) {
                 return;
             }
-            let earth_solid_r = (6.371e6_f64 * 10.0_f64.powf(-input.cam_pose.scale_exp) / 0.84)
-                .clamp(0.18_f64, ((rel_scale * 1.2) as f64).max(0.25)) as f32;
+            // The sphere shader intersects at local radius 0.84. Its physical
+            // radius must not shrink as a camera approaches the atmospheric limb.
+            let earth_solid_r = (6.371e6_f64 * 10.0_f64.powf(-input.cam_pose.scale_exp) / 0.84) as f32;
             // Atmospheric & surface zones (`Z00..=Z06`, including `Z06 Surface` at `u = 6.05`) never open the cutaway prematurely.
             let is_surface_or_atmo_zone = doc.active_zone_index <= 6;
             let cutaway = if !is_surface_or_atmo_zone
@@ -1062,6 +1053,7 @@ pub fn emit_doc_stage_hero(
             let shell_mul = match doc.active_zone_index {
                 0 => 1.22_f32,
                 1 => 1.18_f32,
+                2 => 1.15_f32,
                 _ => 1.14_f32,
             };
             let earth_limb_in_shell = 0.84 / shell_mul;
@@ -1084,18 +1076,39 @@ pub fn emit_doc_stage_hero(
                 phys_b: sun,
                 kind_tags: pack_doc_tags(0, earth_vid, 0, shell_submode, doc),
             });
-            // Orbiting Moon impostor tucked safely into upper-left void (zero Thermosphere label overlap)
-            let m_ang = input.time_sec * 0.14;
-            let moon_p = pos
-                - stage_right * (earth_solid_r * (2.15 + 0.12 * m_ang.cos()))
-                + stage_up * (earth_solid_r * 1.15)
-                + view_fwd * (earth_solid_r * 0.35 * m_ang.sin());
-            sprites.push(SpriteInstance {
-                pos_size: [moon_p.x, moon_p.y, moon_p.z, (earth_solid_r * 0.20).clamp(0.03, 0.42)],
-                axis_aspect: [0.0, 1.0, 0.0, 1.0],
-                color_alpha: [0.76, 0.78, 0.82, 0.95],
-                tags_f: [5.0, 0.25, 0.48, 0.0],
-            });
+            if doc.active_zone_index == 0 && matches!(doc.active_feature_index, 0 | 1) {
+                // The solar-wind interaction spans tens of Earth radii. A
+                // separate explanatory volume preserves those distances without
+                // inflating the natural atmosphere around the surface.
+                heroes_volume.push(HeroVolumeInstance {
+                    pos_radius: [pos.x, pos.y, pos.z, earth_solid_r * 25.2],
+                    rot_quat,
+                    color_a: [0.15, 2.2, 0.9, 1.0],
+                    color_b: [1.1, 0.24, 2.0, 1.0],
+                    phys_a: [input.time_sec * 0.03, 1.0 / 30.0, 0.0, dwell],
+                    phys_b: sun,
+                    kind_tags: pack_doc_tags(0, earth_vid, 0, 4, doc),
+                });
+            }
+            // The Moon is a distant physical body, not a decorative satellite
+            // that slides around the globe with the viewer. The fixed epoch is
+            // intentionally independent of narration and accelerated Earth time.
+            let meters_to_render = 10.0_f64.powf(-input.cam_pose.scale_exp) as f32;
+            let moon_dir = stage_q * Vec3::new(-0.42, 0.17, -0.89).normalize();
+            let moon_p = pos + moon_dir * (384_400_000.0 * meters_to_render);
+            push_solar_companion(
+                heroes_surface,
+                moon_p,
+                1_737_400.0 * meters_to_render / 0.84,
+                rot_quat,
+                [0.72, 0.72, 0.74, 1.0],
+                [0.36, 0.36, 0.38, 1.0],
+                [0.0; 4],
+                sun,
+                canonical_companion_vid(4, 3),
+                1, // natural lunar surface; no feature or attention overlays
+                &DocumentaryFocusState::default(),
+            );
         }
 
         // --------------------------------------------------------------------
@@ -1143,7 +1156,7 @@ pub fn emit_doc_stage_hero(
         // EXP 05: MILKY WAY / SGR A* KERR BLACK HOLE (`1500..=1512`)
         // --------------------------------------------------------------------
         5 => {
-            let max_r = (pos.length() * 0.46).clamp(0.04, 24.0);
+            let max_r = 24.0;
             let r_bh = rel_scale.clamp(0.04, max_r);
             let stage_vid = if input.active_experience_id == 5 {
                 resolve_zone_shader_vid(5, doc)
@@ -1182,7 +1195,7 @@ pub fn emit_doc_stage_hero(
         //         + Flanking Hawking BH Companion on Black-Hole Era Zones
         // --------------------------------------------------------------------
         12 => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
+            let max_r = 24.0;
             let r_g = (rel_scale * 0.88).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(12, doc);
             heroes_volume.push(HeroVolumeInstance {
@@ -1223,7 +1236,7 @@ pub fn emit_doc_stage_hero(
         // EXP 06..10: COSMOLOGICAL MACRO (LOCAL GROUP, LANIAKEA, WEB, OBSERVABLE, EARLY)
         // --------------------------------------------------------------------
         6..=10 => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
+            let max_r = 24.0;
             let r_g = rel_scale.clamp(0.04, max_r);
             let stage_vid = resolve_zone_shader_vid(experience_id, doc);
             let submode = if doc.active_zone_index != u16::MAX {
@@ -1246,7 +1259,7 @@ pub fn emit_doc_stage_hero(
         // EXP 13 & 14: MATTER/ENERGY & SPACETIME (TIER-A Act III)
         // --------------------------------------------------------------------
         13 | 14 => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
+            let max_r = 6.0;
             let r_q = (rel_scale * 0.86).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
             let base_flags = match (experience_id, doc.active_zone_index) {
@@ -1316,7 +1329,7 @@ pub fn emit_doc_stage_hero(
         // EXP 15, 16, 17: COMPLEXITY, LIFE & SCULPTED 3D ANATOMICAL MIND
         // --------------------------------------------------------------------
         15..=17 => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
+            let max_r = 6.0;
             let r_b = (rel_scale * 0.86).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
             let z = doc.active_zone_index;
@@ -1373,7 +1386,7 @@ pub fn emit_doc_stage_hero(
         //                  PERSPECTIVES, MEANING & FINAL HORIZON LOTUS
         // --------------------------------------------------------------------
         _ => {
-            let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
+            let max_r = 24.0;
             let r_g = (rel_scale * 0.88).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
             let submode = if doc.active_zone_index != u16::MAX {

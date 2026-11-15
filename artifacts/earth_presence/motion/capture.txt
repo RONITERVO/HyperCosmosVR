@@ -1,0 +1,8 @@
+adapter=NVIDIA GeForce RTX 5070
+eye=1280x720
+renderer_init_seconds=59.081
+capture_stride=1 (0=consecutive render burst, last-frame capture only)
+synthetic stereo; no headset/compositor; readback excluded from frame timing
+earth_solar_wind zone=0 feature=Some(0) mean_ms=3.152 p95_ms=3.649 frames=480 start_sec=0.000 end_sec=15.967
+earth_magnetic_deflection zone=0 feature=Some(1) mean_ms=2.003 p95_ms=2.362 frames=480 start_sec=0.000 end_sec=15.967
+earth_auroral_response zone=2 feature=Some(0) mean_ms=3.663 p95_ms=4.089 frames=480 start_sec=0.000 end_sec=15.967

@@ -7,6 +7,7 @@
 //! 128x128 triangular-PDF blue-noise dithering.
 
 pub mod device;
+mod earth_textures;
 pub mod doc_stages;
 pub mod pipeline;
 pub mod post_pass;

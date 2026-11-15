@@ -45,6 +45,9 @@ try {
     Invoke-TestPhase "Application correctness ($CpuThreads threads)" @(
         '-p', 'cosmos_app', '--lib', '--', "--test-threads=$CpuThreads", '--skip', $WarmupTest
     )
+    Invoke-TestPhase 'Guided-tour framing (CPU)' @(
+        '-p', 'cosmos_app', '--test', 'tour_framing_tests', '--', "--test-threads=$CpuThreads"
+    )
     Invoke-TestPhase "DX12 correctness ($GpuThreads threads)" @(
         '-p', 'cosmos_render', '--lib', '--tests', '--', "--test-threads=$GpuThreads"
     )

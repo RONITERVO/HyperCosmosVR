@@ -294,7 +294,8 @@ impl BeatTargetSelector {
     }
 }
 
-/// Camera micro-choreography waveform played during each beat so the user is never static.
+/// Observer movement during a beat. `StaticHold` preserves the authored pose so
+/// tracked head movement, rather than an automatic orbit, controls the viewpoint.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub enum MotionProfileKind {
     #[default]
@@ -369,6 +370,9 @@ pub enum TransitionKind {
     CatmullRomScaleSpline,
     LogScaleHyperDive,
     ContinuousOrbitBridge,
+    /// Spherical travel around Earth's center without cutting through the planet.
+    EarthOrbitArc,
+    /// Authored cut to the destination on the next playing update, with no travel frames.
     InstantBookmark,
 }
 

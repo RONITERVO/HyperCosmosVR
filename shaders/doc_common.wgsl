@@ -23,6 +23,9 @@ struct HeroVolumeInstance {
 @group(1) @binding(2) var blue_noise_samp: sampler;
 @group(1) @binding(3) var field_grid_tex: texture_2d<f32>;
 @group(1) @binding(4) var field_grid_samp: sampler;
+// Day color, night lights, cloud coverage, relief/ocean mask; sRGB encoded mips.
+@group(1) @binding(5) var earth_maps: texture_2d_array<f32>;
+@group(1) @binding(6) var earth_maps_samp: sampler;
 
 struct HeroVsOut {
     @builtin(position) clip_pos: vec4<f32>,

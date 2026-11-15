@@ -123,14 +123,17 @@ fn fs_hero_surface(in: HeroVsOut) -> SurfaceFsOut {
         out.depth = reversed_z_depth(clip.z, clip.w);
         return out;
     } else if (kind == 0u) {
-        col = shade_doc_earth_surface(p_hit / surf_r, n_surf, -rd, sun_local, inst, time);
+        let pixel_footprint = max(t_hit * 2.0 * tan(u_frame.cam_forward.w * 0.5)
+            / u_frame.viewport_params.y / surf_r, 1e-6);
+        col = shade_doc_earth_surface(p_hit / surf_r, n_surf, -rd, sun_local, inst, time, pixel_footprint);
     } else {
         col = shade_doc_solar_planet_surface(vid, p_hit / surf_r, n_surf, -rd, sun_local, inst, time);
     }
 
     // Focus dwell halo rim when stopped/narrating on this surface hero
     let dwell = max(inst.phys_a.w, doc_weight(inst) * 0.55);
-    if (dwell > 0.01) {
+    let natural_body = kind == 0u || (vid == 3643u && doc_submode(inst) == 1u);
+    if (dwell > 0.01 && !natural_body) {
         let rim = pow(1.0 - max(dot(n_surf, -rd), 0.0), 4.0);
         col += u_frame.region_accent.rgb * rim * dwell * 2.0;
     }
@@ -143,7 +146,7 @@ fn fs_hero_surface(in: HeroVsOut) -> SurfaceFsOut {
 }
 
 @fragment
-fn fs_hero_volume(in: HeroVsOut) -> @location(0) vec4<f32> {
+fn fs_hero_volume(in: HeroVsOut) -> SurfaceFsOut {
     let inst = hero_instances[in.inst_idx];
     let kind = inst.kind_tags.x;
     let vid = inst.kind_tags.y;
@@ -192,8 +195,27 @@ fn fs_hero_volume(in: HeroVsOut) -> @location(0) vec4<f32> {
         res = vec4<f32>(res.rgb * min(inst.color_a.a, 1.35), res.a);
     }
 
-    if (res.a < 1e-4) {
+    // Optically thin Earth emission may have negligible alpha and still carry
+    // visible light. An alpha-only threshold cuts auroral tails into hard shapes.
+    let empty_earth = res.a < 1e-6 && max(res.r, max(res.g, res.b)) < 1e-6;
+    if (select(res.a < 1e-4, empty_earth, kind == 0u)) {
         discard;
     }
-    return vec4<f32>(oled_void_clamp(res.rgb), clamp(res.a, 0.0, 1.0));
+    var out: SurfaceFsOut;
+    out.color = vec4<f32>(oled_void_clamp(res.rgb), clamp(res.a, 0.0, 1.0));
+    out.depth = in.clip_pos.z;
+    if (kind == 0u) {
+        // The back face of the volume cube is behind the opaque Earth. Test the
+        // near atmospheric boundary instead so elevated clouds can cover the globe.
+        // Integration itself stops at the planet surface; no back-side glow leaks through.
+        let limb_r = select(inst.phys_a.y, 0.737, inst.phys_a.y <= 0.0);
+        let shell_hit = intersect_sphere(ro, rd, limb_r * 1.095);
+        var front_t = max(shell_hit.x, 0.0);
+        if (doc_feat(inst) != 255u || shell_hit.y <= 0.0) { front_t = t0; }
+        let local_p = ro + rd * front_t;
+        let world_p = inst.pos_radius.xyz + quat_rotate(q, local_p * inst.pos_radius.w);
+        let clip = world_pos_to_clip(world_p, in.eye_idx);
+        out.depth = reversed_z_depth(clip.z, clip.w);
+    }
+    return out;
 }

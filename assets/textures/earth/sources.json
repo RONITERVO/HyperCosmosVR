@@ -1,0 +1,42 @@
+{
+  "day": {
+    "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x21600x10800.jpg",
+    "sha256": "dea8b4dc8a4f93f5f8bce0c8c85a508a178e7901e9ed8e6bf86e6ce7ef6d61e2",
+    "dimensions": [
+      21600,
+      10800
+    ]
+  },
+  "night": {
+    "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144897/BlackMarble_2016_3km_gray.jpg",
+    "sha256": "3fbc8aae3529dc1ebfcf3aa9361bd3dfc11d19950a6af6d8ed2df61bd8b0134d",
+    "dimensions": [
+      13500,
+      6750
+    ]
+  },
+  "height": {
+    "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/topography/gebco_08_rev_elev_21600x10800.jpg",
+    "sha256": "aeecb1d0ae367f836e95f5fec8edcacf37df423f07f9ecaa1739debab8985b58",
+    "dimensions": [
+      21600,
+      10800
+    ]
+  },
+  "cloud": {
+    "url": "https://svs.gsfc.nasa.gov/vis/a000000/a004400/a004439/frames/8192x4096_1x1_30p/clouds_cpc/flat_cpc_clouds_8192x4096.01000.tif",
+    "sha256": "9a2ee6ac43f6db684179a5515a498c6d6d6f4bee11134357dcc94dfb4d664f65",
+    "dimensions": [
+      8192,
+      4096
+    ]
+  },
+  "cloud_polar": {
+    "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/content-feature/bluemarble/images/cloud_combined_2048.jpg",
+    "sha256": "daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793",
+    "dimensions": [
+      2048,
+      1024
+    ]
+  }
+}
