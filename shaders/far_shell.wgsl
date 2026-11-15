@@ -65,7 +65,9 @@ fn eval_starfield_layer(dir: vec3<f32>, cell_scale: f32, threshold: f32, brightn
         return vec3<f32>(0.0);
     }
     let kelvin = mix(2900.0, 24000.0, pow(h.y, 1.6));
-    let twinkle = 0.88 + 0.12 * sin(u_frame.scale_params.w * (1.2 + h.z * 2.5) + h.y * TAU);
+    // Stars seen from orbit do not scintillate through a terrestrial atmosphere.
+    let orbital_view = u_frame.region_accent.w == 3.0 || u_frame.region_accent.w == 4.0;
+    let twinkle = select(0.88 + 0.12 * sin(u_frame.scale_params.w * (1.2 + h.z * 2.5) + h.y * TAU), 1.0, orbital_view);
     return blackbody_rgb(kelvin) * core * brightness * twinkle;
 }
 
@@ -94,7 +96,10 @@ fn fs_main(in: FarVsOut) -> @location(0) vec4<f32> {
         let galactic_band = exp(-lat * lat * 86.0);
 
         let band_rgb = mix(vec3<f32>(0.012, 0.028, 0.075), vec3<f32>(0.15, 0.092, 0.052), n_neb);
-        col += band_rgb * galactic_band * n_neb * (0.25 + 0.75 * dust_lanes) * (0.68 + bass * 0.18) * mw_alpha;
+        // Planetary exposure keeps the distant diffuse Galaxy subordinate to
+        // sunlit Earth. Preserve directional stars without bright smoke patches.
+        let planetary_exposure = select(1.0, 0.12, u_frame.region_accent.w == 3.0 || u_frame.region_accent.w == 4.0);
+        col += band_rgb * galactic_band * n_neb * (0.25 + 0.75 * dust_lanes) * (0.68 + bass * 0.18) * mw_alpha * planetary_exposure;
 
         // Razor-sharp blackbody pinpoint stars (zero smudgy halation)
         let density = max(u_far.galaxy_north.w, 1.0);

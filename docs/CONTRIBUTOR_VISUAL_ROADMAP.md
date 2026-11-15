@@ -8,13 +8,17 @@
 
 For full local verification, use `powershell -NoProfile -ExecutionPolicy Bypass -File tools/test_local.ps1`. It runs all workspace tests with parallel correctness checks and isolated timing checks; the serial `cargo test --workspace -- --test-threads=1` commands in older package examples remain useful for diagnosis. See [Contributing](../CONTRIBUTING.md#3-coding-shader--verification-standards) for concurrency options.
 
-**Product acceptance beyond coverage:** The target is a convincing, visually rich educational experience on PSVR2 at **120 Hz and SteamVR's recommended per-eye resolution**, and on higher-end OLED headsets. Tier-A counts establish bespoke feature-to-visual implementation; they do not establish perceived aliveness, documentary-level detail, learner comprehension, or physical-headset quality. Review actual scenes for composition, meaningful motion and causality, detail that rewards inspection, and viewpoints that support the narration. Even completed packages can need further visual refinement.
+**Acceptance priority, updated 2026-11-15:** Visual richness, convincing presence and understanding without narration or text take priority over expanding coverage or reaching 120 FPS. Scenes should feel inhabited and active, with coherent materials, lighting, scale, motion and inspectable detail. Tier-A establishes bespoke implementation coverage; it does not establish documentary quality, perceived aliveness, comprehension or a quality score. Completed packages remain eligible for substantial improvement. The current flagship work deepens Earth's orbital environment and connected solar-wind/aurora explanation; it does not add a new completed coverage package.
 
-VR controls must be spatial holographic instruments with real depth, binocular parallax, scene occlusion and stable anchoring. Measure frame time at the connected headset's actual recommended dimensions without silently reducing resolution or richness. The desktop timings quoted below are historical regression references, not end-to-end 120 Hz headset certification. See [the stereo presence and guidance report](../artifacts/ux_controls/README.md) for the current reference measurements and remaining physical-headset checks.
+The user accepts **30 application FPS minimum / 90 middle / 120 upper target**, with **1440p–4K reference resolutions**. These describe acceptance targets, not existing presets or verified results. PSVR2 at 120 Hz and SteamVR's recommended resolution remains the personal hardware reference, alongside higher-end OLED headsets. Declare exact per-eye dimensions and render scale. Report application CPU/GPU times, actual application frame rate, headset refresh, repeated/synthesized/dropped frames, compositor cost and capture duration separately. Reprojection at a 120 Hz display rate is not native 120 application FPS. Desktop and offscreen timings below are historical regression references, not headset certification; see [the stereo presence and guidance report](../artifacts/ux_controls/README.md).
+
+VR controls must be holographic instruments with real depth, binocular parallax, occlusion and stable anchoring. A flat panel placed in world space is insufficient. Preserve empty-space black levels without imposing a whole-frame black-pixel quota: an orbital horizon, cloud deck or interior can legitimately fill the view. A universal 28-step raymarch cap likewise cannot override image quality; choose sample counts using measured temporal stability and the declared performance tier.
+
+For acceptance, review muted, caption-free sequences of cause, transport, interaction and consequence, with both eyes and tracked movement. Use a viewer's account of what happened to assess comprehension. Keep scientific simplifications, exaggerated visual markers, accelerated time and unverified observations explicit in the review record. Automated feature differences and still images cannot establish wordless comprehension. These priorities supersede historical black-pixel percentages and 90/120-only or fixed-step gates in older package cards.
 
 ### For Non-Technical Evaluators, Team Leads & Independent Fact-Checkers (30-Second Brief)
 
-- **Important Product Context ("Does the app work today?"):** **Yes.** All `25` experiences (`376` zones, `2,456` spoken topics, `18,898` audio assets, `01_colors`, `02_music`, Desktop HDR, OpenXR VR, and the full 5-act `grand_cosmic_odyssey` tour) run and render in real time today (`RTX 5070` `1600×900` baseline: `min = 0.837 ms`, `mean = 1.974 ms / 506.7 FPS`, `p99 = 5.109 ms`, `max = 5.188 ms`). Today **`204 / 376` zones (`1,273 / 2,456` features across `100%` of `Experiences 03..=10, 13..=16, 21, 22`: all of Odyssey Acts I, II, III & Act IV Stops 1–2 `15_complexity` + `16_life`)** meet our strict **`[TIER-A]` 1:1 muted / language-free comprehension** bar — where every individual spoken sentence (`doc_feat`) animates its exact bespoke 3D structure rather than relying on shared domain shaders or cycling modulo fallbacks (`sc % N`).
+- **Product context:** All 25 experiences are routed and rendered, with 204 / 376 zones and 1,273 / 2,456 features currently classified Tier-A for implementation coverage. The historical RTX 5070 1600x900 baseline is a desktop regression reference. Neither those counts nor the timing result establishes muted comprehension, documentary quality or native-headset performance.
 - **Verify Core Numbers Yourself Without AI (10 Seconds):**
   ```powershell
   # 1. Confirm 25 experiences, 376 zones, 2,456 features, 18,898 audio assets straight from the baked catalog:
@@ -25,7 +29,7 @@ VR controls must be spatial holographic instruments with real depth, binocular p
   Get-Content artifacts/verification_renders/benchmark_sweep.txt
   cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
   ```
-- **Threshold Note:** Existing `43` baseline PNGs hold `>= 50.90%` `#000000` (`50.9004%` minimum on `06_cmb_and_inflation.png` per `README.md`); newly authored or upgraded zone packages in this roadmap enforce the stricter **`>= 50.91%` `#000000`** PR acceptance floor (`87/88` cards carry the `<= 28` raymarch step gate; `PKG-P0-CATALOG-SCENE-AND-CI` is catalog/test-only).
+- **Historical threshold note:** The 43 original overview PNGs measured at least 50.90% black pixels. Those values describe those compositions; they are not acceptance floors for new immersive views. The richness-first and scene-dependent rules above supersede percentage-black and universal 28-step requirements in older package examples.
 
 *(Technical grounding note: All audit classifications in this roadmap inspect real runtime Rust and WGSL execution in `assets/baked/universe_catalog.v1.json`, `crates/cosmos_render/src/doc_stages.rs`, `crates/cosmos_render/src/universe_scene.rs`, `crates/cosmos_app/src/engine.rs`, `crates/cosmos_narration/src/resolver.rs`, `crates/cosmos_journey/src/odyssey.rs`, `crates/cosmos_spatial/src/topology.rs`, and `shaders/*.wgsl`. Do not treat aspirational prose in [`docs/documentary_visuals_spec.md`](documentary_visuals_spec.md) as already implemented.)*
 
@@ -35,7 +39,7 @@ VR controls must be spatial holographic instruments with real depth, binocular p
 
 | Tier | Classification | Strict Engineering Criterion |
 |---|---|---|
-| `[TIER-A]` | **Bespoke 1:1 Hero Stage (Complete)** | Dedicated zero-conflict `vid` (`1000 + exp*100 + zone`) AND distinct `doc_feat(inst)` (catalog feature index, including `F8`) WGSL visual responses, cross-sections, callouts, or phase transitions matching every spoken subject. |
+| `[TIER-A]` | **Bespoke Feature Coverage (Implementation Complete)** | Dedicated zero-conflict `vid` (`1000 + exp*100 + zone`) AND distinct `doc_feat(inst)` (catalog feature index, including `F8`) WGSL responses for every spoken subject. Perceptual quality and causal comprehension require separate visual and learner review. |
 | `[TIER-B]` | **Shared Archetype (Needs Feature Sub-Staging)** | Domain shader/body visually matches the zone's topic, OR a bespoke zone stage ignores `doc_feat` / pulses uniformly without distinct per-feature visual choreography. |
 | `[TIER-C]` | **Generic Modulo Fallback (Needs Bespoke Zone Stage)** | Routed through `sc % N`, `zone_index % 3`, or a single collapsed experience variant whose visual metaphor mismatches the zone's spoken narrative. |
 | `[TIER-D]` | **Missing Visual Metaphor (High Priority)** | Narration describes a concrete physical experiment, structure, biological process, social institution, or astrophysical concept with no visual counterpart on screen. |
@@ -241,8 +245,8 @@ Implement `PKG-P0-DISPATCH-AND-IDS` in the HyperCosmosVR repository root. Read `
    - Fix Exp `03` cutaway zone clamp (`5.2..=6.45` / `r_vol * 1.14` in `doc_stages.rs:567-611`) so Earth crust/lithosphere zones match `Z06..=Z08`.
 
 3. **Mandatory Hard Verification Gates:**
-   - **OLED Void Budget:** Preserve `>= 50.91%` exact `#000000` background pixels and `0.0000%` highlight blowout; respect `r <= 0.96` clipping (`hero_volumetric.wgsl:164`) and `oled_void_clamp` (`:201`).
-   - **VR 90/120 Hz Budget:** Keep documentary shells `<= 28` raymarch steps (`trans < 0.03` early exit), preserving RTX 5070 `1600x900` baseline (`mean = 1.967 ms`, `p99 = 4.752 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
+   - **OLED composition:** Preserve black in intended empty-space regions and inspect highlight detail. Do not impose a whole-frame percentage on horizons, interiors or other content-dominant views.
+   - **Measured performance tier:** Declare 30/90/120 application FPS and exact resolution, measure the complete frame, and preserve richness and temporal stability. Historical desktop timings and a fixed raymarch step count do not certify this tier.
    - **Verification Commands:**
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`
@@ -291,8 +295,8 @@ Implement `PKG-P0-FEATURE-AND-CUE-PLUMBING` in the HyperCosmosVR repository root
    - `shaders/doc_common.wgsl` + `shaders/hero_doc_matter_mind.wgsl` (add `doc_cue_mask`, `doc_feat_focus`, `doc_sample_field_grid`; wire `field_grid_tex` sampling in Exp `15` Gray-Scott and Exp `02` Chladni), plus verify `shaders/compute_universe.wgsl` modes align.
 
 2. **Mandatory Hard Verification Gates:**
-   - **OLED Void Budget:** Keep `>= 50.91%` `#000000` background and `0.0000%` highlight blowout; modulate `doc_feat` emphasis smoothly within `0.72..=1.35x` HDR clamp (zero strobe, zero fog wash).
-   - **VR 90/120 Hz Budget:** Keep steps `<= 28` for documentary shells (`trans < 0.03` early exit), preserving RTX 5070 `1600x900` DX12 baseline (`mean = 1.967 ms`, `p99 = 4.752 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
+   - **OLED composition:** Preserve black in intended empty-space regions and inspect highlight detail. Do not impose a whole-frame percentage on horizons, interiors or other content-dominant views.
+   - **Measured performance tier:** Declare 30/90/120 application FPS and exact resolution, measure the complete frame, and preserve richness and temporal stability. Historical desktop timings and a fixed raymarch step count do not certify this tier.
    - **Verification Commands:**
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`
@@ -338,8 +342,8 @@ Implement `PKG-P0-CATALOG-SCENE-AND-CI` in the HyperCosmosVR repository root. Re
    - `crates/cosmos_render/src/doc_stages.rs` / `crates/cosmos_narration/src/resolver.rs` / `shaders/hero_doc_*.wgsl` / `shaders/compute_universe.wgsl` (sync any test-revealed edge cases cleanly without breaking Naga SM 6.5).
 
 2. **Mandatory Hard Verification Gates:**
-   - **OLED Void Budget:** Preserve `>= 50.91%` exact `#000000` background pixels (`0.0000%` blowout).
-   - **VR 90/120 Hz Budget:** Preserve RTX 5070 `1600x900` DX12 baseline (`mean = 1.967 ms`, `p99 = 4.752 ms` in `artifacts/verification_renders/benchmark_sweep.txt`).
+   - **OLED composition:** Preserve black in intended empty-space regions and inspect highlight detail. Do not impose a whole-frame percentage on horizons, interiors or other content-dominant views.
+   - **Measured performance tier:** Declare 30/90/120 application FPS and exact resolution, measure the complete frame, and preserve richness and temporal stability. Historical desktop timings and a fixed raymarch step count do not certify this tier.
    - **Verification Commands:**
      - `cargo clippy --workspace --all-targets -- -D warnings`
      - `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`
@@ -380,9 +384,9 @@ Every visual expansion PR should claim **one canonical Work Package** (`PKG-ACT<
 
 | Gate | Requirement | Verified Reference Baseline / Check |
 |---|---|---|
-| **Pure-Black OLED Void** | Keep `>= 50.91%` exact `#000000` background pixels on newly added/upgraded zone PRs (`>= 50.90%` on existing `43` baseline PNGs; `50.9004%` min in `06_cmb_and_inflation.png`) and `0.0000%` highlight blowout; zero full-screen ambient haze/fog wash; bound documentary volumes to `r <= 0.96` (`hero_volumetric.wgsl#L164`) and pass outputs through `oled_void_clamp` (`#L201`). | `pure_black` / `non_black` counters in [`crates/cosmos_app/src/headless.rs`](../crates/cosmos_app/src/headless.rs) + README verified gallery (`50.90%–76.77%` `#000000`). |
-| **VR 90/120 Hz Frame Budget** | Cap new documentary hero raymarches at `<= 28` steps with `trans < 0.03` early exit; smooth `doc_cue`/`doc_weight` HDR clamping (`0.72..=1.35x`, zero strobing). | RTX 5070 DX12 `1600x900` 120-frame sweep ([`benchmark_sweep.txt`](../artifacts/verification_renders/benchmark_sweep.txt)): `min = 0.837 ms`, `mean = 1.974 ms (506.7 FPS)`, `p99 = 5.109 ms`, `max = 5.188 ms`. |
-| **Headless Visual Capture** | Capture and inspect PNGs + sweep telemetry before opening a PR. | `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep` |
+| **OLED composition and exposure** | Preserve black in actual empty space and inspect local highlight detail; allow nearby worlds, atmosphere and interiors to fill the view. No arbitrary whole-frame black quota. | Scene masks, exposure review and caption-free stereo captures at authored viewpoints. Historical overview pixel counts remain shot-specific regressions. |
+| **Declared performance and resolution** | Target 30/90/120 application FPS at the declared 1440p–4K reference size or exact native per-eye dimensions. Select raymarch/sample budgets from image stability and measured cost. | Record CPU/GPU times, actual application FPS, display Hz, compositor work, repeats/reprojection/drops, hardware/runtime and capture duration. No offscreen-to-native equivalence. |
+| **Visual learning and presence review** | Inspect muted, caption-free cause-to-effect sequences, both eyes, tracked translation, close detail and surrounding context; document an unfamiliar viewer's interpretation and unresolved issues. | Headless PNGs and telemetry support review; continuous sequences and physical-headset observations remain necessary for their respective claims. Passing tests do not establish a quality score. |
 | **Clippy & Formatting** | Zero warnings across all workspace targets; clean `rustfmt`. | `cargo clippy --workspace --all-targets -- -D warnings` & `cargo fmt --check` |
 | **CPU-Only CI Test Suite** | Must pass cleanly without GPU/OpenXR/full-audio-pack dependencies (exact [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) matrix). | `cargo test -p cosmos_math -- --test-threads=1` · `cosmos_narration` · `cosmos_nav` · `cosmos_journey` · `cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe` · `cosmos_spatial topology` · `cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets` |
 | **Local GPU Render Tests** | Verify documentary telemetry, OLED invariants, zone routing, and framing across all `25` experiences. | `cargo test --workspace -- --test-threads=1` (verifies [`phase7_documentary_stages_01_through_25_oled_and_telemetry_hold`](../crates/cosmos_render/tests/render_tests.rs) & `phase7b_zone_routing_framing_and_sprite_clamps_hold`) |

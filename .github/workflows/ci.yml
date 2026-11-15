@@ -61,6 +61,9 @@ jobs:
       - name: Run hardware-independent crate tests (math, narration, nav, journey)
         run: cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_journey
 
+      - name: Validate WGSL and embedded Earth maps without GPU pipeline startup
+        run: cargo test -p cosmos_render --lib
+
       - name: Run OpenXR stereo, hand, refresh & format unit tests (excluding registry runtime probe)
         run: cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
 

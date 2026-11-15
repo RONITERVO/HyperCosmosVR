@@ -88,8 +88,8 @@ impl StoryJourneyPlugin for GrandCosmicOdysseyPlugin {
             let act_idx = act.act_index;
             for &exp_id in act.experiences {
                 let beats = match exp_id {
-                    1 => build_colors_chapter_beats(catalog, &color_rgb_table),
-                    2 => build_music_chapter_beats(),
+                    1 => build_colors_chapter_beats(catalog, spatial, &color_rgb_table),
+                    2 => build_music_chapter_beats(spatial),
                     _ => build_catalog_experience_beats(catalog, spatial, exp_id),
                 };
                 if !beats.is_empty() {
@@ -170,7 +170,7 @@ impl StoryJourneyPlugin for GrandCosmicOdysseyPlugin {
     }
 }
 
-/// Curated compact 5-act highlight Story-Journey (~22 beats across key scales) for quick showcases.
+/// Curated five-act highlights with an observational Earth opening followed by key scales.
 pub struct CosmicHighlightsPlugin;
 
 impl StoryJourneyPlugin for CosmicHighlightsPlugin {
@@ -200,7 +200,8 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
         spatial: &CosmosSpatialIndex,
     ) -> Result<StoryJourneyManifest, JourneyError> {
         let selections: &[(u8, &[usize])] = &[
-            (3, &[0, 6, 13]),
+            // Earth uses its connected, altitude-aware opening below.
+            (3, &[]),
             (4, &[0, 4, 7]),
             (5, &[0, 1]),
             (21, &[0]),
@@ -219,7 +220,11 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
         let mut chapters = Vec::new();
         for &(exp_id, zone_picks) in selections {
             let zones = catalog.zones(exp_id);
-            let mut beats = Vec::new();
+            let mut beats = if exp_id == 3 {
+                build_earth_highlights_beats()
+            } else {
+                Vec::new()
+            };
             let mut prev_u = COLD_START_SCALE_EXP;
             for &z_idx in zone_picks {
                 if let Some(zone) = zones.get(z_idx) {
@@ -230,6 +235,16 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
                         beats.push(make_feature_beat(spatial, zone, 0, prev_u));
                     }
                 }
+            }
+            if exp_id == 4 && let Some(first) = beats.first_mut() {
+                // Physical Earth and the normalized Solar exhibit have distinct
+                // observer units. An authored chapter cut avoids interpolating
+                // an Earth observer inside a prematurely reanchored Solar frame.
+                first.transition_in = BeatTransition {
+                    kind: TransitionKind::InstantBookmark,
+                    duration_sec: 0.0,
+                    narration_lead_sec: 0.0,
+                };
             }
             if !beats.is_empty() {
                 chapters.push(JourneyChapter {
@@ -251,8 +266,8 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
                 "01–02 · Väriprisma ja Harmoninen Harppu",
             ),
             beats: vec![
-                make_color_beat(0, [255, 72, 48], 24.0, 0.92, 0.56),
-                make_music_beat(69, 2),
+                make_color_beat(spatial, 0, [255, 72, 48], 24.0, 0.92, 0.56),
+                make_music_beat(spatial, 69, 2),
             ],
         });
 
@@ -276,6 +291,90 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
         manifest.validate(Some(catalog))?;
         Ok(manifest)
     }
+}
+
+/// A connected exterior Earth chapter. Physical locations stay in the Earth sector;
+/// scale is only the observer's unit size, never a substitute for orbital altitude.
+/// The shader's 16-second solar-wind event repeats without narration, so every
+/// observation lasts long enough to see arrival, deflection and auroral response.
+fn build_earth_highlights_beats() -> Vec<JourneyBeat> {
+    let earth_radius = 6.371e6 / 10.0_f64.powf(6.8);
+    // Center Africa and the adjacent oceans, giving the view recognizable land,
+    // coastlines and cloud systems rather than an almost entirely oceanic disk.
+    let daylight = DVec3::new(0.883, 0.342, -0.321).normalize();
+    let sun = DVec3::new(0.62, 0.35, -0.64).normalize();
+    let wind_view = (sun.cross(DVec3::Y).normalize() + DVec3::Y * 0.18).normalize();
+    // Meet the incoming wind near the dayside shock before moving out for the
+    // entire magnetic environment. These are distinct physical viewpoints.
+    let wind_observer = (sun * 18.0 + sun.cross(DVec3::Y).normalize() * 6.0 + DVec3::Y * 2.0) * earth_radius;
+    let wind_target = sun * earth_radius * 10.0;
+    let field_target = -sun * earth_radius * 3.0;
+    // Observe the source cloud front over Iberia and the Mediterranean from
+    // the Atlantic (30 N, 10 W), looking toward 42 N, 0 E. The entire view of
+    // interest stays inside the higher-resolution cloud observation band.
+    let cloud_observer = DVec3::new(0.85287, 0.5, 0.15038).normalize();
+    let cloud_horizon = DVec3::new(0.74314, 0.66913, 0.0).normalize() * earth_radius;
+    let southern_observer = DVec3::new(0.0, -0.80, 0.60).normalize();
+    // This fixed season gives the southern oval a long nightside limb.
+    // Observe it from above the emitting atmosphere, looking
+    // across the limb toward the same magnetic oval used by the Earth shader.
+    let southern_aurora = DVec3::new(-0.12, -0.92, 0.37).normalize() * earth_radius * 1.03;
+
+    let make_beat = |id: &str, zone_index, feature_index, position: DVec3, target: DVec3, scale, dwell, travel| {
+        let forward = (target - position).normalize();
+        let orientation = if position.length() < earth_radius * 1.3 {
+            // Close orbital horizons use local altitude as up. Global north-up
+            // otherwise places the southern Earth's surface above the viewer.
+            let right = forward.cross(position.normalize()).normalize();
+            let up = right.cross(forward).normalize();
+            DQuat::from_mat3(&glam::DMat3::from_cols(right, up, -forward)).normalize()
+        } else {
+            orient_toward(position, target)
+        };
+        let pose = ScalePose64::new(
+            SectorId::EARTH_ORBIT,
+            position,
+            scale,
+            orientation,
+        );
+        let look_at = ScalePose64::new(SectorId::EARTH_ORBIT, target, scale, DQuat::IDENTITY);
+        JourneyBeat {
+            beat_id: id.to_owned(),
+            pose: SerializedPose64::from_pose64(&pose),
+            look_at_pose: Some(SerializedPose64::from_pose64(&look_at)),
+            target: BeatTargetSelector::CatalogZone {
+                experience_id: 3,
+                zone_index,
+                feature_index,
+                is_macro_zoomed_out: feature_index.is_none(),
+            },
+            motion: BeatMotionProfile {
+                kind: MotionProfileKind::StaticHold,
+                yaw_deg_per_sec: 0.0,
+                pitch_wave_deg: 0.0,
+                scale_breathing_du: 0.0,
+                orbit_radius_factor: 0.0,
+                max_sentences_per_vantage: 2,
+                min_dwell_sec: dwell,
+                max_dwell_sec: dwell + 8.0,
+            },
+            transition_in: BeatTransition {
+                kind: TransitionKind::EarthOrbitArc,
+                duration_sec: travel,
+                narration_lead_sec: 0.0,
+            },
+            caption_hint: None,
+        }
+    };
+
+    vec![
+        make_beat("exp03_z000_space", 0, None, EARTH_ORBIT_HOME_LOCAL_POS, DVec3::ZERO, COLD_START_SCALE_EXP, 18.0, 2.0),
+        make_beat("earth_daylight_ocean", 6, Some(0), daylight * earth_radius * 2.2, DVec3::ZERO, 6.25, 20.0, 12.0),
+        make_beat("earth_cloud_horizon", 5, None, cloud_observer * earth_radius * 1.16, cloud_horizon, 5.8, 20.0, 10.0),
+        make_beat("earth_solar_wind", 0, Some(0), wind_observer, wind_target, 7.0, 24.0, 18.0),
+        make_beat("earth_magnetic_deflection", 0, Some(1), wind_view * earth_radius * 42.0, field_target, 7.4, 24.0, 12.0),
+        make_beat("earth_auroral_response", 2, Some(0), southern_observer * earth_radius * 1.10, southern_aurora, 5.65, 24.0, 14.0),
+    ]
 }
 
 fn cold_start_earth_pose() -> ScalePose64 {
@@ -344,7 +443,7 @@ fn make_zone_beat(
 ) -> JourneyBeat {
     let exp_id = zone.app_num;
     let z_idx = zone.zone_idx as u16;
-    let subject_pose = spatial
+    let mut subject_pose = spatial
         .find_zone_entity(exp_id, z_idx)
         .map(entity_to_pose)
         .unwrap_or_else(|| experience_anchor_pose(spatial, exp_id));
@@ -356,8 +455,9 @@ fn make_zone_beat(
     )
     .normalize();
 
-    let cam_pose = if exp_id == 3 && z_idx == 0 {
-        cold_start_earth_pose()
+    let cam_pose = if let Some((pose, target)) = stable_catalog_observation(spatial, exp_id, z_idx, view_dir, None) {
+        subject_pose = target;
+        pose
     } else {
         spatial
             .find_zone_entity(exp_id, z_idx)
@@ -413,7 +513,7 @@ fn make_feature_beat(
 ) -> JourneyBeat {
     let exp_id = zone.app_num;
     let z_idx = zone.zone_idx as u16;
-    let subject_pose = spatial
+    let mut subject_pose = spatial
         .find_feature_entity(exp_id, z_idx, feature_idx)
         .or_else(|| spatial.find_zone_entity(exp_id, z_idx))
         .map(entity_to_pose)
@@ -421,11 +521,16 @@ fn make_feature_beat(
 
     let view_dir = DVec3::new(((feature_idx as f64) * 1.1).cos() * 0.48, 0.28, 0.84).normalize();
 
-    let cam_pose = spatial
-        .find_feature_entity(exp_id, z_idx, feature_idx)
-        .and_then(|e| spatial.navigation_pose_for_entity(e, view_dir))
-        .map(|(pose, _)| pose)
-        .unwrap_or_else(|| framing_pose_for_subject(&subject_pose, 1.45));
+    let cam_pose = if let Some((pose, target)) = stable_catalog_observation(spatial, exp_id, z_idx, view_dir, Some(feature_idx)) {
+        subject_pose = target;
+        pose
+    } else {
+        spatial
+            .find_feature_entity(exp_id, z_idx, feature_idx)
+            .and_then(|e| spatial.navigation_pose_for_entity(e, view_dir))
+            .map(|(pose, _)| pose)
+            .unwrap_or_else(|| framing_pose_for_subject(&subject_pose, 1.45))
+    };
 
     let delta_u = cam_pose.scale_exp - prev_scale_u;
     JourneyBeat {
@@ -463,6 +568,63 @@ fn make_feature_beat(
         },
         caption_hint: None,
     }
+}
+
+/// Selector rings identify narration topics; they are not displaced stage
+/// geometry. Frame the fixed assembly, or the actual named celestial body.
+fn stable_catalog_observation(
+    spatial: &CosmosSpatialIndex,
+    exp_id: u8,
+    zone_index: u16,
+    view_dir: DVec3,
+    feature_index: Option<u16>,
+) -> Option<(ScalePose64, ScalePose64)> {
+    if exp_id == 3 {
+        return Some(earth_catalog_observation(zone_index, feature_index, view_dir));
+    }
+    let physical = spatial.find_zone_entity(exp_id, zone_index).filter(|entity| {
+        matches!(entity.kind, cosmos_spatial::EntityKind::CelestialBody | cosmos_spatial::EntityKind::GalacticLandmark)
+    });
+    let (pose, target) = if let Some(entity) = physical {
+        // Features remain on their real parent body/landmark, not the generic
+        // floating FeatureNode ring. Preserve the body's own radius and position.
+        spatial.navigation_pose_for_entity(entity, view_dir)?
+    } else {
+        spatial.navigation_pose_for_documentary_stage(exp_id, view_dir, feature_index.is_some())?
+    };
+    Some((pose, ScalePose64::new(pose.sector_id, target, pose.scale_exp, DQuat::IDENTITY)))
+}
+
+/// The older complete-catalog tour observes the same Earth as Highlights. Its
+/// selector lattice is navigation metadata, not a collection of displaced
+/// globes. Interior subjects retain the normalized cutaway, viewed through the
+/// opening actually authored in the shader's positive X/Y/Z octant.
+fn earth_catalog_observation(
+    zone_index: u16,
+    feature_index: Option<u16>,
+    view_dir: DVec3,
+) -> (ScalePose64, ScalePose64) {
+    let earth_radius = 6.371e6 / 10.0_f64.powf(6.8);
+    let (position, target, scale) = if zone_index == 0 && feature_index.is_none() {
+        (EARTH_ORBIT_HOME_LOCAL_POS, DVec3::ZERO, COLD_START_SCALE_EXP)
+    } else if zone_index == 0 && matches!(feature_index, Some(0 | 1)) {
+        let sun = DVec3::new(0.62, 0.35, -0.64).normalize();
+        let side = (sun.cross(DVec3::Y).normalize() + DVec3::Y * 0.18).normalize();
+        (side * earth_radius * 42.0, -sun * earth_radius * 3.0, 7.4)
+    } else {
+        let direction = if zone_index >= 7 {
+            DVec3::new(view_dir.x.abs().max(0.32), view_dir.y.max(0.28), view_dir.z.abs().max(0.5)).normalize()
+        } else {
+            view_dir.normalize()
+        };
+        let distance = if feature_index.is_some() { 2.6 } else { 3.0 };
+        let scale = if zone_index >= 7 { 6.4 } else if feature_index.is_some() { 6.25 } else { 6.6 };
+        (direction * earth_radius * distance, DVec3::ZERO, scale)
+    };
+    (
+        ScalePose64::new(SectorId::EARTH_ORBIT, position, scale, orient_toward(position, target)),
+        ScalePose64::new(SectorId::EARTH_ORBIT, target, scale, DQuat::IDENTITY),
+    )
 }
 
 fn framing_pose_for_subject(subject: &ScalePose64, offset_ru: f64) -> ScalePose64 {
@@ -562,6 +724,7 @@ fn build_color_key_rgb_table(catalog: &UniverseCatalog) -> Vec<([u8; 3], f64, f6
 
 fn build_colors_chapter_beats(
     catalog: &UniverseCatalog,
+    spatial: &CosmosSpatialIndex,
     color_table: &[([u8; 3], f64, f64, f64)],
 ) -> Vec<JourneyBeat> {
     let entries = catalog.app_key_entries(1);
@@ -576,12 +739,12 @@ fn build_colors_chapter_beats(
         .into_iter()
         .map(|k_idx| {
             let (rgb, h, s, l) = color_table[k_idx];
-            make_color_beat(k_idx as u16, rgb, h, s, l)
+            make_color_beat(spatial, k_idx as u16, rgb, h, s, l)
         })
         .collect()
 }
 
-fn make_color_beat(key_index: u16, rgb: [u8; 3], h_deg: f64, s: f64, l: f64) -> JourneyBeat {
+fn make_color_beat(spatial: &CosmosSpatialIndex, key_index: u16, rgb: [u8; 3], h_deg: f64, s: f64, l: f64) -> JourneyBeat {
     let prism_pt = hsl_to_prism_local(h_deg, s, l);
     let outward = DVec3::new(prism_pt.x, prism_pt.y * 0.4 + 0.15, prism_pt.z)
         .normalize_or_zero();
@@ -591,13 +754,15 @@ fn make_color_beat(key_index: u16, rgb: [u8; 3], h_deg: f64, s: f64, l: f64) -> 
         outward
     };
     let cam_pos = prism_pt + dir * 1.15;
-    let cam_pose = ScalePose64::new(
+    let fallback = ScalePose64::new(
         SectorId::COLORS_PRISM,
         cam_pos,
         -0.4,
         orient_toward(cam_pos, prism_pt),
     );
-    let look_at = ScalePose64::new(SectorId::COLORS_PRISM, prism_pt, -0.4, DQuat::IDENTITY);
+    let (cam_pose, target) = spatial.navigation_pose_for_documentary_stage(1, dir, true)
+        .unwrap_or((fallback, prism_pt));
+    let look_at = ScalePose64::new(cam_pose.sector_id, target, cam_pose.scale_exp, DQuat::IDENTITY);
     JourneyBeat {
         beat_id: format!("exp01_color_key_{key_index:03}"),
         pose: SerializedPose64::from_pose64(&cam_pose),
@@ -622,26 +787,28 @@ fn make_color_beat(key_index: u16, rgb: [u8; 3], h_deg: f64, s: f64, l: f64) -> 
     }
 }
 
-fn build_music_chapter_beats() -> Vec<JourneyBeat> {
+fn build_music_chapter_beats(spatial: &CosmosSpatialIndex) -> Vec<JourneyBeat> {
     (48u8..=95u8)
         .enumerate()
         .map(|(i, midi)| {
             let timbre_idx = ((i / 12) + (i % 4)) as u8 % 4;
-            make_music_beat(midi, timbre_idx)
+            make_music_beat(spatial, midi, timbre_idx)
         })
         .collect()
 }
 
-fn make_music_beat(midi: u8, timbre_idx: u8) -> JourneyBeat {
+fn make_music_beat(spatial: &CosmosSpatialIndex, midi: u8, timbre_idx: u8) -> JourneyBeat {
     let fil_pt = music_filament_local(midi, timbre_idx);
     let cam_pos = fil_pt + DVec3::new(0.24, 0.36, 1.05);
-    let cam_pose = ScalePose64::new(
+    let fallback = ScalePose64::new(
         SectorId::MUSIC_HARP,
         cam_pos,
         0.1,
         orient_toward(cam_pos, fil_pt),
     );
-    let look_at = ScalePose64::new(SectorId::MUSIC_HARP, fil_pt, 0.1, DQuat::IDENTITY);
+    let (cam_pose, target) = spatial.navigation_pose_for_documentary_stage(2, DVec3::new(0.24, 0.36, 1.05), true)
+        .unwrap_or((fallback, fil_pt));
+    let look_at = ScalePose64::new(cam_pose.sector_id, target, cam_pose.scale_exp, DQuat::IDENTITY);
     JourneyBeat {
         beat_id: format!("exp02_midi_{midi}_t{timbre_idx}"),
         pose: SerializedPose64::from_pose64(&cam_pose),
@@ -715,8 +882,12 @@ fn ensure_full_audio_coverage(
                         *s = true;
                     }
                 }
-                let subject_anchor = experience_anchor_pose(spatial, exp_id);
-                let anchor = framing_pose_for_subject(&subject_anchor, 1.8);
+                let (anchor, subject_anchor) = stable_catalog_observation(
+                    spatial, exp_id, 0, DVec3::new(0.26, 0.34, 0.90), None,
+                ).unwrap_or_else(|| {
+                    let target = experience_anchor_pose(spatial, exp_id);
+                    (framing_pose_for_subject(&target, 1.8), target)
+                });
                 extra_beats.push(JourneyBeat {
                     beat_id: format!("exp{exp_id:02}_lexicon_{k_idx:04}"),
                     pose: SerializedPose64::from_pose64(&anchor),

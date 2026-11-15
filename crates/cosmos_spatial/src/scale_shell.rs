@@ -12,6 +12,18 @@ use crate::octree::{LodTier, SparseOctree, SpatialEntity, TraversalStats};
 pub const SHELL_ACTIVE_PAD_BELOW: f64 = 1.5;
 pub const SHELL_ACTIVE_PAD_ABOVE: f64 = 2.5;
 
+/// Radius of authored documentary content, distinct from the much broader
+/// spatial-query bounds used to keep an experience discoverable across scales.
+/// Rendering and navigation share this value so approaching a stage never
+/// changes its size and an inspection camera frames the stage that is drawn.
+pub fn documentary_anchor_radius_m(entity: &SpatialEntity) -> f64 {
+    if entity.kind == crate::octree::EntityKind::ExperienceAnchor && entity.experience_id != 3 {
+        entity.radius_m.min(1.5 * 10.0_f64.powf(entity.scale_exp))
+    } else {
+        entity.radius_m
+    }
+}
+
 /// Self-contained normalized scale band `[u_min, u_max]` backed by a [`SparseOctree`].
 #[derive(Clone, Debug)]
 pub struct ScaleShell {
@@ -318,6 +330,26 @@ impl CosmosSpatialIndex {
         out
     }
 
+    /// Frames a canonical documentary stage in its authored world coordinate
+    /// system. Selector nodes identify content; they are not physical exhibits.
+    pub fn navigation_pose_for_documentary_stage(
+        &self,
+        experience_id: u8,
+        view_dir_from_anchor: DVec3,
+        inspection: bool,
+    ) -> Option<(ScalePose64, DVec3)> {
+        let anchor = self.find_experience_anchor(experience_id)?;
+        let sector = self.tree.get(anchor.sector_id)?;
+        let dir = view_dir_from_anchor.try_normalize().unwrap_or(DVec3::Z);
+        let distance_m = documentary_anchor_radius_m(anchor) * if inspection { 2.1 } else { 3.0 };
+        let cam_local = anchor.local_pos + dir * distance_m * 10.0_f64.powf(-sector.scale_exp);
+        let fwd = -dir;
+        let right = fwd.cross(DVec3::Y).try_normalize().unwrap_or(DVec3::X);
+        let up = right.cross(fwd).normalize();
+        let orient = glam::DQuat::from_mat3(&glam::DMat3::from_cols(right, up, -fwd));
+        Some((ScalePose64::new(anchor.sector_id, cam_local, anchor.scale_exp, orient), anchor.local_pos))
+    }
+
     /// Computes a smooth inspection `(ScalePose64, look_target_in_sector)` framing `entity` from
     /// `view_dir_from_entity` at ~2.6 apparent radii inside the entity's owning sector.
     pub fn navigation_pose_for_entity(
@@ -325,6 +357,20 @@ impl CosmosSpatialIndex {
         entity: &SpatialEntity,
         view_dir_from_entity: DVec3,
     ) -> Option<(ScalePose64, DVec3)> {
+        // Catalog feature coordinates organize selection, not the position of
+        // the physical parent or the authored explanatory stage.
+        if entity.kind == crate::octree::EntityKind::FeatureNode && entity.experience_id != 3 {
+            if let Some(parent) = self.zone_entities_for_experience(entity.experience_id).into_iter()
+                .find(|e| e.zone_index == entity.zone_index && matches!(e.kind,
+                    crate::octree::EntityKind::CelestialBody | crate::octree::EntityKind::GalacticLandmark))
+            {
+                return self.navigation_pose_for_entity(parent, view_dir_from_entity);
+            }
+            return self.navigation_pose_for_documentary_stage(entity.experience_id, view_dir_from_entity, true);
+        }
+        if entity.kind == crate::octree::EntityKind::ZoneShell && entity.experience_id != 3 {
+            return self.navigation_pose_for_documentary_stage(entity.experience_id, view_dir_from_entity, false);
+        }
         let sector = self.tree.get(entity.sector_id)?;
         let dir = view_dir_from_entity.try_normalize().unwrap_or(DVec3::Z);
         let cam_u = (entity.scale_exp + 0.55).clamp(sector.scale_exp - 2.0, sector.scale_exp + 1.5);

@@ -100,6 +100,9 @@ pub struct PipelineBank {
     pub blue_noise_tex: wgpu::Texture,
     pub blue_noise_view: wgpu::TextureView,
     pub blue_noise_repeat_samp: wgpu::Sampler,
+    pub earth_maps_tex: wgpu::Texture,
+    pub earth_maps_view: wgpu::TextureView,
+    pub earth_maps_samp: wgpu::Sampler,
     pub linear_clamp_samp: wgpu::Sampler,
     pub point_clamp_samp: wgpu::Sampler,
 }
@@ -216,6 +219,22 @@ impl PipelineBank {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2Array,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                     count: None,
@@ -600,6 +619,8 @@ impl PipelineBank {
             ..Default::default()
         });
 
+        let (earth_maps_tex, earth_maps_view, earth_maps_samp) =
+            crate::earth_textures::upload(device, queue)?;
         Ok(Self {
             shared_frame_bgl,
             compute_bgl,
@@ -632,6 +653,9 @@ impl PipelineBank {
             blue_noise_tex,
             blue_noise_view,
             blue_noise_repeat_samp,
+            earth_maps_tex,
+            earth_maps_view,
+            earth_maps_samp,
             linear_clamp_samp,
             point_clamp_samp,
         })
@@ -894,4 +918,34 @@ fn build_post_pipeline(
         multiview_mask,
         cache: None,
     })
+}
+
+#[cfg(test)]
+mod shader_validation {
+    use super::*;
+
+    /// Catch WGSL parser/type errors before creating a GPU device or compiling
+    /// the large DX12 pipelines. This also runs on CI machines without a GPU.
+    #[test]
+    fn every_shader_parses_and_validates_without_a_gpu() {
+        let mut sources = vec![("documentary hero", concat_hero_shaders())];
+        for (label, source) in [
+            ("compute", COMPUTE_UNIVERSE_WGSL),
+            ("sky", FAR_SHELL_WGSL),
+            ("sprites", INSTANCED_SPRITES_WGSL),
+            ("post", POST_BLOOM_AGX_WGSL),
+        ] {
+            sources.push((label, concat_with_prelude(source)));
+        }
+        for (label, source) in sources {
+            let module = wgpu::naga::front::wgsl::parse_str(&source)
+                .unwrap_or_else(|err| panic!("{label}: {}", err.emit_to_string(&source)));
+            wgpu::naga::valid::Validator::new(
+                wgpu::naga::valid::ValidationFlags::all(),
+                wgpu::naga::valid::Capabilities::all(),
+            )
+            .validate(&module)
+            .unwrap_or_else(|err| panic!("{label}: {}", err.emit_to_string(&source)));
+        }
+    }
 }

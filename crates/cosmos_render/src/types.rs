@@ -291,6 +291,13 @@ pub struct RenderCamera {
 }
 
 impl RenderCamera {
+    /// Frustum for the observer-normalized spatial index. Remove the eye's
+    /// physical translation while retaining its projection/orientation. The
+    /// actual render matrices keep calibrated IPD in real meters.
+    pub fn cyclopean_view_projection(&self) -> Mat4 {
+        self.eyes[0].view_proj * Mat4::from_translation(self.eyes[0].eye_offset)
+    }
+
     /// Constructs a Desktop Mono camera from orientation quaternion, FOV, aspect, and Reversed-Z near plane.
     pub fn mono(orient: Quat, fov_y_rad: f32, aspect: f32, near_plane: f32) -> Self {
         let proj = cosmos_math::reversed_z_infinite_perspective_rh(fov_y_rad, aspect, near_plane);

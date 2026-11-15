@@ -13,7 +13,7 @@ struct SimDispatchUniforms {
     attractor_a: vec4<f32>,
     // xyz = secondary attractor / target position, w = attractor_b strength / charge
     attractor_b: vec4<f32>,
-    // x = sim_mode (0..9 particle, 0..2 grid), y = particle_count, z = grid_width, w = grid_height
+    // x = sim_mode (0..16 particle, 0..3 grid), y = particle_count, z = grid_width, w = grid_height
     counts: vec4<u32>,
 };
 
@@ -395,6 +395,43 @@ fn cs_field_grid(@builtin(global_invocation_id) gid: vec3<u32>) {
     let w = u_sim.counts.z;
     let h = u_sim.counts.w;
     if (gid.x >= w || gid.y >= h) {
+        return;
+    }
+
+    if (u_sim.counts.x == 3u) {
+        // Earth aurora profiles: the existing 256x256 RGBA16F field stores four
+        // periodic 16384-sample azimuth tables, flattened into 64 rows each.
+        // Compute these shared moving folds/filaments once, rather than evaluating
+        // simplex noise at every integration point in both eyes. No history is used.
+        let table_size = w * h / 4u;
+        let flat = gid.y * w + gid.x;
+        let profile = flat / table_size;
+        let angle = (f32(flat % table_size) + 0.5) * TAU / f32(table_size);
+        let azimuth = vec3<f32>(cos(angle), 0.0, sin(angle));
+        let time = u_sim.params_a.y;
+        var value: vec3<f32>;
+        if (profile == 0u) {
+            let drift = vec3<f32>(0.0, time * 0.025, 0.0);
+            let fold = snoise3(azimuth * 7.0 + drift) * 0.0034
+                + snoise3(azimuth * 24.0 - drift * 1.4) * 0.0011
+                + snoise3(azimuth * 71.0 + drift * 0.7) * 0.00025;
+            // Split the fold across two half-float channels. A single half's
+            // quantization becomes visible when adjacent samples are differentiated.
+            let high = floor(fold * 65536.0) / 65536.0;
+            value = vec3<f32>(high, (fold - high) * 65536.0, 0.0);
+        } else {
+            let drift = vec3<f32>(0.0, time * 0.055 + f32(profile - 1u) * 3.7, 0.0);
+            let epsilon = 0.00001;
+            let before = vec3<f32>(cos(angle - epsilon), 0.0, sin(angle - epsilon));
+            let after = vec3<f32>(cos(angle + epsilon), 0.0, sin(angle + epsilon));
+            let derivative = (snoise3(after * 310.0 + drift) - snoise3(before * 310.0 + drift)) / (2.0 * epsilon * 310.0);
+            // Store the strand derivative for Hermite reconstruction. The finest
+            // 970-domain modulation remains procedural when resolved by a pixel;
+            // forcing that frequency into this LUT would smooth away visible detail.
+            value = vec3<f32>(snoise3(azimuth * 27.0 + drift * 0.4),
+                snoise3(azimuth * 310.0 + drift), derivative);
+        }
+        textureStore(field_out, vec2<i32>(gid.xy), vec4<f32>(value, 13.0));
         return;
     }
 

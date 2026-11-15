@@ -194,15 +194,21 @@ fn spatial_guide_renders_welcome_help_and_close_up_tour_controls() {
             "missing readable text"
         );
         if name == "tour_paused" {
-            // Keep the depth regression independently of the corrected overview distance.
-            // Move the camera close to Earth explicitly; normal tour framing stays wide.
+            // Desktop foreground controls must survive a nearby opaque object.
+            // Real orbital Earth is millions of meters away, so moving its
+            // center a fraction of that distance cannot occlude room-scale UI.
+            // Use a deliberate two-meter matte sphere for this depth fixture;
+            // the actual Earth scene above retains its physical dimensions.
             let mut close_scene = pkt.scene.clone();
-            for hero in &mut close_scene.heroes_surface {
-                hero.pos_radius[2] *= 0.35;
-            }
-            for hero in &mut close_scene.heroes_volume {
-                hero.pos_radius[2] *= 0.35;
-            }
+            let mut occluder = *close_scene.heroes_surface.iter()
+                .find(|hero| hero.kind_tags[0] == 0).expect("Earth surface template");
+            let center = cam.cam_forward * 2.2;
+            occluder.pos_radius = [center.x, center.y, center.z, 2.0 / 0.84];
+            occluder.kind_tags = [1, 12, 0, 3 << 24];
+            occluder.phys_a = [0.0; 4];
+            occluder.color_a = [0.85, 0.38, 0.22, 1.0];
+            close_scene.heroes_surface = vec![occluder];
+            close_scene.heroes_volume.clear();
             let close_pixels = renderer
                 .render_to_png(
                     &output.join("controls_close_up.png"),

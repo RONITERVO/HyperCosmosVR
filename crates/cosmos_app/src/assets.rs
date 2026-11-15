@@ -412,6 +412,7 @@ pub fn build_ambient_label_inputs(
     visible: &[VisibleEntity],
     u_cam: f64,
     active_experience_id: u8,
+    active_zone_index: u16,
     focused_entity_id: Option<u64>,
     locale: Locale,
 ) -> Vec<AmbientLabelInput> {
@@ -423,6 +424,15 @@ pub fn build_ambient_label_inputs(
             continue;
         }
         let is_active_exp = vis.experience_id == active_experience_id;
+        if active_experience_id == 3 && is_active_exp
+            && (active_zone_index <= 6 || active_zone_index == u16::MAX)
+            && matches!(vis.kind, EntityKind::ZoneShell | EntityKind::FeatureNode)
+        {
+            // These catalog nodes use schematic selector positions rather than
+            // positions of clouds, aurora, or terrain. Explicit narration and
+            // the spatial guide supply context without labeling arbitrary air.
+            continue;
+        }
         // Isolate 01 Colors / 02 Music strictly, and prevent sibling experience zone/landmark bleed
         // (e.g., 05 Milky Way "Vecindario estelar" hijacking 04 Solar System or 22 Exoplanets).
         if matches!(active_experience_id, 1 | 2) {
@@ -657,6 +667,76 @@ mod tests {
     }
 
     #[test]
+    fn catalog_earth_keeps_its_center_and_hides_schematic_selector_sprites() {
+        let assets = UniverseAssets::load().expect("workspace assets");
+        let mut builder = cosmos_render::UniverseSceneBuilder::new();
+        let camera = cosmos_render::RenderCamera::mono(glam::Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
+        let mut input = cosmos_render::SceneBuildInput::desktop_default(
+            ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::new(0.0, 0.0, 3.0), 6.6, DQuat::IDENTITY),
+            camera, 384, 384,
+        );
+        let query = assets.spatial.query_visible(&input.cam_pose, camera.eyes[0].view_proj, 0.001, None).unwrap();
+        let selectors: Vec<_> = query.visible.iter().filter(|entity| {
+            entity.experience_id == 3 && matches!(entity.kind, EntityKind::ZoneShell | EntityKind::FeatureNode)
+        }).collect();
+        assert!(!selectors.is_empty(), "the actual catalog must exercise selector filtering");
+        let mut earth_bounds = Vec::new();
+        for zone in [0, 2, 5, 6] {
+            input.documentary.active_zone_index = zone;
+            let scene = builder.build(&assets.spatial, &input);
+            earth_bounds.push(scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap().pos_radius);
+            for selector in &selectors {
+                assert!(!scene.sprites.iter().any(|sprite| {
+                    let selector_meters = selector.pose.pos * 10.0_f64.powf(input.cam_pose.scale_exp) as f32;
+                    Vec3::from_slice(&sprite.pos_size).distance(selector_meters) < 1.0
+                }), "catalog node {} must not become a false atmospheric particle", selector.id);
+            }
+        }
+        assert!(earth_bounds.windows(2).all(|pair| pair[0] == pair[1]),
+            "actual catalog zone changes must not relocate or resize Earth");
+    }
+
+    #[test]
+    fn exterior_earth_labels_keep_real_anchors_without_catalog_selector_clutter() {
+        let assets = UniverseAssets::load().expect("workspace assets");
+        let entities = [
+            assets.spatial.find_experience_anchor(3).unwrap(),
+            assets.spatial.find_zone_entity(3, 2).unwrap(),
+            assets.spatial.find_feature_entity(3, 2, 0).unwrap(),
+        ];
+        let visible: Vec<_> = entities.into_iter().map(|entity| VisibleEntity {
+            id: entity.id,
+            experience_id: entity.experience_id,
+            zone_index: entity.zone_index,
+            feature_index: entity.feature_index,
+            kind: entity.kind,
+            pose: CameraRelativePose {
+                pos: Vec3::new(0.0, 0.2, -3.0),
+                orient: glam::Quat::IDENTITY,
+                rel_scale: 0.2,
+                distance_render_units: 3.0,
+                angular_rad: 0.1,
+                is_far_shell: false,
+            },
+            lod: LodTier::Hero,
+            salience_score: 1.0,
+        }).collect();
+        for zone in [0, 2, 5, 6, u16::MAX] {
+            let labels = build_ambient_label_inputs(
+                &assets.catalog, &visible, 5.65, 3, zone, None, Locale::EnUs,
+            );
+            assert_eq!(labels.len(), 1,
+                "exterior Z{zone} keeps the Earth anchor, but no schematic zone/feature labels");
+        }
+        let interior = build_ambient_label_inputs(
+            &assets.catalog, &visible, 5.65, 3, 12, None, Locale::EnUs,
+        );
+        assert_eq!(interior.len(), 3, "interior layer annotation remains available");
+        assert!(assets.spatial.find_feature_entity(3, 2, 0).is_some(),
+            "hiding schematic labels must not remove indexed navigation targets");
+    }
+
+    #[test]
     fn ambient_labels_prevent_cross_experience_bleed() {
         let assets = UniverseAssets::load().expect("workspace assets");
         let vis_milk = VisibleEntity {
@@ -681,6 +761,7 @@ mod tests {
             &[vis_milk],
             12.8,
             4,
+            u16::MAX,
             None,
             Locale::EnUs,
         );

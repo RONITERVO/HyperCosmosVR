@@ -25,6 +25,8 @@ The spatial welcome offers **Start highlights**, **Explore freely**, and **How t
 
 While touring, controls show the chapter, stop count, and **Previous / Pause / Next / Explore** actions. In VR they form a room-anchored holographic instrument summoned through the wrist interaction, with volumetric nodes and curved lettering. They use real scene depth and stay fixed when the wearer turns or leans; there are no VR backplates or camera-following transport bars. Pause freezes the current camera spline, dwell timer, speech position, and SyncVoice captions. Resume continues that same clip and motion phase. Changing stops while paused stays paused and discards the old clip. Explore exits at the current pose; restarting from an exit bookmark begins that beat again. Completed tours offer Restart.
 
+Highlights ends its six-stop physical Earth chapter with an explicit `InstantBookmark` cut into the normalized Solar exhibit. The destination camera and narration target arrive together on the next playing update, with no interpolated scale or sector frames; pausing a seek defers the cut until Resume. The capture poses remain unchanged. This is a bounded authored boundary, not a claim that all legacy cross-sector journeys preserve physical observer units continuously. `InstantBookmark` ignores the authored travel duration and means an actual cut, including at zero elapsed time.
+
 `F1` or the wrist ring's `HELP` bead opens guidance. Opening help and losing desktop/VR focus pause an active tour; closing help or returning focus requires an explicit Resume. The guide is English/Finnish (`L` / wrist language beads). Desktop controls have contrast backplates and foreground rendering for close-ups. VR uses ordinary physical occlusion. Headless content-gallery captures omit interactive controls.
 
 ### CLI Flags
@@ -60,10 +62,12 @@ Open the Wrist Ring in VR (`palm-up gaze`) or Desktop (`Right-Hold` or `Tab`) to
 
 ## 3. Sentence-Paced Anti-Boredom Choreography
 
-To ensure the viewer is never left stationary during multi-sentence narration:
+Moving profiles use sentence-paced choreography:
 - Each beat enforces `max_sentences_per_vantage <= 2`.
 - While dwelling, the ghost rail continuously executes stereoscopic motion profiles (`OrbitalParallax`, `HelicalAscent`, `ScaleDiveCruise`, `FigureEightShowcase`).
 - When `advance_audio_sequencer` finishes translation pairs inside `UniverseRuntime`, `JourneyDirector::notify_translation_sentence_finished` smoothly launches a `1.25s` micro-`ScaleSpline` vantage shift around the subject every `1–2` sentences.
+
+An authored `StaticHold`, including the six Earth Highlights observations, preserves its camera pose and does not create sentence-triggered vantage shifts. Tracked head turns and movement remain free throughout the observation.
 
 ---
 

@@ -783,6 +783,14 @@ fn make_hero_bg(
                 binding: 4,
                 resource: wgpu::BindingResource::Sampler(&pipelines.blue_noise_repeat_samp),
             },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: wgpu::BindingResource::TextureView(&pipelines.earth_maps_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: wgpu::BindingResource::Sampler(&pipelines.earth_maps_samp),
+            },
         ],
     })
 }

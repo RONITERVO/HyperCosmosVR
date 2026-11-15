@@ -168,6 +168,10 @@ fn agx_tonemap_oled(hdr_rgb: vec3<f32>) -> vec3<f32> {
     val = clamp((log2(val) - vec3<f32>(min_ev)) / (max_ev - min_ev), vec3<f32>(0.0), vec3<f32>(1.0));
     val = clamp(agx_contrast_poly(val), vec3<f32>(0.0), vec3<f32>(1.0));
     val = max(agx_outset * val, vec3<f32>(0.0));
+    // AgX contrast/outset values are display-referred with a 2.2 EOTF.
+    // Return linear light here: the final pass applies sRGB exactly once.
+    // Omitting this conversion lifts midtones and washes out every material.
+    val = pow(val, vec3<f32>(2.2));
 
     // Smoothly blend ultra-dark linear nebula tail (<0.004) into AgX so sub-threshold nebulae never clip hard
     let agx_blend = smoothstep(0.0, 0.004, max_ch);

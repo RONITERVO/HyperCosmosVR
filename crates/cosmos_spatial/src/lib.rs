@@ -9,6 +9,7 @@ pub mod topology;
 pub use morton::{morton_for_local_pos, morton3_decode, morton3_encode};
 pub use octree::{EntityKind, LodTier, SparseOctree, SpatialEntity, TraversalStats};
 pub use scale_shell::{
+    documentary_anchor_radius_m,
     CosmosSpatialIndex, QueryResult, SHELL_ACTIVE_PAD_ABOVE, SHELL_ACTIVE_PAD_BELOW, ScaleShell,
     VisibleEntity,
 };
@@ -210,6 +211,45 @@ mod tests {
         assert!(q_large.stats.entities_tested < large.total_entities() / 4);
         assert!(q_small.visible.len() <= 256);
         assert!(q_large.visible.len() <= 256);
+    }
+
+    #[test]
+    fn documentary_navigation_frames_fixed_content_instead_of_selector_positions() {
+        let mut index = build_default_universe_index();
+        for exp_id in [1, 2, 13, 14, 16, 17, 22, 25] {
+            let anchor = index.find_experience_anchor(exp_id).unwrap().clone();
+            let radius = documentary_anchor_radius_m(&anchor);
+            let sector = index.tree.get(anchor.sector_id).unwrap();
+            let meters_per_sector = 10.0_f64.powf(sector.scale_exp);
+            let (overview, target) = index.navigation_pose_for_documentary_stage(exp_id, DVec3::Z, false).unwrap();
+            let (inspection, _) = index.navigation_pose_for_documentary_stage(exp_id, DVec3::Z, true).unwrap();
+            assert_eq!(target, anchor.local_pos);
+            assert_eq!(overview.scale_exp, anchor.scale_exp);
+            assert!(((overview.local_pos - target).length() * meters_per_sector / radius - 3.0).abs() < 1e-10);
+            assert!(((inspection.local_pos - target).length() * meters_per_sector / radius - 2.1).abs() < 1e-10);
+            let selector = SpatialEntity {
+                id: 990_000 + exp_id as u64, experience_id: exp_id, zone_index: 65000, feature_index: 7,
+                sector_id: anchor.sector_id, local_pos: anchor.local_pos + DVec3::new(40.0, -20.0, 15.0),
+                orient: DQuat::IDENTITY, radius_m: radius * 0.001, scale_exp: anchor.scale_exp - 2.0,
+                kind: EntityKind::FeatureNode, salience_weight: 1.0,
+            };
+            let (selected, selected_target) = index.navigation_pose_for_entity(&selector, DVec3::Z).unwrap();
+            assert_eq!(selected.local_pos, inspection.local_pos);
+            assert_eq!(selected_target, target);
+        }
+        let body = SpatialEntity {
+            id: 999_981, experience_id: 4, zone_index: 7, feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM, local_pos: DVec3::new(4.0, 2.0, -3.0),
+            orient: DQuat::IDENTITY, radius_m: 5.0e7, scale_exp: 8.0,
+            kind: EntityKind::CelestialBody, salience_weight: 1.0,
+        };
+        index.insert_entity(body.clone()).unwrap();
+        let selector = SpatialEntity { id: 999_982, kind: EntityKind::FeatureNode,
+            local_pos: DVec3::new(20.0, 0.0, 0.0), ..body.clone() };
+        let (pose, target) = index.navigation_pose_for_entity(&selector, DVec3::Z).unwrap();
+        let (body_pose, _) = index.navigation_pose_for_entity(&body, DVec3::Z).unwrap();
+        assert_eq!(target, body.local_pos);
+        assert_eq!(pose.local_pos, body_pose.local_pos);
     }
 
     #[test]

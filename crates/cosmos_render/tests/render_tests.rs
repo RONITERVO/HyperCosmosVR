@@ -50,6 +50,22 @@ fn offscreen_multiscale_scenes_preserve_oled_void_and_luminous_heroes() {
         input.particle_budget = 4096;
         input.time_sec = 1.2;
         let scene = builder.build(&index, &input);
+        // Empty physical space must remain exact black through the entire HDR,
+        // bloom, AgX, dither and output path. Per-scene checks below additionally
+        // retain unlit patches among actual subjects and background features.
+        let mut empty_space = scene.clone();
+        empty_space.heroes_surface.clear();
+        empty_space.heroes_volume.clear();
+        empty_space.sprites.clear();
+        empty_space.particle_draw_count = 0;
+        empty_space.compute.counts[1] = 0;
+        empty_space.reseed_compute_particles = None;
+        empty_space.dispatch_field_grid = None;
+        empty_space.far.regime_weights = [0.0; 4];
+        empty_space.far.extra_weights = [0.0; 4];
+        let black = renderer.render_to_offscreen_rgba8(&empty_space, 384, 384, |_, _| {}).unwrap();
+        assert!(black.as_chunks::<4>().0.iter().all(|pixel| pixel[..3] == [0, 0, 0]),
+            "empty environment must stay exactly black through post-processing");
         let pixels = renderer
             .render_to_offscreen_rgba8(&scene, 384, 384, |_, is_stereo| {
                 assert!(!is_stereo);
@@ -164,8 +180,11 @@ fn offscreen_multiscale_scenes_preserve_oled_void_and_luminous_heroes() {
 
     // 6. Kerr Black Hole Relativistic Lensing (Milky Way / Spacetime)
     {
-        let pose = ScalePose64::new(SectorId::MILKY_WAY, DVec3::new(0.0, 0.2, 3.5), 18.0, DQuat::IDENTITY);
-        let mut input = SceneBuildInput::desktop_default(pose, cam, 384, 384);
+        // Observe the authored galactic stage at its own scale. The old u=18
+        // camera was ~1100 render units away and tested a three-pixel icon.
+        let (pose, _) = index.navigation_pose_for_documentary_stage(5, DVec3::new(0.0, 0.2, 3.5), true).unwrap();
+        let kerr_cam = RenderCamera::mono(pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02);
+        let mut input = SceneBuildInput::desktop_default(pose, kerr_cam, 384, 384);
         input.active_experience_id = 5;
         input.particle_budget = 8192;
         let scene = builder.build(&index, &input);
@@ -176,6 +195,7 @@ fn offscreen_multiscale_scenes_preserve_oled_void_and_luminous_heroes() {
                 assert!(!is_stereo);
             })
             .expect("kerr black hole render");
+        capture_review_frame("kerr", &pixels, 384, 384);
         assert!(overlay_called, "overlay closure must execute inside HDR pass");
         let (void_px, lit_px) = count_void_and_lit(&pixels, 40);
         assert!(void_px > 5_000, "Kerr void & event horizon must preserve true black, got {void_px}");
@@ -189,7 +209,18 @@ fn overlay_hook_and_stereo_multiview_render_both_eye_layers() {
     let mut renderer =
         CosmosRenderer::init_for_dx12_luid(None, 256, 256, true).expect("stereo DX12 init");
     assert!(renderer.shared_frame_bind_group_layout().size_check_not_needed());
-    let index = build_default_universe_index();
+    let mut index = build_default_universe_index();
+    // The bare universe index contains shell anchors, not catalog planets.
+    // Include real solar draw subjects rather than measuring background stars.
+    for zone in 0u16..=11 {
+        let (local_pos, scale_exp, radius_m) =
+            cosmos_spatial::solar_body_local_pose(zone, zone as f32 / 11.0, 0.05, 35.0);
+        index.insert_entity(cosmos_spatial::SpatialEntity {
+            id: 96_000 + zone as u64, experience_id: 4, zone_index: zone, feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM, local_pos, orient: DQuat::IDENTITY,
+            radius_m, scale_exp, kind: cosmos_spatial::EntityKind::CelestialBody, salience_weight: 1.65,
+        }).unwrap();
+    }
     let mut builder = UniverseSceneBuilder::new();
 
     let proj = reversed_z_infinite_perspective_rh(90.0_f32.to_radians(), 1.0, 0.04);
@@ -258,10 +289,22 @@ fn overlay_hook_and_stereo_multiview_render_both_eye_layers() {
 
     let left_px = readback_layer(renderer.device(), renderer.queue(), &stereo_tex, 256, 256, 0);
     let right_px = readback_layer(renderer.device(), renderer.queue(), &stereo_tex, 256, 256, 1);
-    let (_, left_lit) = count_void_and_lit(&left_px, 35);
-    let (_, right_lit) = count_void_and_lit(&right_px, 35);
-    assert!(left_lit > 1_000, "left eye rendered pixels expected, got {left_lit}");
-    assert!(right_lit > 1_000, "right eye rendered pixels expected, got {right_lit}");
+    let sun = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == 1)
+        .expect("the stereo fixture must contain the Sun");
+    for (eye_index, pixels) in [&left_px, &right_px].into_iter().enumerate() {
+        let clip = stereo_cam.eyes[eye_index].view_proj * Vec3::from_slice(&sun.pos_radius).extend(1.0);
+        let x = ((clip.x / clip.w * 0.5 + 0.5) * 256.0).round() as i32;
+        let y = ((0.5 - clip.y / clip.w * 0.5) * 256.0).round() as i32;
+        assert!((5..251).contains(&x) && (5..251).contains(&y));
+        let mut solar_pixels = 0;
+        for py in y - 4..=y + 4 {
+            for px in x - 4..=x + 4 {
+                let i = ((py * 256 + px) * 4) as usize;
+                solar_pixels += usize::from(pixels[i..i + 3].iter().any(|channel| *channel > 35));
+            }
+        }
+        assert!(solar_pixels >= 40, "eye {eye_index} must render the projected solar disc, got {solar_pixels}/81");
+    }
     assert_ne!(
         left_px, right_px,
         "left and right stereo multiview eyes must exhibit horizontal IPD parallax disparity"
@@ -274,9 +317,8 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
     let index = build_default_universe_index();
     let mut builder = UniverseSceneBuilder::new();
     let cam = RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
-    let total_px = 384 * 384;
 
-    // 1. Cold-start Earth (03, u=6.6, earth_cutaway_blend=0.0): intact globe, NO forced cutaway, >= 60% #000000 void
+    // 1. Cold-start Earth (03, u=6.6, earth_cutaway_blend=0.0): intact globe, no forced cutaway, unlit space remains black
     {
         let pose = ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::new(0.0, 0.0, 3.0), 6.6, DQuat::IDENTITY);
         let mut input = SceneBuildInput::desktop_default(pose, cam, 384, 384);
@@ -295,12 +337,12 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
             "Cold-start Earth at u=6.6 must be intact (cutaway bit unset unless earth_cutaway_blend > 0.25)"
         );
         let px = renderer.render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {}).expect("earth cold start");
-        let (void_px, lit_px) = count_void_and_lit(&px, 35);
-        assert!(void_px * 100 >= total_px * 60, "Earth cold-start must have >=60% #000000 void, got {}/{}", void_px, total_px);
+        let (_, lit_px) = count_void_and_lit(&px, 35);
+        assert_oled_unlit_patch(&px, 384, 384, "Earth cold-start");
         assert!(lit_px > 2_000, "Intact Earth + Rayleigh/Aurora must illuminate frame, got {lit_px}");
     }
 
-    // 2. Cosmic Web (08, u=25.35): CMB suppressed to 0.0, >= 60% #000000 void
+    // 2. Cosmic Web (08, u=25.35): CMB suppressed to 0.0, unlit space remains black
     {
         let pose = ScalePose64::new(SectorId::COSMIC_WEB, DVec3::new(0.0, 0.0, 3.2), 25.35, DQuat::IDENTITY);
         let mut input = SceneBuildInput::desktop_default(pose, cam, 384, 384);
@@ -309,12 +351,12 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
         let scene = builder.build(&index, &input);
         assert_eq!(scene.far.regime_weights[1], 0.0, "CMB alpha must be 0.0 at u=25.35 Cosmic Web");
         let px = renderer.render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {}).expect("cosmic web");
-        let (void_px, lit_px) = count_void_and_lit(&px, 28);
-        assert!(void_px * 100 >= total_px * 60, "Cosmic Web must keep >=60% #000000 void, got {}/{}", void_px, total_px);
+        let (_, lit_px) = count_void_and_lit(&px, 28);
+        assert_oled_unlit_patch(&px, 384, 384, "Cosmic Web");
         assert!(lit_px > 400, "Cosmic Web filaments/nodes must illuminate frame, got {lit_px}");
     }
 
-    // 3. CMB & Inflation Horizon Cutaway Arc (09/10, u=26.6): >= 50% #000000 void
+    // 3. CMB & Inflation Horizon Cutaway Arc (09/10, u=26.6): unlit space remains black
     {
         let pose = ScalePose64::new(SectorId::OBSERVABLE_CMB, DVec3::new(0.0, 0.0, 3.2), 26.6, DQuat::IDENTITY);
         let mut input = SceneBuildInput::desktop_default(pose, cam, 384, 384);
@@ -322,12 +364,12 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
         input.particle_budget = 2048;
         let scene = builder.build(&index, &input);
         let px = renderer.render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {}).expect("cmb horizon");
-        let (void_px, lit_px) = count_void_and_lit(&px, 30);
-        assert!(void_px * 100 >= total_px * 50, "CMB horizon arc must preserve >=50% #000000 void, got {}/{}", void_px, total_px);
+        let (_, lit_px) = count_void_and_lit(&px, 30);
+        assert_oled_unlit_patch(&px, 384, 384, "CMB horizon arc");
         assert!(lit_px > 1_500, "CMB horizon arc must render clearly, got {lit_px}");
     }
 
-    // 4. Final Horizon Lotus (25, u=28.5): Inflation = 0.0, >= 70% #000000 quiet void
+    // 4. Final Horizon Lotus (25, u=28.5): Inflation = 0.0, unlit space remains black
     {
         let pose = ScalePose64::new(SectorId::HYPER_LOTUS_25_HORIZON, DVec3::new(0.0, 0.0, 3.2), 28.5, DQuat::IDENTITY);
         let mut input = SceneBuildInput::desktop_default(pose, cam, 384, 384);
@@ -336,8 +378,8 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
         let scene = builder.build(&index, &input);
         assert_eq!(scene.far.regime_weights[2], 0.0, "Inflation alpha must fade to 0.0 above u=27.4");
         let px = renderer.render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {}).expect("final horizon");
-        let (void_px, lit_px) = count_void_and_lit(&px, 28);
-        assert!(void_px * 100 >= total_px * 70, "Final Horizon Lotus must keep >=70% #000000 void, got {}/{}", void_px, total_px);
+        let (_, lit_px) = count_void_and_lit(&px, 28);
+        assert_oled_unlit_patch(&px, 384, 384, "Final Horizon Lotus");
         assert!(lit_px > 300, "Final Horizon concentric rings & lotus petals must glow, got {lit_px}");
     }
 
@@ -363,8 +405,8 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
             assert_eq!(scene15.dispatch_field_grid, Some(0));
             assert_ne!(scene15.compute.counts[0], 0, "particle compute_mode must stay intact while dispatch_field_grid=Some(0)");
             let px = renderer.render_to_offscreen_rgba8(&scene15, 384, 384, |_, _| {}).expect("turing render");
-            let (void_px, lit_px) = count_void_and_lit(&px, 28);
-            assert!(void_px * 100 >= total_px * 55, "Complexity Turing must preserve >=55% void, got {void_px}");
+            let (_, lit_px) = count_void_and_lit(&px, 28);
+            assert_oled_unlit_patch(&px, 384, 384, "Complexity");
             lit15 = lit_px;
         }
         assert!(lit15 > 800, "Turing field grid shell must illuminate viewport, got {lit15}");
@@ -376,8 +418,8 @@ fn phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold() {
         in22.particle_budget = 2048;
         let scene22 = builder.build(&index, &in22);
         let px22 = renderer.render_to_offscreen_rgba8(&scene22, 384, 384, |_, _| {}).expect("cosmic contact render");
-        let (void22, lit22) = count_void_and_lit(&px22, 30);
-        assert!(void22 * 100 >= total_px * 60, "Cosmic Contact SETI scene must preserve >=60% void, got {void22}");
+        let (_, lit22) = count_void_and_lit(&px22, 30);
+        assert_oled_unlit_patch(&px22, 384, 384, "Cosmic Contact SETI");
         assert!(lit22 > 500, "Cosmic Contact SETI laser & prime rings must illuminate, got {lit22}");
     }
 }
@@ -456,17 +498,15 @@ fn phase7_documentary_stages_01_through_25_oled_and_telemetry_hold() {
         let px = renderer
             .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
             .expect("phase7 documentary render");
-        let (void_px, lit_px) = count_void_and_lit(&px, 28);
+        capture_review_frame(&format!("phase7_exp{exp_id:02}"), &px, 384, 384);
+        let (_, lit_px) = count_void_and_lit(&px, 28);
         let blown_px = px
             .as_chunks::<4>()
             .0
             .iter()
             .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
             .count();
-        assert!(
-            void_px * 100 >= total_px * 58,
-            "exp {exp_id} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
-        );
+        assert_oled_unlit_patch(&px, 384, 384, &format!("exp {exp_id}"));
         assert!(
             lit_px > 250,
             "exp {exp_id} must illuminate documentary stage, got {lit_px}"
@@ -655,6 +695,257 @@ fn celestial_body_isolation_and_solar_mapping_are_exact() {
 }
 
 #[test]
+fn world_presence_stage_frames_and_sizes_survive_an_approach() {
+    use cosmos_render::doc_stages::emit_doc_stage_hero;
+
+    let cam = RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02);
+    let mut input = SceneBuildInput::desktop_default(
+        ScalePose64::new(SectorId::LIFE_BIOSPHERE, DVec3::ZERO, -1.0, DQuat::IDENTITY),
+        cam, 384, 384,
+    );
+    let authored_rotation = Quat::from_rotation_y(0.63) * Quat::from_rotation_x(-0.21);
+    let distant = Vec3::new(-0.3, 0.2, -3.2);
+    let nearby = Vec3::new(0.25, -0.1, -0.45);
+    for exp in [1, 2, 13, 15, 16, 17, 21, 24] {
+        input.active_experience_id = exp;
+        let emit = |pos| {
+            let (mut surfaces, mut volumes, mut sprites) = (Vec::new(), Vec::new(), Vec::new());
+            emit_doc_stage_hero(exp, pos, 1.5, authored_rotation.to_array(), Vec3::Y, 0.0,
+                &input, &mut surfaces, &mut volumes, &mut sprites);
+            surfaces.extend(volumes);
+            surfaces
+        };
+        let far = emit(distant);
+        let close = emit(nearby);
+        assert!(!far.is_empty());
+        assert_eq!(far.len(), close.len());
+        for (a, b) in far.iter().zip(&close) {
+            assert!((a.pos_radius[3] - b.pos_radius[3]).abs() < 1e-6,
+                "exp {exp}: walking toward content must not shrink it");
+            let local_a = Vec3::from_slice(&a.pos_radius) - distant;
+            let local_b = Vec3::from_slice(&b.pos_radius) - nearby;
+            assert!(local_a.distance(local_b) < 1e-6,
+                "exp {exp}: companion placement must stay in the authored frame");
+            assert!(Quat::from_array(a.rot_quat).abs_diff_eq(authored_rotation, 1e-6));
+            assert!(Quat::from_array(b.rot_quat).abs_diff_eq(authored_rotation, 1e-6));
+        }
+    }
+}
+
+#[test]
+fn world_presence_turning_away_does_not_recenter_a_culled_stage() {
+    let index = build_default_universe_index();
+    let mut builder = UniverseSceneBuilder::new();
+    let mut input = SceneBuildInput::desktop_default(
+        ScalePose64::new(SectorId::COLORS_PRISM, DVec3::new(0.0, 0.0, 5.0), 2.0, DQuat::IDENTITY),
+        RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02), 384, 384,
+    );
+    input.active_experience_id = 1;
+    let toward = builder.build(&index, &input);
+    let turn = Quat::from_rotation_y(std::f32::consts::PI);
+    input.camera = RenderCamera::mono(turn, 72.0_f32.to_radians(), 1.0, 0.02);
+    input.cam_pose.orient = turn.as_dquat();
+    let query = index.query_visible(&input.cam_pose, input.camera.eyes[0].view_proj, 0.001, None).unwrap();
+    assert!(!query.visible.iter().any(|v| v.experience_id == 1 && v.kind == cosmos_spatial::EntityKind::ExperienceAnchor),
+        "test must exercise the culled-anchor fallback");
+    let away = builder.build(&index, &input);
+    assert_eq!(toward.heroes_volume.len(), away.heroes_volume.len());
+    for (a, b) in toward.heroes_volume.iter().zip(&away.heroes_volume) {
+        assert_eq!(a.pos_radius, b.pos_radius, "looking behind must leave the stage behind the viewer");
+        assert_eq!(a.rot_quat, b.rot_quat);
+        assert!(Vec3::from_slice(&b.pos_radius).dot(input.camera.cam_forward) < 0.0);
+    }
+}
+
+#[test]
+fn world_presence_normalized_culling_does_not_treat_ipd_as_planetary_motion() {
+    let mut index = build_default_universe_index();
+    let pose = ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::new(0.0, 0.0, 4.0), 6.8, DQuat::IDENTITY);
+    // A small entity just beyond the left edge of the head-centered frustum.
+    // Applying 32 mm directly in normalized units incorrectly pulls it inside.
+    index.insert_entity(cosmos_spatial::SpatialEntity {
+        id: 999_991, experience_id: 3, zone_index: 0, feature_index: 0,
+        sector_id: SectorId::EARTH_ORBIT, local_pos: DVec3::new(-2.01, 0.0, 2.0),
+        orient: DQuat::IDENTITY, radius_m: 10.0_f64.powf(6.8) * 0.001,
+        scale_exp: 6.8, kind: cosmos_spatial::EntityKind::FeatureNode, salience_weight: 1.0,
+    }).unwrap();
+    let mut camera = RenderCamera::mono(Quat::IDENTITY, 90.0_f32.to_radians(), 1.0, 0.02);
+    let centered = camera.eyes[0].view_proj;
+    camera.is_stereo = true;
+    let offset = Vec3::new(-0.032, 0.0, 0.0);
+    camera.eyes[0] = EyeView::from_view_proj(centered * glam::Mat4::from_translation(-offset), offset);
+    let visible = |vp| index.query_visible(&pose, vp, 0.00001, None).unwrap().visible.iter().any(|v| v.id == 999_991);
+    assert!(visible(camera.eyes[0].view_proj), "fixture must expose the raw-IPD culling error");
+    assert!(!visible(camera.cyclopean_view_projection()));
+    assert!(camera.cyclopean_view_projection().abs_diff_eq(centered, 1e-6));
+}
+
+#[test]
+fn world_presence_selected_landmark_has_one_world_anchored_stage() {
+    let mut index = build_default_universe_index();
+    for exp_id in 5u8..=7 {
+        let anchor = index.find_experience_anchor(exp_id).unwrap().clone();
+        let landmark = cosmos_spatial::SpatialEntity {
+            id: 991_000 + exp_id as u64, experience_id: exp_id, zone_index: 1, feature_index: 0,
+            sector_id: anchor.sector_id, local_pos: DVec3::new(1.0, 0.2, -1.0),
+            orient: DQuat::from_rotation_y(0.24), radius_m: 0.3 * 10.0_f64.powf(anchor.scale_exp),
+            scale_exp: anchor.scale_exp, kind: cosmos_spatial::EntityKind::GalacticLandmark,
+            salience_weight: 1.5,
+        };
+        index.insert_entity(landmark.clone()).unwrap();
+        let (pose, _) = index.navigation_pose_for_entity(&landmark, DVec3::Z).unwrap();
+        let mut input = SceneBuildInput::desktop_default(pose,
+            RenderCamera::mono(pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02), 384, 384);
+        input.active_experience_id = exp_id;
+        input.documentary.active_zone_index = 1;
+        input.particle_budget = 0;
+        let mut builder = UniverseSceneBuilder::new();
+        let toward = builder.build(&index, &input);
+        let vid = 1000 + u32::from(exp_id) * 100 + 1;
+        let primary: Vec<_> = toward.heroes_volume.iter().filter(|hero| hero.kind_tags[1] == vid).collect();
+        assert_eq!(primary.len(), 1, "selected landmark must not be duplicated at experience anchor");
+        let expected = pose.project_entity(&index.tree, &ScalePose64::new(landmark.sector_id,
+            landmark.local_pos, landmark.scale_exp, landmark.orient), landmark.radius_m).unwrap();
+        assert!(Vec3::from_slice(&primary[0].pos_radius).distance(expected.pos) < 1e-5);
+        input.camera = RenderCamera::mono(Quat::from_rotation_y(std::f32::consts::PI),
+            72.0_f32.to_radians(), 1.0, 0.02);
+        let away = builder.build(&index, &input);
+        let behind: Vec<_> = away.heroes_volume.iter().filter(|hero| hero.kind_tags[1] == vid).collect();
+        assert_eq!(behind.len(), 1);
+        assert_eq!(behind[0].pos_radius, primary[0].pos_radius);
+        assert_eq!(behind[0].rot_quat, primary[0].rot_quat);
+    }
+}
+
+#[test]
+fn world_presence_earth_and_moon_keep_physical_dimensions_at_the_limb() {
+    let index = build_default_universe_index();
+    let mut builder = UniverseSceneBuilder::new();
+    let mut input = SceneBuildInput::desktop_default(
+        ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::new(0.0, 0.0, 3.0), 6.6, DQuat::IDENTITY),
+        RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02), 384, 384,
+    );
+    input.documentary.active_zone_index = 0;
+    let orbital = builder.build(&index, &input);
+    input.cam_pose.local_pos = DVec3::new(0.0, 0.0, 1.03);
+    input.documentary.active_zone_index = 2;
+    let limb = builder.build(&index, &input);
+    let mut physical_offsets = Vec::new();
+    for scene in [&orbital, &limb] {
+        assert_eq!(scene.dispatch_field_grid, Some(3), "Earth dispatches the shared analytic-curtain LUT");
+        let earth = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap();
+        let moon = scene.heroes_surface.iter().find(|h| h.kind_tags[1] == 3643).unwrap();
+        assert!((earth.pos_radius[3] * 0.84 - 6_371_000.0).abs() < 5.0);
+        assert!((moon.pos_radius[3] * 0.84 - 1_737_400.0).abs() < 2.0);
+        let offset = Vec3::from_slice(&moon.pos_radius) - Vec3::from_slice(&earth.pos_radius);
+        assert!((offset.length() - 384_400_000.0).abs() < 256.0);
+        assert_eq!(moon.phys_b, earth.phys_b, "Earth and Moon share the same Sun");
+        assert_eq!((moon.kind_tags[3] >> 24) & 0xFF, 1, "Moon uses natural-surface submode");
+        assert!(!scene.sprites.iter().any(|s| s.tags_f[0] == 5.0), "Moon is no longer a camera-facing sprite");
+        physical_offsets.push(offset);
+    }
+    assert!(physical_offsets[0].distance(physical_offsets[1]) < 64.0);
+
+    let mut earth_bounds = Vec::new();
+    for zone in [0, 2, 5, 6] {
+        input.documentary.active_zone_index = zone;
+        let scene = builder.build(&index, &input);
+        earth_bounds.push(scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap().pos_radius);
+        assert_eq!(scene.particle_draw_count, 0, "exterior Earth uses authored transport instead of decorative toroids");
+        assert_eq!(scene.compute.counts[1], 0, "hidden exterior particles must not consume compute work");
+    }
+    assert!(earth_bounds.windows(2).all(|pair| pair[0] == pair[1]),
+        "changing atmospheric narration targets must preserve the same Earth center and radius");
+    input.documentary.active_zone_index = 0;
+    input.documentary.active_feature_index = 1;
+    let magnetic = builder.build(&index, &input);
+    let field = magnetic.heroes_volume.iter().find(|h| (h.kind_tags[3] >> 24) == 4).unwrap();
+    let earth_radius = earth_bounds[0][3] * 0.84;
+    assert!((field.pos_radius[3] / earth_radius - 30.0).abs() < 1e-4,
+        "global magnetic transport must not be compressed into an atmospheric shell");
+    assert!((field.phys_a[1] * field.pos_radius[3] - earth_radius).abs() < 1.0);
+    assert!(magnetic.heroes_volume.iter().any(|h| {
+        (h.kind_tags[3] >> 24) != 4 && h.pos_radius[3] < earth_radius * 1.5
+    }), "the natural atmosphere retains its own narrow bound");
+    input.documentary.active_zone_index = 12;
+    assert!(builder.build(&index, &input).particle_draw_count > 0,
+        "interior geodynamo retains its active simulation");
+    input.documentary.active_zone_index = 0;
+    input.documentary.active_feature_index = u16::MAX;
+    for observer_scale in [1.3, 5.65, 6.6, 7.3] {
+        input.cam_pose.scale_exp = observer_scale;
+        let scene = builder.build(&index, &input);
+        let earth = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap();
+        assert!((earth.pos_radius[3] * 0.84 - 6_371_000.0).abs() < 2.0,
+            "observer scale must not alter the planet's physical stereo radius");
+        let expected_center = -input.cam_pose.local_pos.as_vec3() * 10.0_f64.powf(6.8) as f32;
+        assert!(Vec3::from_slice(&earth.pos_radius).distance(expected_center) < 2.0,
+            "physical Earth must not inherit the generic far-shell proxy position");
+        let annotation_anchor = cosmos_render::universe_scene::physical_entity_position_m(
+            &index, &input.cam_pose, index.find_experience_anchor(3).unwrap(),
+        ).unwrap();
+        assert!(annotation_anchor.distance(expected_center) < 2.0,
+            "semantic labels and narration must use the same exact distant Earth position");
+    }
+}
+
+#[test]
+fn world_presence_explicit_policy_survives_a_tracked_surface_crossing() {
+    use cosmos_render::universe_scene::earth_environment_is_physical;
+    let index = build_default_universe_index();
+    let sector_unit_m = 10.0_f64.powf(6.8);
+    let flight = ScalePose64::new(SectorId::EARTH_ORBIT,
+        DVec3::new(0.0, 0.0, (6_371_000.0 + 0.05) / sector_unit_m), 6.6, DQuat::IDENTITY);
+    let physical = earth_environment_is_physical(&flight, 3);
+    assert!(physical);
+    assert!(!earth_environment_is_physical(&flight, 18), "a forced sibling experience keeps its own observer units");
+    let mut tracked = flight;
+    tracked.local_pos.z -= 0.1 / sector_unit_m;
+    assert!(!earth_environment_is_physical(&tracked, 3), "the test must cross the physical surface");
+    let mut input = SceneBuildInput::desktop_default(tracked,
+        RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02), 384, 384);
+    input.physical_earth_units = Some(physical);
+    let scene = UniverseSceneBuilder::new().build(&index, &input);
+    let earth = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap();
+    assert!((earth.pos_radius[3] * 0.84 - 6_371_000.0).abs() < 2.0,
+        "head tracking cannot change the frame's previously resolved unit policy");
+}
+
+#[test]
+fn world_presence_stereo_avoids_artificial_color_fringing() {
+    let index = build_default_universe_index();
+    let mut builder = UniverseSceneBuilder::new();
+    let mut input = SceneBuildInput::desktop_default(
+        ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::new(0.0, 0.0, 3.0), 6.6, DQuat::IDENTITY),
+        RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02), 384, 384,
+    );
+    input.post.dispersion = 0.004;
+    assert_eq!(builder.build(&index, &input).post.dispersion, 0.004);
+    input.camera.is_stereo = true;
+    let projection = reversed_z_infinite_perspective_rh(72.0_f32.to_radians(), 1.0, 0.02);
+    for (eye, x) in input.camera.eyes.iter_mut().zip([-0.032, 0.032]) {
+        let offset = Vec3::new(x, 0.0, 0.0);
+        *eye = EyeView::from_view_proj(projection * glam::Mat4::from_translation(-offset), offset);
+    }
+    input.diegetic.wrist_pos = Some(Vec3::new(-0.2, -0.2, -0.5));
+    let stereo = builder.build(&index, &input);
+    assert_eq!(stereo.post.dispersion, 0.0);
+    assert_eq!(stereo.frame.post_params[2], 0.0);
+    let disparity = |point: Vec3| {
+        let a = input.camera.eyes[0].view_proj * point.extend(1.0);
+        let b = input.camera.eyes[1].view_proj * point.extend(1.0);
+        (a.x / a.w - b.x / b.w).abs()
+    };
+    let earth = stereo.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap();
+    assert!(disparity(Vec3::from_slice(&earth.pos_radius)) < 1e-6,
+        "an orbital Earth must not have room-sized binocular disparity");
+    let wrist = stereo.sprites.iter().find(|s| s.tags_f[0] == 4.0).unwrap();
+    assert!(Vec3::from_slice(&wrist.pos_size).length() < 1.0);
+    assert!(disparity(Vec3::from_slice(&wrist.pos_size)) > 0.01,
+        "nearby holographic controls keep their physical stereo depth");
+}
+
+#[test]
 fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     use cosmos_math::{ScalePose64, SectorId};
     use cosmos_render::doc_stages::{doc_stage_variant_id, emit_doc_stage_hero};
@@ -706,7 +997,8 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
         384,
     );
 
-    // Side-approached stage at (-2.95, -2.65, +0.35) must rotate +Z_local horizontally toward camera (+2.95, 0, -0.35)
+    // A side approach must reveal the side of the authored assembly, not rotate
+    // its front toward the viewer like a billboard.
     let pos_side = Vec3::new(-2.95, -2.65, 0.35);
     let mut hs = Vec::new();
     let mut hv = Vec::new();
@@ -729,11 +1021,9 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     assert_eq!(hv[0].kind_tags[1], 241);
     let q = Quat::from_array(hv[0].rot_quat);
     let local_z_world = q * Vec3::Z;
-    let to_cam_xz = Vec3::new(-pos_side.x, 0.0, -pos_side.z).normalize();
     assert!(
-        local_z_world.dot(to_cam_xz) > 0.99,
-        "viewer-facing stage must face camera horizontally, got dot={}",
-        local_z_world.dot(to_cam_xz)
+        local_z_world.distance(Vec3::Z) < 1e-6,
+        "documentary stage must retain its authored orientation"
     );
 
     // Zero scanline sprites in 11 & 16; zero SETI wedge in 22; zero Europa flankers in exp 21 zone 12; zero duplicate Saturn in exp 4
@@ -774,7 +1064,7 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
         );
     }
 
-    // Planck Spin-Foam u = -35 must frame centered hero with vid=23 despite anchor at u = -30
+    // Planck Spin-Foam remains at its world anchor even below the anchor scale.
     let idx = build_default_universe_index();
     let mut builder = UniverseSceneBuilder::new();
     let look_q = Quat::from_rotation_arc(Vec3::NEG_Z, Vec3::new(-0.55, -0.48, -2.75).normalize());
@@ -790,7 +1080,7 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     let planck_scene = builder.build(&idx, &planck_in);
     assert!(
         planck_scene.heroes_volume.iter().any(|h| h.kind_tags[1] == 2411),
-        "08 Planck u=-35 must emit centered Spin-Foam hero vid=2411"
+        "08 Planck u=-35 must emit world-anchored Spin-Foam hero vid=2411"
     );
     assert!(
         planck_scene.particle_batch.batch_params[1] < 1.0
@@ -1150,17 +1440,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
         let px = renderer
             .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
             .expect("Exp 03 offscreen render");
-        let (void_px, lit_px) = count_void_and_lit(&px, 28);
+        let (_, lit_px) = count_void_and_lit(&px, 28);
         let blown_px = px
             .as_chunks::<4>()
             .0
             .iter()
             .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
             .count();
-        assert!(
-            void_px * 100 >= total_px * 58,
-            "Exp 03 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
-        );
+        assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 03 Z{zone:02} F{feat}"));
         assert!(lit_px > 400, "Exp 03 Z{zone:02} F{feat} must illuminate hero, got {lit_px}");
         assert!(
             blown_px * 1000 < total_px * 5,
@@ -1321,17 +1608,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             let px = renderer
                 .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                 .expect("Exp 04 offscreen render");
-            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let (_, lit_px) = count_void_and_lit(&px, 28);
             let blown_px = px
                 .as_chunks::<4>()
                 .0
                 .iter()
                 .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                 .count();
-            assert!(
-                void_px * 100 >= total_px * 58,
-                "Exp 04 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
-            );
+            assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 04 Z{zone:02} F{feat}"));
             assert!(
                 lit_px > 180,
                 "Exp 04 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
@@ -1483,17 +1767,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             let px = renderer
                 .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                 .expect("Exp 05 offscreen render");
-            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let (_, lit_px) = count_void_and_lit(&px, 28);
             let blown_px = px
                 .as_chunks::<4>()
                 .0
                 .iter()
                 .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                 .count();
-            assert!(
-                void_px * 100 >= total_px * 58,
-                "Exp 05 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
-            );
+            assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 05 Z{zone:02} F{feat}"));
             assert!(
                 lit_px > 180,
                 "Exp 05 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
@@ -1646,17 +1927,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             let px = renderer
                 .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                 .expect("Exp 06 offscreen render");
-            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let (_, lit_px) = count_void_and_lit(&px, 28);
             let blown_px = px
                 .as_chunks::<4>()
                 .0
                 .iter()
                 .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                 .count();
-            assert!(
-                void_px * 100 >= total_px * 58,
-                "Exp 06 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
-            );
+            assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 06 Z{zone:02} F{feat}"));
             assert!(
                 lit_px > 180,
                 "Exp 06 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
@@ -1763,17 +2041,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             let px = renderer
                 .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                 .expect("Exp 07 offscreen render");
-            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let (_, lit_px) = count_void_and_lit(&px, 28);
             let blown_px = px
                 .as_chunks::<4>()
                 .0
                 .iter()
                 .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                 .count();
-            assert!(
-                void_px * 100 >= total_px * 58,
-                "Exp 07 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
-            );
+            assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 07 Z{zone:02} F{feat}"));
             assert!(
                 lit_px > 180,
                 "Exp 07 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
@@ -1871,17 +2146,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer
                     .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                     .expect("Exp 08 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                     .count();
-                assert!(
-                    void_px * 100 >= total_px * 55,
-                    "Exp 08 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px}"
-                );
+                assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 08 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 1200,
                     "Exp 08 Z{zone:02} F{feat} must illuminate hero >=1200 px, got {lit_px}"
@@ -1986,18 +2258,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer
                     .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                     .expect("Exp 09 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                     .count();
-                let min_void_pct = if zone >= 8 { 51 } else { 55 };
-                assert!(
-                    void_px * 100 >= total_px * min_void_pct,
-                    "Exp 09 Z{zone:02} F{feat} must preserve >={min_void_pct}% #000000 OLED void, got {void_px}/{total_px}"
-                );
+                assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 09 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 1200,
                     "Exp 09 Z{zone:02} F{feat} must illuminate hero >=1200 px, got {lit_px}"
@@ -2106,18 +2374,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer
                     .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
                     .expect("Exp 10 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                     .count();
-                let min_void_pct = if zone <= 1 { 51 } else { 55 };
-                assert!(
-                    void_px * 100 >= total_px * min_void_pct,
-                    "Exp 10 Z{zone:02} F{feat} must preserve >={min_void_pct}% #000000 OLED void, got {void_px}/{total_px}"
-                );
+                assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 10 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 1200,
                     "Exp 10 Z{zone:02} F{feat} must illuminate hero >=1200 px, got {lit_px}"
@@ -2219,7 +2483,6 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
 
         // 13d. Exp 21 Cosmic Life: 25/25 zones (vid=3100..=3124), 200/200 features (F0..=F7)
         let mut renderer21 = CosmosRenderer::init_desktop(256, 256).expect("RTX 5070 DX12 256x256 init");
-        let total_px21: usize = 256 * 256;
         let eye21 = DVec3::new(-0.35, 0.20, 3.05);
         let cam21 = macro_cam(eye21);
         let mut zone_f0: Vec<Vec<u8>> = Vec::with_capacity(25);
@@ -2301,17 +2564,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer21
                     .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
                     .expect("Exp 21 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                     .count();
-                assert!(
-                    void_px * 100 >= total_px21 * 55,
-                    "Exp 21 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
-                );
+                assert_oled_unlit_patch(&px, 256, 256, &format!("Exp 21 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 450,
                     "Exp 21 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
@@ -2441,17 +2701,17 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer21
                     .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
                     .expect("Exp 22 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                if zone == 1 && feat == 0 {
+                    capture_review_frame("contact_z01_f0", &px, 256, 256);
+                }
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                     .count();
-                assert!(
-                    void_px * 100 >= total_px21 * 55,
-                    "Exp 22 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
-                );
+                assert_oled_unlit_patch(&px, 256, 256, &format!("Exp 22 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 450,
                     "Exp 22 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
@@ -2564,17 +2824,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer21
                     .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
                     .expect("Exp 13 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 254 && c[1] >= 254 && c[2] >= 254)
                     .count();
-                assert!(
-                    void_px * 100 >= total_px21 * 55,
-                    "Exp 13 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
-                );
+                assert_oled_unlit_patch(&px, 256, 256, &format!("Exp 13 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 450,
                     "Exp 13 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
@@ -2685,17 +2942,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer21
                     .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
                     .expect("Exp 14 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 254 && c[1] >= 254 && c[2] >= 254)
                     .count();
-                assert!(
-                    void_px * 100 >= total_px21 * 55,
-                    "Exp 14 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
-                );
+                assert_oled_unlit_patch(&px, 256, 256, &format!("Exp 14 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 450,
                     "Exp 14 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
@@ -2805,17 +3059,14 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 let px = renderer21
                     .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
                     .expect("Exp 15 offscreen render");
-                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let (_, lit_px) = count_void_and_lit(&px, 28);
                 let blown_px = px
                     .as_chunks::<4>()
                     .0
                     .iter()
                     .filter(|c| c[0] >= 254 && c[1] >= 254 && c[2] >= 254)
                     .count();
-                assert!(
-                    void_px * 100 >= total_px21 * 55,
-                    "Exp 15 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
-                );
+                assert_oled_unlit_patch(&px, 256, 256, &format!("Exp 15 Z{zone:02} F{feat}"));
                 assert!(
                     lit_px >= 450,
                     "Exp 15 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
@@ -2854,7 +3105,10 @@ fn life_all_zones_features_and_overviews_render_distinctly() {
     use cosmos_render::doc_stages::{is_zone_migrated_tier_a, resolve_zone_shader_vid};
 
     let index = build_default_universe_index();
-    let eye = DVec3::new(-0.95, 0.82, 3.80);
+    let (inspection_pose, _) = index.navigation_pose_for_documentary_stage(
+        16, DVec3::new(-0.95, 0.82, 3.80), true,
+    ).unwrap();
+    let eye = inspection_pose.local_pos;
     let cam = RenderCamera::mono(
         Quat::from_rotation_arc(Vec3::NEG_Z, (-eye).normalize().as_vec3()),
         72.0_f32.to_radians(),
@@ -2884,7 +3138,7 @@ fn life_all_zones_features_and_overviews_render_distinctly() {
         // u16::MAX packs to 255 (overview); Z18 F8 must remain feature 8.
         for feat in (0u16..n_features).chain(std::iter::once(u16::MAX)) {
             let mut input = SceneBuildInput::desktop_default(
-                ScalePose64::new(SectorId::LIFE_BIOSPHERE, eye, -1.0, DQuat::IDENTITY),
+                inspection_pose,
                 cam,
                 256,
                 256,
@@ -2944,11 +3198,11 @@ fn life_all_zones_features_and_overviews_render_distinctly() {
             let px = renderer
                 .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
                 .expect("Life feature render");
-            let (void_px, lit_px) = count_void_and_lit(&px, 28);
-            assert!(
-                void_px * 10_000 >= 256 * 256 * 5091,
-                "Life Z{zone:02} F{feat}: OLED void {void_px}/65536 below 50.91%"
-            );
+            if zone == 13 && feat == 1 {
+                capture_review_frame("life_z13_f1", &px, 256, 256);
+            }
+            let (_, lit_px) = count_void_and_lit(&px, 28);
+            assert_oled_unlit_patch(&px, 256, 256, &format!("Life Z{zone:02} F{feat}"));
             assert!(
                 lit_px >= 450,
                 "Life Z{zone:02} F{feat}: only {lit_px} lit pixels"
@@ -3064,6 +3318,33 @@ fn readback_layer(
     drop(mapped);
     buf.unmap();
     out
+}
+
+fn capture_review_frame(label: &str, rgba: &[u8], width: u32, height: u32) {
+    if let Some(path) = std::env::var_os("HYPERCOSMOS_RENDER_CAPTURE_DIR") {
+        let directory = std::path::PathBuf::from(path);
+        std::fs::create_dir_all(&directory).expect("create render review directory");
+        image::save_buffer(directory.join(format!("{label}.png")), rgba, width, height, image::ColorType::Rgba8)
+            .expect("save render review frame");
+    }
+}
+
+fn assert_oled_unlit_patch(rgba: &[u8], width: usize, height: usize, label: &str) {
+    // Inspection fixtures contain unobstructed space between their subjects.
+    // Its location may move as a real world occupies more of the view. Require
+    // one contiguous exact-black patch, not an arbitrary black-frame quota or
+    // predetermined corner (which may contain stars, a lattice, or a planet).
+    assert_eq!(rgba.len(), width * height * 4);
+    const PATCH: usize = 8;
+    let has_black_patch = (0..=height - PATCH).step_by(4).any(|y0| {
+        (0..=width - PATCH).step_by(4).any(|x0| {
+            (y0..y0 + PATCH).all(|y| (x0..x0 + PATCH).all(|x| {
+                let i = (y * width + x) * 4;
+                rgba[i..i + 3] == [0, 0, 0]
+            }))
+        })
+    });
+    assert!(has_black_patch, "{label}: unlit space must preserve a contiguous #000000 OLED patch");
 }
 
 fn count_void_and_lit(rgba: &[u8], lit_thresh: u8) -> (usize, usize) {

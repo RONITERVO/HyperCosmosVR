@@ -48,6 +48,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
 - Hardware-independent unit & catalog checks (matches `.github/workflows/ci.yml`):
   ```powershell
   cargo test -p cosmos_math -p cosmos_narration -p cosmos_nav -p cosmos_journey
+  cargo test -p cosmos_render --lib
   cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
   cargo test -p cosmos_spatial topology
   cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
@@ -59,6 +60,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
   ```
   `test_local.ps1` runs the complete workspace suite with CPU parallelism, four concurrent DX12 correctness tests, and isolated typography timings and application benchmarks. It warms the shared font cache before parallel app tests and stops on the first failed phase. Use `-CpuThreads 16 -GpuThreads 8` to tune concurrency, or `-Release` for optimized test binaries. The serial diagnostic equivalent remains `cargo test --workspace -- --test-threads=1`; debug assertions remain enabled in the runner's default profile.
 
+  During shader iteration, run `cargo test --release -p cosmos_render --lib shader_validation` first. It parses and validates every composed WGSL module without creating GPU pipelines. The focused `post_color_tests` integration binary checks the final color transfer without compiling documentary shaders. These quick checks complement the full rendering and native-headset review.
+
+  After changing guided-tour poses or stage placement, run `cargo test --release -p cosmos_app --test tour_framing_tests`. This CPU check projects all 3,011 Grand Odyssey stops and the non-Earth Highlights stops against the actual runtime catalog, catching missing, tiny or misdirected subjects. It does not measure visual richness or headset quality. Regenerate the shipped Highlights only with `cargo run --release -p cosmos_app --example tour_projection_audit -- --export`; the enriched runtime index includes physical Solar/Galactic landmarks missing from a bare spatial index. The same example accepts `--odyssey` or `--saved` to print a framing audit without creating a GPU device.
+
 ### WGSL Shader Standards
 - Review [shaders/SHADER_CONTRACTS.md](shaders/SHADER_CONTRACTS.md) before modifying `.wgsl` files.
 - Keep `vs_main` (mono) and `vs_stereo` (`@builtin(view_index)`) signatures consistent across every render pass.
@@ -66,9 +71,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\fetch_audio_pack.ps1
 
 ### UI & Architecture Discipline
 - **Zero 2D overlays:** Do not introduce screen-space HTML/DOM/ImGui menus or HUD bars. All controls belong on diegetic 3D spatial anchors (`Wrist Resonance Ring`, gaze dwell, peripheral meridian compass).
-- **VR-first acceptance target:** PSVR2 at 120 Hz and SteamVR's recommended per-eye resolution, plus higher-end OLED headsets. Preserve visual quality; do not silently reduce resolution or scene richness to pass a timing gate. Report actual eye dimensions, refresh rate, compositor involvement, and whether evidence came from a physical headset or an offscreen reference.
+- **Acceptance priority:** Rich, convincing presence and visual learning come first. The viewer should understand observable processes without narration or text, with detail and motion that reward inspection. Improve an existing scene when coverage is already present but the experience is shallow; adding feature IDs is not the objective.
+- **Performance and resolution tiers:** The user accepts a 30 application-FPS minimum, a 90 FPS middle target and a 120 FPS upper target, with 1440p–4K reference resolutions. These are acceptance targets, not implemented quality presets or guarantees. The personal headset reference remains PSVR2 at 120 Hz with SteamVR's recommended resolution, plus higher-end OLED headsets. Report exact per-eye dimensions and render scale; a “4K” label is insufficient for stereo evidence. Do not silently reduce resolution or richness to pass a timing gate.
+- **Native versus reprojected evidence:** Record application frame rate/times, headset refresh, repeated or synthesized frames, dropped frames, compositor cost, hardware, runtime and capture duration separately. A 120 Hz display showing 60 application frames twice is 60 application FPS, not native 120 FPS. Offscreen reference captures do not certify physical-headset performance, comfort or perceived quality.
 - **Holographic presence:** VR guidance must have real depth, binocular parallax, scene occlusion, and a stable room/world anchor. Moving a flat screen panel into world space is not sufficient. Curved lettering, volumetric nodes, controller rays, and wrist-summoned instruments should behave as things accompanying the viewer in space. Desktop contrast backplates must not leak into VR.
 - **Documentary richness:** Judge each scene against the substance of its narration: clear subject composition, feature-specific structure, meaningful motion and causality, multiple viewpoints, and enough detail to reward inspection. Tier-A counts and pixel differences establish coverage/distinctness, not visual quality, perceived aliveness, or educational effectiveness. Include visual review evidence alongside automated checks.
+- **Review the experience:** Capture muted, caption-free motion through the complete process and inspect both eyes, head translation, nearby detail and the surrounding environment. Record what an unfamiliar viewer can infer, and unresolved misunderstandings. A screenshot, passing test or author judgment alone cannot establish documentary quality or a new quality score.
+- **Scene-dependent OLED composition:** Preserve black where the scene is empty space and preserve local highlight detail. A nearby horizon, atmosphere, cloud deck or interior may legitimately occupy most of the view. Do not shrink the world or remove content to achieve a fixed percentage of black pixels; evaluate the intended empty-space region and scene-specific exposure instead.
 
 ---
 
@@ -95,7 +104,7 @@ Contributors working on documentary shaders, zone disambiguation, or GPU compute
 
 **Shader & Pipeline Package Acceptance Requirements:**
 1. Follow the standard 4-file touch pattern (`crates/cosmos_narration/src/resolver.rs`, `crates/cosmos_render/src/doc_stages.rs`, `shaders/hero_doc_*.wgsl` + `shaders/doc_common.wgsl`, and `shaders/compute_universe.wgsl` / `shaders/instanced_sprites.wgsl` / `crates/cosmos_render/src/universe_scene.rs`) using pre-allocated IDs (`1000 + exp_id * 100 + zone_index` in `1100..=3599`; companions `3600..=3869`) and distinct `doc_feat` transitions for every catalog feature (including ninth features such as Life `Z18 F8`).
-2. Preserve **OLED pure-black void** (existing `43` baseline PNGs hold `>= 50.90%` `#000000` with `50.9004%` min in `06_cmb_and_inflation.png`; newly upgraded roadmap packages must achieve **`>= 50.91%` `#000000`**, `0.0000%` highlight blowout) and **VR 90/120 Hz budget (`<= 28` raymarch steps for new hero shells; RTX 5070 baseline `min = 0.837 ms`, `mean = 1.974 ms`, `p99 = 5.109 ms`, `max = 5.188 ms`)**.
+2. Apply the richness-first acceptance, scene-dependent OLED composition and 30/90/120 application-FPS tiers above. Keep historical overview PNG/timing measurements as regression references for those exact shots; they do not impose a 50.91% black-pixel floor, a universal 28-step raymarch cap, or native-headset certification on new close approaches. Choose sample budgets from measured image stability and frame times at the declared resolution.
 3. Run `cargo run -p cosmos_app -- --headless-render artifacts/verification_renders --benchmark-sweep`, `cargo clippy --workspace --all-targets -- -D warnings`, and the workspace / `.github/workflows/ci.yml` tests before opening your PR.
 
 ---

@@ -115,7 +115,8 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
   - `cs_field_grid` (`@workgroup_size(8,8,1)`, dispatch `ceil(grid_w/8), ceil(grid_h/8)`):
     - `0`: Gray-Scott Turing reaction-diffusion (`15 Complexity`, `16 Z09` multicellularity / `Z10` development)
     - `1`: Chladni cymatic resonance PDE (`02 Music`)
-    - `2+`: Auroral magnetospheric curtain field (`03 Thermosphere`)
+    - `2`: Legacy auroral field.
+    - `3`: Earth aurora lookup, regenerated at the current frame time before the hero pass. The 256×256 RGBA16F field contains four periodic 16,384-sample azimuth profiles, each flattened into 64 rows. Profile 0 stores split-precision folds; profiles 1–3 store broad intensity, filament value and derivative for Hermite interpolation. Alpha tag `13` identifies this layout. The finest resolvable noise remains procedural. Read the newly written ping-pong texture in both eye passes. Tag detection supports fresh fixtures without a lookup; a manual scene that advances time after using mode 3 must continue dispatching it, since the tag does not encode freshness.
 
 ---
 
@@ -139,10 +140,15 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
 - **Entry Points:**
   - Surface pass: `vs_main` / `vs_stereo` + `fs_hero_surface` — `depth_write_enabled = true`, `CompareFunction::GreaterEqual`, `BlendState::REPLACE` (writes `@builtin(frag_depth)` Reversed-Z exact sphere/cutaway/event-horizon depth).
   - Volume pass: `vs_main` / `vs_stereo` + `fs_hero_volume` — `depth_write_enabled = false`, `CompareFunction::GreaterEqual`, `BlendState::PREMULTIPLIED_ALPHA_BLENDING` (outputs premultiplied `(accum_rgb, accum_a)`!).
+  - Earth volumes output the visible near atmospheric/field boundary as fragment depth and stop integration at the solid surface. Testing the proxy cube's back face against Earth would incorrectly remove foreground clouds and aurora. Emissive aurora can have zero opacity; discard only when both emission and opacity are negligible.
+  - Exterior Earth uses physical meters for environment positions, radii, stereo eye spacing and tracked translation. Room-scale holographic instruments are appended after that environment conversion. Resolve the unit policy once from the untracked observer and active experience; never infer it again after a head lean.
 - **Bindings:**
   - `@group(1) @binding(0)`: `hero_instances: array<HeroVolumeInstance>` (`storage, read`, **112 B stride**)
   - `@group(1) @binding(1)`: `blue_noise_tex: texture_2d<f32>` (`assets/textures/blue_noise_128.png`)
   - `@group(1) @binding(2)`: `blue_noise_samp: sampler` (`AddressMode::Repeat`)
+  - `@group(1) @binding(3..4)`: field-grid texture and sampler.
+  - `@group(1) @binding(5)`: `earth_maps: texture_2d_array<f32>` (`Rgba8UnormSrgb`, 8192×4096, 4 layers, 14 linear-light mips): day RGB, night RGB, cloud R, relief R / water G. Data channels are sRGB encoded before upload and decode to linear values on sampling. Sources and limitations: [`assets/textures/earth/README.md`](../assets/textures/earth/README.md).
+  - `@group(1) @binding(6)`: `earth_maps_samp`, repeat longitude / clamp latitude, trilinear filtering.
 - **`HeroVolumeInstance` (112 B = 7 x `vec4`):**
   - `0..16`: `pos_radius: vec4<f32>` (`xyz=camera-relative center`, `w=bounding box half-extent`)
   - `16..32`: `rot_quat: vec4<f32>` (`xyzw` unit quaternion, local -> world)
@@ -218,6 +224,7 @@ Desktop guidance uses trailing glyph/tether ranges selected by `MsdfTextRenderer
 
 ### 3.6 `post_bloom_agx.wgsl`
 
+- **Color transfer:** The AgX outset is still display-encoded; apply its `pow(value, 2.2)` EOTF before treating it as linear light ([Filament reference](https://github.com/google/filament/blob/main/filament/src/ToneMapper.cpp)). Then apply exactly one output sRGB transfer, either hardware or manual. At exposure 1, neutral scene radiance `0.18` is approximately code `128/255`, not `187/255`. `post_color_tests.rs` checks independent neutral reference points, agreement between both output paths, exact OLED zero with dithering enabled, and the untonemapped linear HDR bypass. This is a transfer regression, not headset luminance calibration.
 - **Vertex Buffer Layout:** **0 vertex buffers** (`draw(0..3, 0..1)`), `CullMode::None`, Depth `None`, `BlendState::REPLACE`.
 - **Entry Points:** `vs_main` (layer from `u_post.texel_scale.w`), `vs_stereo` (layer from `@builtin(view_index)`), paired with:
   1. `fs_bloom_prefilter` (`hdr_scene_tex` -> bloom mip 0; Karis firefly weight + tight threshold `>= 1.05`)
