@@ -534,6 +534,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bytemuck",
+ "cosmos_journey",
  "cosmos_math",
  "cosmos_spatial",
  "glam 0.34.3",

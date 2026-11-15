@@ -1,0 +1,402 @@
+Testing: Asset cache warmup
+   Compiling cosmos_render v0.1.0 (D:\Projects\Simulations\HyperCosmosVR\crates\cosmos_render)
+   Compiling cosmos_app v0.1.0 (D:\Projects\Simulations\HyperCosmosVR\crates\cosmos_app)
+    Finished `release` profile [optimized] target(s) in 6.82s
+     Running unittests src\lib.rs (target\release\deps\cosmos_app-1d231a647c81f5c6.exe)
+
+running 1 test
+test assets::tests::ambient_labels_prevent_cross_experience_bleed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.36s
+
+Testing: CPU, catalog, audio and XR (32 threads)
+    Finished `release` profile [optimized] target(s) in 0.54s
+     Running unittests src\lib.rs (target\release\deps\cosmos_audio-24523ecf8fbc5770.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\audio_tests.rs (target\release\deps\audio_tests-16f61139f4650980.exe)
+
+running 6 tests
+test dwell_chime_locks_once_without_double_trigger ... ok
+test auto_output_mode_never_panics_regardless_of_hardware ... ok
+test app_02_polyphonic_16_voices_and_all_four_timbres_render_cleanly ... ok
+test real_mp3_decode_wsola_rates_and_rubato_resample_produce_valid_pcm ... ok
+test pause_holds_real_speech_and_syncvoice_then_resumes_same_clip ... ok
+test hrtf_spatial_and_zone_synth_ducking_and_sync_clock_headless ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_journey-e7cfd400c5d84cd9.exe)
+
+running 9 tests
+test tests::elastic_override_keeps_head_turn_invariant_and_spawns_non_foveal_exit_pearls ... ok
+test tests::solar_observations_preserve_landmarks_and_clear_the_photosphere ... ok
+test tests::moving_profile_sentence_hops_and_recorder_rdp_roundtrip ... ok
+test tests::shipped_highlights_json_asset_loads_and_validates_against_catalog ... ok
+test tests::earth_highlights_paths_clear_the_surface_and_frame_the_nightside_aurora ... ok
+test tests::highlights_earth_to_solar_cut_has_no_intermediate_camera_frame ... ok
+test tests::earth_observation_preserves_pose_through_head_turns_and_sentence_boundaries ... ok
+test tests::share_uri_roundtrip_and_tamper_detection ... ok
+test tests::grand_odyssey_covers_100_percent_of_catalog_audio_assets_and_validates ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.36s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_manifest-6b086282c2ff5a73.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\manifest_tests.rs (target\release\deps\manifest_tests-9c4e7170e1697336.exe)
+
+running 7 tests
+test app_04_sun_fix_macro_facts_and_evidence_class_rules ... ok
+test app_02_music_synth_solver_and_lexicon ... ok
+test zone_at_progress_and_feature_at_cover_all_experiences ... ok
+test corrupted_or_truncated_buffers_return_typed_errors_without_panicking ... ok
+test app_01_rgb_color_solver_hits_lexicon_over_full_rgb_cube ... ok
+test real_catalog_matches_v1_json_metadata_and_crc32 ... ok
+test real_mmap_catalog_and_audio_pack_verify_all_18898_assets ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_math-fdf44ae3bd6dd658.exe)
+
+running 6 tests
+test tests::far_shell_prevents_f32_overflow_from_planck_to_horizon ... ok
+test tests::zero_jitter_across_minus_35_to_plus_28_orders_of_magnitude ... ok
+test tests::multi_sector_reanchor_preserves_projection ... ok
+test tests::reversed_z_infinite_invariants ... ok
+test tests::scale_spline_interpolates_across_orders ... ok
+test tests::frustum_culling_reversed_z_checks ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_narration-8bb79768eafabf2f.exe)
+
+running 15 tests
+test fsm::tests::candidate_switch_requires_125x_score_margin ... ok
+test fsm::tests::dwell_transitions_cleanly_from_moving_through_settling_locked_narrating_complete ... ok
+test memory::tests::region_change_and_pending_invalidation_clear_or_reject ... ok
+test memory::tests::locale_or_text_change_and_duplicate_id_do_not_skip ... ok
+test memory::tests::remembers_only_shared_roles_after_both_es_and_translation_finish ... ok
+test fsm::tests::tremor_hysteresis_holds_within_135x_cone_and_120ms_cancels_outside ... ok
+test resolver::tests::app_01_colors_prism_resolves_perceptual_hue_to_audio_triple ... ok
+test resolver::tests::app_02_music_harp_resolves_cymatic_filament_touch_and_rest_narration ... ok
+test resolver::tests::app_04_sun_resolves_canonical_three_token_metric_and_macro_vs_feature ... ok
+test resolver::tests::visible_entity_targets_resolve_across_anchors_filaments_and_color_nodes ... ok
+test resolver::tests::segment_visual_hints_and_documentary_snapshot_cover_all_domains ... ok
+test resolver::tests::chromatic_key_and_lexicon_key_cover_all_entries ... ok
+test resolver::tests::apps_12_to_15_include_evidence_class_under_unified_policy_and_21_to_25_include_footer ... ok
+test resolver::tests::app_03_to_25_resolve_macro_and_features_across_entire_catalog ... ok
+test resolver::tests::life_catalog_features_keep_their_indices_and_bilingual_cues ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_nav-ea7e29de1cb7c82a.exe)
+
+running 17 tests
+test diegetic::tests::desktop_right_hold_and_tab_toggle_home_anchor ... ok
+test diegetic::tests::vr_palm_up_summons_and_selects_playback_rate_and_locale ... ok
+test diegetic::tests::scale_meridian_arc_activates_above_threshold_and_fades_over_600ms ... ok
+test diegetic::tests::journey_and_recorder_beads_do_not_overlap_and_emit_actions ... ok
+test diegetic::tests::wrist_ring_has_exact_playback_rates_locales_and_home ... ok
+test flight::tests::desktop_scroll_zooms_toward_focused_point_without_drift ... ok
+test flight::tests::inertial_damping_decays_by_one_over_e_at_tau ... ok
+test flight::tests::magnetic_approach_throttle_matches_spec ... ok
+test flight::tests::cold_start_earth_low_orbit ... ok
+test flight::tests::home_hyper_flight_continuously_returns_to_earth_low_orbit ... ok
+test flight::tests::magnetic_throttle_caps_forward_flight_near_target ... ok
+test flight::tests::panoramic_cruise_and_close_up_strafe_preserve_stability ... ok
+test flight::tests::desktop_and_vr_free_exploration_keep_the_physical_solar_owner ... ok
+test flight::tests::two_hand_pinch_zooms_inward_on_pull_apart_and_outward_on_push_together ... ok
+test flight::tests::two_hand_pinch_keeps_world_midpoint_pinned_under_hands ... ok
+test flight::tests::physical_solar_zoom_has_a_finite_domain_derived_numerical_floor ... ok
+test flight::tests::solar_ownership_releases_for_outward_zoom_domain_exit_and_explicit_home ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_spatial-a06762a7223a896d.exe)
+
+running 10 tests
+test tests::morton_roundtrip_exhaustive_samples ... ok
+test topology::tests::solar_earth_and_landmark_poses_stay_within_octree_bounds ... ok
+test tests::all_25_experiences_anchored_and_connected ... ok
+test tests::hsl_prism_and_music_harp_geometry_invariants ... ok
+test topology::tests::lotus_sectors_are_widely_separated_and_off_z_axis ... ok
+test tests::documentary_navigation_frames_fixed_content_instead_of_selector_positions ... ok
+test tests::query_visible_finds_active_scale_and_culls_hidden_scales ... ok
+test tests::physical_solar_owner_remains_queryable_below_its_scale_band ... ok
+test tests::verify_provisioned_fonts_hrir_and_blue_noise ... ok
+test tests::scaling_100x_growth_keeps_o_k_visible_efficiency ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src\lib.rs (target\release\deps\cosmos_xr-f0f0532eb7b7dfbd.exe)
+
+running 5 tests
+test tests::hand_pinch_palm_up_and_two_hand_scale_dive_extraction ... ok
+test tests::swapchain_format_negotiation_matches_shader_encode_modes ... ok
+test tests::refresh_rate_selection_prefers_oled_120_and_90_hz ... ok
+test tests::stereo_asymmetric_reversed_z_matrices_and_ray_inversion ... ok
+container: set VR_CONFIG_PATH to c:\fake_app_container_config_path
+container: set VR_OVERRIDE to C:\Program Files (x86)\Steam\steamapps\common\SteamVR\
+container: set VR_LOG_PATH to [redacted local OpenVR log path]
+Error [GENERAL | xrCreateInstance | OpenXR-Loader] : LoaderInstance::CreateInstance chained CreateInstance call failed
+Error [GENERAL | xrCreateInstance | OpenXR-Loader] : xrCreateInstance failed
+test tests::openxr_static_entry_and_graceful_headset_probe ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+   Doc-tests cosmos_audio
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_journey
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_manifest
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_math
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_narration
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_nav
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_spatial
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_xr
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Testing: Application correctness (32 threads)
+    Finished `release` profile [optimized] target(s) in 0.60s
+     Running unittests src\lib.rs (target\release\deps\cosmos_app-1d231a647c81f5c6.exe)
+
+running 21 tests
+test assets::tests::resolve_focus_for_visible_does_not_double_rotate_world_pose_fallback ... ok
+test guide::tests::guide_buttons_fit_and_pick_from_desktop_and_offset_controller_rays ... ok
+test engine::tests::solar_navigation_focus_uses_real_depth_after_far_shell_projection ... ok
+test assets::tests::populate_emits_all_catalog_features_including_solar_bodies ... ok
+test engine::tests::signature_zone_mapping_covers_apps_05_through_14 ... ok
+test assets::tests::catalog_earth_keeps_its_center_and_hides_schematic_selector_sprites ... ok
+test assets::tests::exterior_earth_labels_keep_real_anchors_without_catalog_selector_clutter ... ok
+test engine::tests::orbital_head_translation_stays_in_real_meters_across_zoom_levels ... ok
+test engine::tests::runtime_journey_preserves_head_turn_spawns_exit_pearls_and_exports_waypoints ... ok
+test engine::tests::meaning_tether_targets_centerpiece_and_saturn_blocker_covers_cassini_rings ... ok
+test engine::tests::earth_orbit_ownership_survives_every_authored_stop_and_head_turn ... ok
+test engine::tests::vr_guide_trigger_is_consumed_until_release ... ok
+test engine::tests::documentary_focus_state_tracks_active_zone_feature_and_telemetry ... ok
+test engine::tests::earth_highlights_visuals_do_not_depend_on_audio_or_arbitrary_catalog_nodes ... ok
+test engine::tests::solar_highlights_preserve_physical_owner_and_visuals_without_audio ... ok
+test engine::tests::solar_observation_disclosures_are_room_anchored_without_flat_panels ... ok
+test engine::tests::verification_reset_meridian_labels_headings_and_tethers ... ok
+test engine::tests::guide_tour_pause_resume_help_skip_and_explore_preserve_intent ... ok
+test engine::tests::solar_free_roam_ray_focus_matches_the_visible_body_in_desktop_and_vr ... ok
+test engine::tests::tour_navigation_releases_music_notes ... ok
+test headless::tests::canonical_showcase_shots_verify_authentic_narration_and_meridian_isolation ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 4.24s
+
+Testing: Guided-tour framing (CPU)
+   Compiling cosmos_app v0.1.0 (D:\Projects\Simulations\HyperCosmosVR\crates\cosmos_app)
+    Finished `release` profile [optimized] target(s) in 4.52s
+     Running tests\tour_framing_tests.rs (target\release\deps\tour_framing_tests-2b9d6d18b90c21a9.exe)
+
+running 1 test
+test runtime_catalog_tours_frame_the_rendered_subjects ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.35s
+
+Testing: DX12 correctness (4 threads)
+   Compiling cosmos_render v0.1.0 (D:\Projects\Simulations\HyperCosmosVR\crates\cosmos_render)
+    Finished `release` profile [optimized] target(s) in 8.21s
+     Running unittests src\lib.rs (target\release\deps\cosmos_render-b966c33bb1ca73f1.exe)
+
+running 6 tests
+test pipeline::solar_blend_tests::solar_absorption_and_emission_are_independent_of_strand_submission_order ... ignored, requires a GPU; run explicitly with --ignored on the rendering test host
+test scene_pass::solar_lod_tests::dedicated_sun_batches_preserve_neighbor_order_and_storage_indices ... ok
+test solar_noise::tests::solar_cached_noise_matches_independent_lattice_and_periodic_seams ... ignored, requires a GPU; run explicitly with --ignored on the rendering test host
+test scene_pass::solar_lod_tests::subpixel_sun_skips_strands_but_close_and_oblique_views_keep_detail ... ok
+test pipeline::shader_validation::every_shader_parses_and_validates_without_a_gpu ... ok
+test earth_textures::tests::nasa_maps_share_geography_and_linear_mip_contract ... ok
+
+test result: ok. 4 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+     Running tests\post_color_tests.rs (target\release\deps\post_color_tests-a79cc2149e0db854.exe)
+
+running 1 test
+test final_post_preserves_agx_transfer_oled_black_and_linear_hdr ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests\render_tests.rs (target\release\deps\render_tests-16828864e65c0b59.exe)
+
+running 17 tests
+test celestial_body_isolation_and_solar_mapping_are_exact ... ok
+test device_selects_rtx5070_and_extracts_dx12_handles has been running for over 60 seconds
+test life_all_zones_features_and_overviews_render_distinctly has been running for over 60 seconds
+test offscreen_multiscale_scenes_preserve_oled_void_and_luminous_heroes has been running for over 60 seconds
+test overlay_hook_and_stereo_multiview_render_both_eye_layers has been running for over 60 seconds
+test offscreen_multiscale_scenes_preserve_oled_void_and_luminous_heroes ... ok
+test life_all_zones_features_and_overviews_render_distinctly ... ok
+test overlay_hook_and_stereo_multiview_render_both_eye_layers ... ok
+test device_selects_rtx5070_and_extracts_dx12_handles ... ok
+test phase7b_zone_routing_framing_and_sprite_clamps_hold ... ok
+test world_presence_earth_and_moon_keep_physical_dimensions_at_the_limb ... ok
+test world_presence_explicit_policy_survives_a_tracked_surface_crossing ... ok
+test world_presence_normalized_culling_does_not_treat_ipd_as_planetary_motion ... ok
+test world_presence_selected_landmark_has_one_world_anchored_stage ... ok
+test world_presence_stage_frames_and_sizes_survive_an_approach ... ok
+test world_presence_stereo_avoids_artificial_color_fringing ... ok
+test world_presence_sun_keeps_real_scale_and_frame_through_free_roam ... ok
+test world_presence_turning_away_does_not_recenter_a_culled_stage ... ok
+test phase4_oled_voids_cold_start_earth_and_pde_field_dispatch_hold ... ok
+test phase7_documentary_stages_01_through_25_oled_and_telemetry_hold ... ok
+test p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold has been running for over 60 seconds
+test p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 150.03s
+
+     Running tests\solar_geometry_tests.rs (target\release\deps\solar_geometry_tests-16860e318d5eba3a.exe)
+
+running 4 tests
+test solar_strand_integrals_remain_finite_and_continuous_when_viewed_along_the_axis ... ok
+test solar_plasma_proxies_enclose_finite_caps_under_oblique_and_near_perspective ... ok
+test solar_cutaway_uses_true_retained_geometry_and_rejects_sphere_misses ... ok
+test solar_corona_quadrature_matches_dense_independent_columns ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running tests\solar_surface_tests.rs (target\release\deps\solar_surface_tests-c995d0406e5f5a9e.exe)
+
+running 3 tests
+test solar_penumbral_filter_tables_preserve_shipping_filament_ensemble ... ok
+test solar_surface_preserves_ensemble_radiance_and_continuity_across_detail_lod ... ok
+test solar_surface_is_continuous_across_actual_granule_winner_changes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.78s
+
+Testing: Solar absorption and emission ordering (GPU)
+    Finished `release` profile [optimized] target(s) in 0.42s
+     Running unittests src\lib.rs (target\release\deps\cosmos_render-b966c33bb1ca73f1.exe)
+
+running 1 test
+test pipeline::solar_blend_tests::solar_absorption_and_emission_are_independent_of_strand_submission_order ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.88s
+
+Testing: Solar cached noise interpolation (GPU)
+    Finished `release` profile [optimized] target(s) in 0.43s
+     Running unittests src\lib.rs (target\release\deps\cosmos_render-b966c33bb1ca73f1.exe)
+
+running 1 test
+test solar_noise::tests::solar_cached_noise_matches_independent_lattice_and_periodic_seams ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.57s
+
+Testing: Typography and cache timings (isolated)
+    Finished `release` profile [optimized] target(s) in 0.45s
+     Running unittests src\lib.rs (target\release\deps\cosmos_typo-75e1ebe181866d20.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\typo_tests.rs (target\release\deps\typo_tests-5d68915b649cb345.exe)
+
+running 14 tests
+test all_landmarks_and_meridian_ticks_clear_dots_and_rings_by_required_margin ... ok
+test ambient_dual_language_landmark_clears_reticle_dot_while_world_exact_stays_centered ... ok
+test angular_sizing_and_deoverlap_zero_overlaps_on_64_crowded_labels ... ok
+test dense_panorama_solar_system_landmarks_mandala_suppresses_clutter_and_avoids_geometry ... ok
+test display_script_block_keeps_generous_vertical_gap_above_and_below ... ok
+test dual_font_msdf_bake_coverage_and_fast_cache_load ... ok
+test gpu_mono_and_stereo_multiview_pipeline_render_and_upright_check ... ok
+test long_finnish_narration_stays_inside_safe_fov_margins_and_avoids_blockers ... ok
+test narration_and_ambient_lock_zero_screen_roll_on_rolled_camera ... ok
+test narration_offset_shelf_blocker_exclusion_and_deduplication ... ok
+test narration_tether_never_pierces_card_header_under_depth_parallax_and_bottom_descenders ... ok
+test pod_struct_sizes_match_shader_contracts ... ok
+test syncvoice_cue_cursor_progresses_zero_to_one ... ok
+test upright_glyph_uv_and_msdf_tile_orientation ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s
+
+   Doc-tests cosmos_typo
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+Testing: Application integration and benchmark (isolated)
+   Compiling cosmos_app v0.1.0 (D:\Projects\Simulations\HyperCosmosVR\crates\cosmos_app)
+    Finished `release` profile [optimized] target(s) in 2.83s
+     Running tests\integration_smoke.rs (target\release\deps\integration_smoke-5f9d63ed69742de8.exe)
+
+running 3 tests
+test cold_start_earth_orbit_narration_and_locale_speed_controls ... ok
+test headless_rtx5070_renders_all_signature_experiences_and_benchmark ... ok
+test spatial_guide_renders_welcome_help_and_close_up_tour_controls ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 110.66s
+
+Testing: Application and renderer doc tests
+    Finished `release` profile [optimized] target(s) in 0.70s
+   Doc-tests cosmos_app
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests cosmos_render
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+Phase                                            Seconds
+-----                                            -------
+Asset cache warmup                                  7,49
+CPU, catalog, audio and XR (32 threads)             5,45
+Application correctness (32 threads)                5,04
+Guided-tour framing (CPU)                           6,08
+DX12 correctness (4 threads)                      163,69
+Solar absorption and emission ordering (GPU)        1,49
+Solar cached noise interpolation (GPU)              1,19
+Typography and cache timings (isolated)             1,92
+Application integration and benchmark (isolated)  114,00
+Application and renderer doc tests                  1,25
+
+All local tests passed in 307,64 seconds.

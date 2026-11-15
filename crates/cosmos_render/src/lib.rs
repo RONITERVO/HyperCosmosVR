@@ -8,6 +8,8 @@
 
 pub mod device;
 mod earth_textures;
+mod gpu_profile;
+mod solar_noise;
 pub mod doc_stages;
 pub mod pipeline;
 pub mod post_pass;

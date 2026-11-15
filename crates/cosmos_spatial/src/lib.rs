@@ -17,7 +17,7 @@ pub use topology::{
     BridgeKind, ContinuityEdge, ExperienceId, ExperiencePlacement, ManifoldArchetype,
     all_experience_placements, build_default_universe_index, continuity_edges,
     earth_layer_local_pose, hsl_to_prism_local, landmark_local_pose, music_filament_local,
-    prism_local_to_hsl, solar_body_local_pose, zone_local_pose,
+    prism_local_to_hsl, solar_body_local_pose, solar_body_radius_m, zone_local_pose, SUN_RADIUS_M, SOLAR_SECTOR_SCALE_EXP,
 };
 
 #[cfg(test)]
@@ -129,6 +129,39 @@ mod tests {
         // Subatomic Planck origin should NOT be queried at u=6.8
         assert!(!q.visible.iter().any(|v| v.experience_id == 14));
         assert!(q.shells_active <= 8);
+    }
+
+    #[test]
+    fn physical_solar_owner_remains_queryable_below_its_scale_band() {
+        let mut index = build_default_universe_index();
+        let sun_id = 999_410;
+        index.insert_entity(SpatialEntity {
+            id: sun_id, experience_id: 4, zone_index: 0, feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM, local_pos: DVec3::ZERO,
+            orient: DQuat::IDENTITY, radius_m: SUN_RADIUS_M,
+            scale_exp: SUN_RADIUS_M.log10(), kind: EntityKind::CelestialBody,
+            salience_weight: 1.0,
+        }).unwrap();
+        assert!(!index.shell(SectorId::SOLAR_SYSTEM).unwrap().is_active_for_scale(4.0),
+            "fixture must be below the ordinary Solar shell scale band");
+        let camera = ScalePose64::new(SectorId::SOLAR_SYSTEM,
+            DVec3::Z * 3.0 * SUN_RADIUS_M * 10.0_f64.powf(-SOLAR_SECTOR_SCALE_EXP),
+            4.0, DQuat::IDENTITY);
+        let projection = reversed_z_infinite_perspective_rh(72.0_f32.to_radians(), 1.0, 0.02);
+        let normalized_to_meters = glam::Mat4::from_scale(glam::Vec3::splat(10_000.0));
+        let forward = projection * normalized_to_meters;
+        let query = index.query_visible(&camera, forward, 0.001, None).unwrap();
+        let sun = query.visible.iter().find(|v| v.id == sun_id)
+            .expect("a visible physical Sun remains a query and focus target at u4");
+        assert!((sun.pose.rel_scale / sun.pose.pos.length() - 1.0 / 3.0).abs() < 1e-6);
+        let backward = projection * camera_view_matrix(glam::Quat::from_rotation_y(std::f32::consts::PI))
+            * normalized_to_meters;
+        assert!(!index.query_visible(&camera, backward, 0.001, None).unwrap().visible
+            .iter().any(|v| v.id == sun_id), "ownership must not bypass the view frustum");
+        let mut different_owner = camera;
+        different_owner.reanchor(&index.tree, SectorId::EARTH_ORBIT).unwrap();
+        assert!(!index.query_visible(&different_owner, forward, 0.001, None).unwrap().visible
+            .iter().any(|v| v.id == sun_id), "other sectors retain the existing scale-band policy");
     }
 
     #[test]

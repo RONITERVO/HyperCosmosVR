@@ -17,10 +17,23 @@ fn assert_authored_observations(assets: &UniverseAssets, manifest: &StoryJourney
         };
         // These intentionally look across a horizon or through the wind, so a
         // centered globe/bounding sphere is not their composition contract.
-        if exp == 3 && manifest.id == "cosmic_highlights_tour" {
+        let solar_highlight = matches!(beat.target, BeatTargetSelector::CatalogZone {
+            experience_id: 4, zone_index: 0, ..
+        });
+        if (exp == 3 || solar_highlight) && manifest.id == "cosmic_highlights_tour" {
             continue;
         }
         let pose = beat.pose.to_pose64(&beat.beat_id).unwrap();
+        if let BeatTargetSelector::CatalogZone { experience_id: 4, zone_index, .. } = beat.target
+            && !matches!(zone_index, 0 | 5 | 10)
+        {
+            let body = assets.spatial.find_zone_entity(4, zone_index).expect("physical planet");
+            let sunward = (-body.local_pos).normalize();
+            let observer = (pose.local_pos - body.local_pos).normalize();
+            let phase = observer.angle_between(sunward).to_degrees();
+            assert!((30.0..45.0).contains(&phase),
+                "{}: planet camera must observe the illuminated hemisphere at an oblique phase, got {phase}", beat.beat_id);
+        }
         let camera = RenderCamera::mono(
             pose.orient.as_quat(),
             72_f32.to_radians(),
@@ -45,7 +58,8 @@ fn assert_authored_observations(assets: &UniverseAssets, manifest: &StoryJourney
             .heroes_surface
             .iter()
             .chain(&scene.heroes_volume)
-            .filter(|h| h.kind_tags[1] == vid || exp <= 2)
+            .filter(|h| (h.kind_tags[1] == vid || exp <= 2)
+                && (vid != 1400 || h.kind_tags[0] == 1))
             .max_by(|a, b| {
                 let ratio = |h: &cosmos_render::HeroVolumeInstance| {
                     h.pos_radius[3] / Vec3::from_slice(&h.pos_radius[..3]).length()
@@ -113,7 +127,7 @@ fn runtime_catalog_tours_frame_the_rendered_subjects() {
     let highlights = CosmicHighlightsPlugin
         .build_manifest(&assets.catalog, &assets.spatial)
         .unwrap();
-    assert_eq!(highlights.total_beats(), 44);
+    assert_eq!(highlights.total_beats(), 48);
     assert_authored_observations(&assets, &highlights);
     let shipped = StoryJourneyManifest::from_json_str(
         &std::fs::read_to_string(

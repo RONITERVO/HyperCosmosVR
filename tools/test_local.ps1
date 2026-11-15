@@ -51,6 +51,16 @@ try {
     Invoke-TestPhase "DX12 correctness ($GpuThreads threads)" @(
         '-p', 'cosmos_render', '--lib', '--tests', '--', "--test-threads=$GpuThreads"
     )
+    # This production-pipeline blend check is opt-in so CPU-only CI --lib jobs
+    # do not create a device. The local GPU suite must still exercise it.
+    Invoke-TestPhase 'Solar absorption and emission ordering (GPU)' @(
+        '-p', 'cosmos_render', '--lib', 'solar_absorption_and_emission',
+        '--', '--ignored', '--test-threads=1'
+    )
+    Invoke-TestPhase 'Solar cached noise interpolation (GPU)' @(
+        '-p', 'cosmos_render', '--lib', 'solar_cached_noise_matches',
+        '--', '--ignored', '--test-threads=1'
+    )
 
     # The typography suite checks cache-load latency; integration_smoke times
     # CPU+GPU frame cadence. Keep both free of competing test workloads.

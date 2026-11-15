@@ -1,0 +1,151 @@
+{
+  "file": "surface_refinement_preview.mp4",
+  "eye": 0,
+  "sha256": "a51648a8d57da2244b7e01d64329d8a7741f6b38a49f4192aa581f0721c2c6b0",
+  "bytes": 19447134,
+  "sources": [
+    {
+      "source": "target/solar_refinement_cycles/solar_granulation_horizon/eye0.mp4",
+      "sha256": "1968bc4eea15ec0e3f52ca37993a3b71ad5b6c84dc302a478b54de94902270ce",
+      "simulation_range_sec": [
+        10,
+        18
+      ],
+      "preview_range_sec": [
+        0,
+        8
+      ],
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "color_range": "tv",
+            "color_space": "bt709",
+            "color_transfer": "iec61966-2-1",
+            "color_primaries": "bt709",
+            "avg_frame_rate": "30/1",
+            "nb_frames": "1801"
+          }
+        ],
+        "format": {
+          "duration": "60.033333",
+          "size": "110881905"
+        }
+      }
+    },
+    {
+      "source": "target/solar_refinement_cycles/solar_active_region/eye0.mp4",
+      "sha256": "d19d7d46d3bcbac9ea18c4731703e26146b6cd4fe0cdffa995fb1ad9c5ffc0cc",
+      "simulation_range_sec": [
+        18,
+        26
+      ],
+      "preview_range_sec": [
+        8,
+        16
+      ],
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "color_range": "tv",
+            "color_space": "bt709",
+            "color_transfer": "iec61966-2-1",
+            "color_primaries": "bt709",
+            "avg_frame_rate": "30/1",
+            "nb_frames": "1801"
+          }
+        ],
+        "format": {
+          "duration": "60.033333",
+          "size": "43195676"
+        }
+      }
+    }
+  ],
+  "ffprobe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "width": 1280,
+        "height": 720,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "avg_frame_rate": "30/1",
+        "nb_frames": "480"
+      }
+    ],
+    "format": {
+      "duration": "16.000000",
+      "size": "19447134"
+    }
+  },
+  "ffmpeg_version": "ffmpeg version 7.1.1-full_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers",
+  "ffprobe_version": "ffprobe version 7.1.1-full_build-www.gyan.dev Copyright (c) 2007-2025 the FFmpeg developers",
+  "encoding_command": [
+    "ffmpeg",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-nostats",
+    "-y",
+    "-threads",
+    "1",
+    "-ss",
+    "10",
+    "-t",
+    "8",
+    "-i",
+    "target\\solar_refinement_cycles\\solar_granulation_horizon\\eye0.mp4",
+    "-threads",
+    "1",
+    "-ss",
+    "18",
+    "-t",
+    "8",
+    "-i",
+    "target\\solar_refinement_cycles\\solar_active_region\\eye0.mp4",
+    "-filter_complex_threads",
+    "1",
+    "-filter_complex",
+    "[0:v]setpts=PTS-STARTPTS[v0];[1:v]setpts=PTS-STARTPTS[v1];[v0][v1]concat=n=2:v=1:a=0,fps=30,setsar=1,setparams=range=limited:color_primaries=bt709:color_trc=iec61966-2-1:colorspace=bt709[out]",
+    "-map",
+    "[out]",
+    "-an",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "fast",
+    "-crf",
+    "18",
+    "-threads:v",
+    "4",
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    "30",
+    "-fps_mode",
+    "cfr",
+    "-color_primaries",
+    "bt709",
+    "-color_trc",
+    "iec61966-2-1",
+    "-colorspace",
+    "bt709",
+    "-color_range",
+    "tv",
+    "-movflags",
+    "+faststart",
+    "artifacts\\solar_presence\\surface_refinement\\surface_refinement_preview.mp4"
+  ],
+  "limitation": "Lossy mono excerpts decoded from lossy source MP4s and re-encoded; not original renderer pixels, stereo evidence, full-cycle inspection or native headset cadence."
+}

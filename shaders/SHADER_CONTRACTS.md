@@ -12,10 +12,28 @@
 The modular documentary hero pipeline concatenates **6 WGSL files in strict order** prior to `device.create_shader_module`:
 `common_oled.wgsl` -> `doc_common.wgsl` -> `hero_doc_cosmos.wgsl` -> `hero_doc_matter_mind.wgsl` -> `hero_doc_civilization_horizon.wgsl` -> `hero_volumetric.wgsl`.
 
+Solar programs are compiled separately from that multi-experience dispatcher:
+
+- Surface/corona: `common_oled.wgsl` -> `doc_common.wgsl` -> `hero_doc_sun.wgsl` -> `hero_solar_interior.wgsl` -> `hero_solar_corona.wgsl` -> `solar_hero.wgsl`.
+- Resolved plasma: `common_oled.wgsl` -> `doc_common.wgsl` -> `hero_doc_sun.wgsl` -> `hero_solar_interior.wgsl` -> `solar_plasma.wgsl`.
+- Solar noise initialization: `common_oled.wgsl` -> `solar_noise_lattice.wgsl`; a separate one-time compute dispatch writes the shared material lattice.
+
+These paths share the hero instance storage layout and physical Sun frame.
+`hero_pipeline_batches` preserves instance order and storage indices when
+switching between dedicated Sun and general documentary pipelines. The CPU
+shader-validation suite parses and validates each complete concatenation;
+that is not a visual or headset acceptance result.
+
 | File | Role | Entry Points | Validation |
 | :--- | :--- | :--- | :--- |
 | `common_oled.wgsl` | Shared `@group(0)` uniforms, Reversed-Z, stereo ray, FBM/curl noise, blackbody, HSL, iridescence, `#000000` void clamp | *(prelude — 0 entry points)* | Naga + HLSL SM 6.5 OK |
 | `doc_common.wgsl` | Shared `HeroVolumeInstance`, `@group(1)` bindings, `HeroVsOut`/`SurfaceFsOut`, bit-packed `doc_zone`/`doc_feat`/`doc_scene`/`doc_cue`/`doc_weight`/`doc_submode` decoders, SDF primitive library | *(prelude — 0 entry points)* | Naga + HLSL SM 6.5 OK |
+| `hero_doc_sun.wgsl` | Fixed solar frame, filtered visible photosphere, evolving granulation/sunspots, observing-mode selection and open-region mask | *(module helper functions)* | Included in solar concatenation validation; visual review open |
+| `hero_solar_interior.wgsl` | Analytic retained photosphere/core/cut-wall intersections and schematic interior material | *(module helper functions)* | Included in solar concatenation validation; geometry GPU regressions |
+| `hero_solar_corona.wgsl` | Optically thin diffuse corona, chromosphere and illustrative EUV atmosphere; density/moment integration and smooth atmosphere noise | *(module helper functions)* | Included in solar concatenation validation; sampling review open |
+| `solar_hero.wgsl` | Dedicated opaque solar surface and diffuse coronal draw programs | `vs_solar_hero`, `vs_solar_hero_stereo`, `fs_solar_surface`, `fs_solar_corona` | Included in solar concatenation validation; current candidate review open |
+| `solar_plasma.wgsl` | Finite world-space strand integration, closed loops/rain, prominence/envelope, open outflow and schematic interior packets | `vs_solar_plasma`, `vs_solar_plasma_stereo`, `vs_solar_absorption`, `vs_solar_absorption_stereo`, `fs_solar_plasma`, `fs_solar_absorption` | Included in solar concatenation validation; integral and blend GPU regressions |
+| `solar_noise_lattice.wgsl` | Initialize a static authored 128³ `RGBA16Float` noise lattice; not an observational dataset | `initialize_solar_noise` (`@workgroup_size(8,8,4)`) | Included in complete shader-source validation; cache sampling/visual review remains separate |
 | `hero_doc_cosmos.wgsl` | 14-zone Deep Earth surface & cutaway (`03`), 11 Solar System worlds & PBR materials (`04`, `01`), Cassini/Goldilocks rings, Kerr BH, Local Group/Laniakea/Web/CMB/Landmarks (`05..10`) | *(module helper functions)* | Naga + HLSL SM 6.5 OK |
 | `hero_doc_matter_mind.wgsl` | Colors Prism & 3D HSL Bicone (`01`), Chladni Plate & 48-String Plucked Harp + 4 Timbre Chambers (`02`), Matter/QM & Spacetime (`13..14`), Complexity/Life & Sculpted 3D Anatomical Cortex Connectome (`15..17`) | *(module helper functions)* | Naga + HLSL SM 6.5 OK |
 | `hero_doc_civilization_horizon.wgsl` | Evidence/Future (`11..12`), Culture/Tech/Futures (`18..20`), Cosmic Life/Contact SETI Dish & Prime Beacon/6-Lens Mandala/Meaning/25-Petal Final Horizon (`21..25`) with `doc_zone`/`doc_feat` disambiguation & fade | *(module helper functions)* | Naga + HLSL SM 6.5 OK |
@@ -25,6 +43,47 @@ The modular documentary hero pipeline concatenates **6 WGSL files in strict orde
 | `instanced_sprites.wgsl` | Zero-VB procedural quad sprites (`0..7`): stars, filaments, asteroids, spectrograph/DNA barcodes, diegetic wrist/dwell rings, hex Dyson mirrors/mini-moons, Minkowski/SETI cones, hairline orbits | `vs_particle_main`, `vs_particle_stereo`, `vs_sprite_main`, `vs_sprite_stereo`, `fs_main` | Naga + HLSL SM 6.5 OK |
 | `msdf_text.wgsl` | Google-Earth 3D world-space MSDF glyphs (obsidian halo, `fwidth` AA, SyncVoice live-ink sweep + HDR nib) + glowing 3D leader tethers | `vs_glyph_main`, `vs_glyph_stereo`, `fs_glyph_main`, `vs_tether_main`, `vs_tether_stereo`, `fs_tether_main` | Naga + HLSL SM 6.5 OK |
 | `post_bloom_agx.wgsl` | Tight-threshold (`>=1.05`) Dual-Kawase bloom, radial dispersion, Troy Sobotka AgX OLED tonemap, hard `#000000` void floor gate, TPDF 128x128 blue-noise dither | `vs_main`, `vs_stereo`, `fs_bloom_prefilter`, `fs_kawase_down`, `fs_kawase_up`, `fs_final_oled_agx` | Naga + HLSL SM 6.5 OK |
+
+**Solar composition rule:** Draw the opaque, depth-writing Sun/cutaway first.
+Resolved cool-plasma absorption then emits `(0,0,0,alpha)` using premultiplied
+alpha blending, attenuating the common opaque background before any coronal
+light is added. Draw diffuse corona next, then resolved strand emission with
+`(radiance,0)` so it adds without extinguishing earlier luminous strands.
+Absorption and emission must remain separate passes; recombining them makes
+crossing loops depend on submission order. Both use the same fixed geometry,
+eye rays and retained-Sun occlusion. The commuting transmittance product and
+additive emission model is deliberately bounded: it does not attenuate one
+luminous strand by another and is not full radiative transfer or a general
+order-independent transparency solution. See the
+[solar physical contract](../docs/SOLAR_PHYSICAL_RENDERING.md) and
+[diagnostic review record](../artifacts/solar_presence/README.md).
+
+**Solar surface material:** `SunGranule.edge` is half the gap between the two
+smallest power-cell values, not Euclidean distance to a boundary. The constant
+scale avoids a finite temperature jump when the runner-up changes. The quiet
+downflow temperature converges to the same value at a winner boundary;
+illustrative parent/daughter plume lobes remain inside the evolving cell.
+Linear radiance is normalized using footprint-dependent ensemble means before
+fading to unresolved detail. The F1/F2 contrast normalization also follows
+that footprint. These are procedural appearance controls, not calibrated
+radiometry. Penumbral filament heads/tails taper both width and thermal
+amplitude; separate 24-knot mean tables per spot are sampled from the actual
+GPU material at 8,192 angles and three physical times. The surface regressions
+check quiet mean/LOD behavior, actual winner-boundary crossings and penumbral
+temperature/coverage budgets. See the
+[refinement evidence](../artifacts/solar_presence/surface_refinement/README.md).
+
+**Solar strand projection and specialization:** Quad bounds use the true
+perspective tangent extrema of each finite end-cap disk and their union,
+with a floating-point margin and the existing eye-plane fallback. This
+tightens raster coverage without changing the strand radius, material,
+finite ray integral or depth. `SOLAR_PLASMA_FAMILY` defaults to `0xffffffffu`,
+which reads the instance family. Dedicated mono/stereo closed-loop emission
+pipelines set the fragment override to `0u` for the first 49,152 segments;
+the remaining segments use the generic pipeline, in the same order. Both
+draws use the same vertex program, instances, equations and blend targets.
+No extra material buffer, varying or texture is part of this specialization;
+the existing frame/hero binding layouts and all 122,880 segments are retained.
 
 **Stereo Multiview Pattern (`vs_main` vs `vs_stereo`):**
 Every render shader provides a Desktop Mono vertex entry point (`vs_*_main`, passes `eye_idx = 0u`) and an OpenXR Multiview vertex entry point (`vs_*_stereo`, uses `@builtin(view_index)` and requires `PipelineCompilationOptions` / `RenderPassDescriptor { multiview_mask: NonZeroU32::new(0b11) }` or wgpu 30 `multiview: NonZeroU32::new(2)` as configured in `wgpu 30.0.2`). Fragment entry points never touch `@builtin(view_index)` directly, so mono and stereo share one fragment entry point.
@@ -149,6 +208,9 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
   - `@group(1) @binding(3..4)`: field-grid texture and sampler.
   - `@group(1) @binding(5)`: `earth_maps: texture_2d_array<f32>` (`Rgba8UnormSrgb`, 8192×4096, 4 layers, 14 linear-light mips): day RGB, night RGB, cloud R, relief R / water G. Data channels are sRGB encoded before upload and decode to linear values on sampling. Sources and limitations: [`assets/textures/earth/README.md`](../assets/textures/earth/README.md).
   - `@group(1) @binding(6)`: `earth_maps_samp`, repeat longitude / clamp latitude, trilinear filtering.
+  - `@group(1) @binding(7)`: `solar_noise_tex: texture_3d<f32>`, filterable 128×128×128 `Rgba16Float`, one mip, 16 MiB. Initialization writes `hash33` RGB lattice values and alpha 1 once; no frame-time updates or observation-data provenance is implied.
+  - `@group(1) @binding(8)`: `solar_noise_samp`, repeat on all three axes with linear filtering. `solar_cached_noise(p)` uses half-texel-centered, quintic-warped fractional coordinates and explicit LOD 0, returning RGB in `[-1,1]`. The material is periodic every 128 lattice cells and quantized to half-float; hardware interpolation-weight precision adds a bounded sampling error. It is not a bit-exact replacement for unbounded analytic noise. Its coordinate input must stay in the authored physical material frame, not follow the camera.
+- **Solar lattice initialization:** A separate compute layout exposes `@group(0) @binding(2)` as `texture_storage_3d<rgba16float, write>`. A `16×16×32` workgroup dispatch fills all 128³ texels before scene sampling; the shared render layout above exposes only the sampled view and sampler.
 - **`HeroVolumeInstance` (112 B = 7 x `vec4`):**
   - `0..16`: `pos_radius: vec4<f32>` (`xyz=camera-relative center`, `w=bounding box half-extent`)
   - `16..32`: `rot_quat: vec4<f32>` (`xyzw` unit quaternion, local -> world)

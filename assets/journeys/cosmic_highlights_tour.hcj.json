@@ -375,26 +375,26 @@
           "pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
-              0.23207115784181348,
-              0.35865542575552994,
-              0.9282846313672539
+              0.009190944582146034,
+              0.01592239819002822,
+              0.011987991786836983
             ],
-            "scale_exp": 11.130211241711606,
+            "scale_exp": 8.8,
             "orient_xyzw": [
-              -0.17701423911216937,
-              0.12022430159125917,
-              0.02179144864913777,
-              0.9765947005919117
+              -0.381778888641963,
+              0.3414705571208313,
+              0.1543002043416861,
+              0.8448870846136842
             ]
           },
           "look_at_pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
               0.0,
-              0.0,
-              0.0
+              0.0009007928667123966,
+              0.002474908060898107
             ],
-            "scale_exp": 11.130211241711606,
+            "scale_exp": 8.8,
             "orient_xyzw": [
               0.0,
               0.0,
@@ -410,14 +410,14 @@
             "is_macro_zoomed_out": true
           },
           "motion": {
-            "kind": "HelicalAscent",
-            "yaw_deg_per_sec": 5.5,
-            "pitch_wave_deg": 1.8,
-            "scale_breathing_du": 0.08,
-            "orbit_radius_factor": 0.35,
+            "kind": "StaticHold",
+            "yaw_deg_per_sec": 0.0,
+            "pitch_wave_deg": 0.0,
+            "scale_breathing_du": 0.0,
+            "orbit_radius_factor": 0.0,
             "max_sentences_per_vantage": 2,
-            "min_dwell_sec": 2.4,
-            "max_dwell_sec": 16.0
+            "min_dwell_sec": 24.0,
+            "max_dwell_sec": 32.0
           },
           "transition_in": {
             "kind": "InstantBookmark",
@@ -427,20 +427,20 @@
           "caption_hint": null
         },
         {
-          "beat_id": "exp04_z000_f000",
+          "beat_id": "solar_energy_interior",
           "pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
-              0.487000161084759,
-              0.2840834272994428,
-              0.8522502818983282
+              0.0042150283119772244,
+              0.0054040718615030485,
+              0.008000944120716957
             ],
-            "scale_exp": 11.130211241711606,
+            "scale_exp": 8.8,
             "orient_xyzw": [
-              -0.13569001408703785,
-              0.25412585053975173,
-              0.03603444220767383,
-              0.9569272653338337
+              -0.25829285607007807,
+              0.2314132691054438,
+              0.06387556112421974,
+              0.935763117501518
             ]
           },
           "look_at_pose": {
@@ -450,7 +450,7 @@
               0.0,
               0.0
             ],
-            "scale_exp": 11.130211241711606,
+            "scale_exp": 8.8,
             "orient_xyzw": [
               0.0,
               0.0,
@@ -466,19 +466,243 @@
             "is_macro_zoomed_out": false
           },
           "motion": {
-            "kind": "OrbitalParallax",
-            "yaw_deg_per_sec": 6.2,
-            "pitch_wave_deg": 2.1,
-            "scale_breathing_du": 0.06,
-            "orbit_radius_factor": 0.38,
+            "kind": "StaticHold",
+            "yaw_deg_per_sec": 0.0,
+            "pitch_wave_deg": 0.0,
+            "scale_breathing_du": 0.0,
+            "orbit_radius_factor": 0.0,
             "max_sentences_per_vantage": 2,
-            "min_dwell_sec": 2.0,
-            "max_dwell_sec": 12.0
+            "min_dwell_sec": 32.0,
+            "max_dwell_sec": 40.0
           },
           "transition_in": {
-            "kind": "CatmullRomScaleSpline",
-            "duration_sec": 1.45,
-            "narration_lead_sec": 0.3
+            "kind": "SolarOrbitArc",
+            "duration_sec": 12.0,
+            "narration_lead_sec": 0.0
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "solar_granulation_horizon",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              -0.0018753014155864836,
+              0.0007204302590712021,
+              0.004172571681299502
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.3160160610058623,
+              -0.37828431157035886,
+              -0.41377003449100497,
+              0.7653947918318961
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              -0.0016141614713034705,
+              0.0007734630950786447,
+              0.004012869353458383
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 0,
+            "feature_index": 1,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "StaticHold",
+            "yaw_deg_per_sec": 0.0,
+            "pitch_wave_deg": 0.0,
+            "scale_breathing_du": 0.0,
+            "orbit_radius_factor": 0.0,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 32.0,
+            "max_dwell_sec": 40.0
+          },
+          "transition_in": {
+            "kind": "SolarOrbitArc",
+            "duration_sec": 14.0,
+            "narration_lead_sec": 0.0
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "solar_active_region",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0001191607977424333,
+              0.0023468526677900936,
+              0.004218146377035993
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.0433454290520049,
+              0.8070657128304027,
+              0.5853639483681111,
+              0.06414948873332418
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.001621427160082314,
+              0.004454834509616593
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 0,
+            "feature_index": 2,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "StaticHold",
+            "yaw_deg_per_sec": 0.0,
+            "pitch_wave_deg": 0.0,
+            "scale_breathing_du": 0.0,
+            "orbit_radius_factor": 0.0,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 60.0,
+            "max_dwell_sec": 68.0
+          },
+          "transition_in": {
+            "kind": "SolarOrbitArc",
+            "duration_sec": 14.0,
+            "narration_lead_sec": 0.0
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "solar_limb_eruption",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0008440546138902428,
+              -0.002361961238745731,
+              0.005849817801270278
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.6613329405863616,
+              0.08671862939922331,
+              0.046792536473887286,
+              0.7435920114826786
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0019517178778768595,
+              0.005362300798612566
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 0,
+            "feature_index": 3,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "StaticHold",
+            "yaw_deg_per_sec": 0.0,
+            "pitch_wave_deg": 0.0,
+            "scale_breathing_du": 0.0,
+            "orbit_radius_factor": 0.0,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 60.0,
+            "max_dwell_sec": 68.0
+          },
+          "transition_in": {
+            "kind": "SolarOrbitArc",
+            "duration_sec": 12.0,
+            "narration_lead_sec": 0.0
+          },
+          "caption_hint": null
+        },
+        {
+          "beat_id": "solar_escaping_wind",
+          "pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.009297347955925496,
+              0.0071520567962663805,
+              0.010588905595938098
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              -0.1688643882395055,
+              0.5772045197722953,
+              0.12348055342989103,
+              0.7893492976265827
+            ]
+          },
+          "look_at_pose": {
+            "sector": "SOLAR_SYSTEM",
+            "local_pos": [
+              0.0,
+              0.0027774446723632233,
+              0.007630966521102497
+            ],
+            "scale_exp": 8.8,
+            "orient_xyzw": [
+              0.0,
+              0.0,
+              0.0,
+              1.0
+            ]
+          },
+          "target": {
+            "kind": "CatalogZone",
+            "experience_id": 4,
+            "zone_index": 0,
+            "feature_index": 4,
+            "is_macro_zoomed_out": false
+          },
+          "motion": {
+            "kind": "StaticHold",
+            "yaw_deg_per_sec": 0.0,
+            "pitch_wave_deg": 0.0,
+            "scale_breathing_du": 0.0,
+            "orbit_radius_factor": 0.0,
+            "max_sentences_per_vantage": 2,
+            "min_dwell_sec": 32.0,
+            "max_dwell_sec": 40.0
+          },
+          "transition_in": {
+            "kind": "SolarOrbitArc",
+            "duration_sec": 16.0,
+            "narration_lead_sec": 0.0
           },
           "caption_hint": null
         },
@@ -487,16 +711,16 @@
           "pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
-              1.3978153623850704,
-              0.16409418403994008,
-              1.0109297370430879
+              1.2693467103233074,
+              0.06751597811193366,
+              0.7609211844974824
             ],
-            "scale_exp": 10.593855422623161,
+            "scale_exp": 7.080135638245461,
             "orient_xyzw": [
-              -0.16014850304458442,
-              0.23180651511040815,
-              0.038722438982781916,
-              0.9587068213193081
+              0.08867613175205018,
+              0.70198613759446,
+              0.08879487172970181,
+              -0.7010474142575599
             ]
           },
           "look_at_pose": {
@@ -506,7 +730,7 @@
               0.06750000268220901,
               0.7609212676466074
             ],
-            "scale_exp": 10.593855422623161,
+            "scale_exp": 7.080135638245461,
             "orient_xyzw": [
               0.0,
               0.0,
@@ -522,7 +746,7 @@
             "is_macro_zoomed_out": true
           },
           "motion": {
-            "kind": "ScaleDiveCruise",
+            "kind": "OrbitalParallax",
             "yaw_deg_per_sec": 5.5,
             "pitch_wave_deg": 1.8,
             "scale_breathing_du": 0.08,
@@ -532,7 +756,7 @@
             "max_dwell_sec": 16.0
           },
           "transition_in": {
-            "kind": "LogScaleHyperDive",
+            "kind": "CatmullRomScaleSpline",
             "duration_sec": 1.9,
             "narration_lead_sec": 0.35
           },
@@ -543,16 +767,16 @@
           "pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
-              1.4110447286006105,
-              0.15012093278846353,
-              1.0087840579653709
+              1.2693463056735963,
+              0.06751429322348224,
+              0.7609220090189214
             ],
-            "scale_exp": 10.593855422623161,
+            "scale_exp": 7.080135638245461,
             "orient_xyzw": [
-              -0.13569001408703785,
-              0.25412585053975173,
-              0.03603444220767383,
-              0.9569272653338337
+              -0.07971688120066887,
+              -0.6984751908217188,
+              -0.07877752971388643,
+              0.7068038819010404
             ]
           },
           "look_at_pose": {
@@ -562,7 +786,7 @@
               0.06750000268220901,
               0.7609212676466074
             ],
-            "scale_exp": 10.593855422623161,
+            "scale_exp": 7.080135638245461,
             "orient_xyzw": [
               0.0,
               0.0,
@@ -599,16 +823,16 @@
           "pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
-              -2.9227798236495883,
-              0.12726612190829464,
-              4.655998791765482
+              -2.8048742051728546,
+              -0.04868990521559552,
+              4.197625970764511
             ],
-            "scale_exp": 10.823351702386901,
+            "scale_exp": 8.315161706371939,
             "orient_xyzw": [
-              -0.17678995967782554,
-              -0.12235629782233758,
-              -0.02215505892479988,
-              0.9763623302362515
+              -0.11067405625325596,
+              0.8496788570839797,
+              0.19745649840843513,
+              0.4762436606750718
             ]
           },
           "look_at_pose": {
@@ -618,7 +842,7 @@
               -0.0494999997317791,
               4.1984864769323496
             ],
-            "scale_exp": 10.823351702386901,
+            "scale_exp": 8.315161706371939,
             "orient_xyzw": [
               0.0,
               0.0,
@@ -634,7 +858,7 @@
             "is_macro_zoomed_out": true
           },
           "motion": {
-            "kind": "OrbitalParallax",
+            "kind": "HelicalAscent",
             "yaw_deg_per_sec": 5.5,
             "pitch_wave_deg": 1.8,
             "scale_breathing_du": 0.08,
@@ -644,7 +868,7 @@
             "max_dwell_sec": 16.0
           },
           "transition_in": {
-            "kind": "CatmullRomScaleSpline",
+            "kind": "ContinuousOrbitBridge",
             "duration_sec": 1.9,
             "narration_lead_sec": 0.35
           },
@@ -655,16 +879,16 @@
           "pose": {
             "sector": "SOLAR_SYSTEM",
             "local_pos": [
-              -2.5660272757637794,
-              0.09064782440261265,
-              4.6189299493355245
+              -2.8046139234358707,
+              -0.049156634082997974,
+              4.197794441125714
             ],
-            "scale_exp": 10.823351702386901,
+            "scale_exp": 8.315161706371939,
             "orient_xyzw": [
-              -0.13569001408703785,
-              0.25412585053975173,
-              0.03603444220767383,
-              0.9569272653338337
+              -0.05211744246306068,
+              0.8280303785405952,
+              0.07807014975941615,
+              0.5527698581883516
             ]
           },
           "look_at_pose": {
@@ -674,7 +898,7 @@
               -0.0494999997317791,
               4.1984864769323496
             ],
-            "scale_exp": 10.823351702386901,
+            "scale_exp": 8.315161706371939,
             "orient_xyzw": [
               0.0,
               0.0,

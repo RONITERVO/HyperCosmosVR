@@ -1,0 +1,10 @@
+   Compiling cosmos_render v0.1.0 (D:\Projects\Simulations\HyperCosmosVR\crates\cosmos_render)
+    Finished `release` profile [optimized] target(s) in 1.81s
+     Running tests\solar_surface_tests.rs (target\release\deps\solar_surface_tests-c995d0406e5f5a9e.exe)
+
+running 3 tests
+test solar_penumbral_filter_tables_preserve_shipping_filament_ensemble ... ok
+test solar_surface_is_continuous_across_actual_granule_winner_changes ... ok
+test solar_surface_preserves_ensemble_radiance_and_continuity_across_detail_lod ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.09s

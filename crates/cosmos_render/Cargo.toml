@@ -21,3 +21,6 @@ pollster = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+cosmos_journey = { path = "../cosmos_journey" }
+

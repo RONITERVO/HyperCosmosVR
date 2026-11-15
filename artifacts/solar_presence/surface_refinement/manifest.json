@@ -1,0 +1,391 @@
+{
+  "base_commit": "9926ad17b263fda086b142f107287c111b2418b0",
+  "source_run": "target/solar_loop_specialized",
+  "capture": {
+    "adapter": "NVIDIA GeForce RTX 5070",
+    "eye_dimensions": [
+      3400,
+      3468
+    ],
+    "vertical_fov_deg": 72,
+    "horizontal_fov_deg": 70.924283,
+    "ipd_m": 0.064,
+    "motion": "Static",
+    "measured_frames": 120,
+    "simulation_range_sec": [
+      30,
+      33.966667175
+    ],
+    "synthetic_capture_hz": 30,
+    "gpu_profile": true,
+    "video": false,
+    "measurement": "CPU submission plus GPU wait; synthetic stereo without headset/compositor; readback excluded"
+  },
+  "logs": [
+    {
+      "source": "target/solar_loop_specialized/capture.txt",
+      "file": "native_capture.txt",
+      "source_sha256": "c0a560a37179e9290c4fb8e5cff8359e71e61a34b381b0e96c03c885742fb6ca",
+      "sha256": "c0a560a37179e9290c4fb8e5cff8359e71e61a34b381b0e96c03c885742fb6ca",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Current frozen refinement; six-view native-size offscreen reference."
+    },
+    {
+      "source": "target/solar_surface_all_refinement_probe.txt",
+      "file": "surface_probe_prior_penumbra.txt",
+      "source_sha256": "12786bf2ef66a1bc31f67af7c37fd97cfc50020cd79775bd2a38002826734840",
+      "sha256": "9e71495aa924f8b170e288e6fae6f8639183e7b3ac31f7fc96bf432f54efcf03",
+      "transformation": "UTF-8 without BOM; LF line endings; trailing empty lines removed, retaining one terminating LF. No result or diagnostic content changed.",
+      "scope": "Earlier three-test run: current granulation checks, previous penumbral material/table. Superseded penumbral result is not final."
+    },
+    {
+      "source": "target/solar_penumbral_flow_probe_calibrated.txt",
+      "file": "penumbra_probe_final.txt",
+      "source_sha256": "5c3f3c263a9614750aba8bc750784f7623193b47247067d9c25b173497c8e0fd",
+      "sha256": "37ea9be37d25b60002151ce1af91bef153222657ce92d5bf1112821cf551bb1b",
+      "transformation": "UTF-8 without BOM; LF line endings; trailing empty lines removed, retaining one terminating LF. No result or diagnostic content changed.",
+      "scope": "Final tapered penumbral material and GPU-calibrated mean table; focused test: 1 passed."
+    },
+    {
+      "source": "target/solar_penumbral_gpu_calibration.json",
+      "file": "penumbra_gpu_calibration.json",
+      "source_sha256": "8f8e5667b2a114eff6d210a7de8ac5dcc9761d7608c923e8de9b675fa6bd63eb",
+      "sha256": "ee2e6978eaa4d27d14d8951c6518178e73e52500846bdf489621e5de6b7218bc",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Actual GPU ensemble used to populate 24 radial knots per spot; includes original calibration-source hashes."
+    },
+    {
+      "source": "target/solar_refinement_cycles/capture.txt",
+      "file": "motion_cycles_capture.txt",
+      "source_sha256": "2468215ebf530902dfe7f43f69d6d6d37dc89c56a46608541b4d9a5a58144f95",
+      "sha256": "2468215ebf530902dfe7f43f69d6d6d37dc89c56a46608541b4d9a5a58144f95",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Four completed 60-second stereo recordings; encoding-active timing is not an isolated benchmark. Bounded sampled motion review completed; artistic and headset acceptance remain open."
+    },
+    {
+      "source": "target/solar_refinement_120/capture.txt",
+      "file": "temporal_120_capture.txt",
+      "source_sha256": "de8e0b2608a3b82a4e472bd58bf4fa12a5a1e33cf24cc6449e4e7e89c7655334",
+      "sha256": "de8e0b2608a3b82a4e472bd58bf4fa12a5a1e33cf24cc6449e4e7e89c7655334",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Two completed 241-frame stereo recordings at 3400x3468 and 120 synthetic samples per second, simulation time 30–32 seconds. Visual samples, not native headset cadence or a benchmark."
+    },
+    {
+      "source": "target/solar_refinement_motion_review/native120/solar_granulation_horizon_crop_metadata.json",
+      "file": "granulation_motion_crop_metadata.json",
+      "source_sha256": "8b9aeb9b53b2c750fc1ad558065c0dc31e62b4cfa0234fe2f1d0ec8fe56f64c3",
+      "sha256": "be325f3e84ef9bdbb41e9e93a1b3d2ab3a72cb273b354a42f29ad9f9a097be65",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Integer-translation tracked 512x512 crops decoded from lossy MP4s, without scaling or rotation; not original renderer pixels."
+    },
+    {
+      "source": "target/solar_refinement_motion_review/native120/solar_active_region_crop_metadata.json",
+      "file": "active_region_motion_crop_metadata.json",
+      "source_sha256": "a4a26a4b87881d69efe9612d9d4d6364a13571ffe557560e20573c99e9262dec",
+      "sha256": "920947175d33c2f157230e8e2636149939ccf3f2d18716ca79be4e5749b5e390",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Integer-translation tracked 512x512 crops decoded from lossy MP4s, without scaling or rotation; not original renderer pixels."
+    },
+    {
+      "source": "target/solar_refinement_final_tests.txt",
+      "file": "final_test_log.txt",
+      "source_sha256": "63957485000e327fac48cada4e5e72c8c427c03209c5209e574045c511dddf4f",
+      "sha256": "b40ce499f139813bce8956d01df3fd053f379d2453073d43e7277affeb0d7d27",
+      "transformation": "UTF-8 without BOM; LF line endings. One environment-only OpenVR log path/GUID replaced with [redacted local OpenVR log path]; test results and diagnostics otherwise unchanged.",
+      "scope": "Source-freeze full local suite passed in 307.64 seconds; separate CLI sweep also passed."
+    },
+    {
+      "source": "target/solar_refinement_all_experiences/benchmark_sweep.txt",
+      "file": "benchmark_sweep.txt",
+      "source_sha256": "e54bfcb5822b05e125dfee21bdc18f2c03b9b0c02b704156f8aef13fe65e1642",
+      "sha256": "e54bfcb5822b05e125dfee21bdc18f2c03b9b0c02b704156f8aef13fe65e1642",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Final 120-frame 960x540 desktop benchmark reference; not native stereo or headset performance."
+    },
+    {
+      "source": "target/solar_refinement_all_experiences_log.txt",
+      "file": "all_experiences_log.txt",
+      "source_sha256": "ce4b4cf8be9d11b431703be1f82ecee3d35d8f1de245551c2608abe712195d00",
+      "sha256": "7466ba4632dfb62cceb5d12aa90de1d4c33c79df4c8819f36950de124ac7b2a1",
+      "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
+      "scope": "Final current-executable CLI regression sweep; 43 PNG captures across all 25 experiences, successful exit reported by the runner."
+    },
+    {
+      "source": "target/solar_surface_ci_compatibility_clippy.txt",
+      "file": "ci_compatibility_clippy.txt",
+      "source_sha256": "e79fabbbfc35eb2252b57d1f9da7d720356ca194e311df2a0f80df809d26de15",
+      "sha256": "8c4cf65db4bf6529b384710c6d2d9a78279ab37d116a9ad48388502e4debe765",
+      "transformation": "UTF-8 without BOM; LF line endings; trailing empty lines removed, retaining one terminating LF. No result or diagnostic content changed.",
+      "scope": "Local workspace all-target Clippy with warnings denied passed in 0.91 seconds after the test-only Rust 1.100 lint compatibility change; not new CI acceptance."
+    },
+    {
+      "source": "target/solar_surface_ci_compatibility_tests.txt",
+      "file": "ci_compatibility_tests.txt",
+      "source_sha256": "d745c2c6dabf0364e679879c6027287ff154b1a421d899ac950e48c46767c0eb",
+      "sha256": "0dcefd7a29e0de323eec2cb5e3becc56bfbbab5e3ea80dff00eadc1b2df1ef1d",
+      "transformation": "UTF-8 without BOM; LF line endings; trailing empty lines removed, retaining one terminating LF. No result or diagnostic content changed.",
+      "scope": "All three affected solar surface GPU tests passed in 3.09 seconds after the test-only borrowed as_chunks conversion; no probe, equations, budgets or rendering changes."
+    }
+  ],
+  "native_originals": [
+    {
+      "source": "target/solar_loop_specialized/exp04_z000_sun/eye0_0119.png",
+      "sha256": "9b9fb61d3a5ebc681ae6c8192f90d0dc6ffcd3fa03e0297d8e9c66dba4385d9b",
+      "bytes": 3266439,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "eye": 0,
+      "frame": 119,
+      "simulation_sec": 33.966667175
+    },
+    {
+      "source": "target/solar_loop_specialized/solar_active_region/eye0_0119.png",
+      "sha256": "e3a6a7685bd6e86297b44fb0c1184eff5e804201e0f11bb79ae4a0a70514d4b5",
+      "bytes": 18888324,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "eye": 0,
+      "frame": 119,
+      "simulation_sec": 33.966667175
+    },
+    {
+      "source": "target/solar_loop_specialized/solar_energy_interior/eye0_0119.png",
+      "sha256": "ae7af4cd165a860711bc7257b616770791bdfc22ebe41474baf9d4cd2e9fb5cc",
+      "bytes": 14037551,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "eye": 0,
+      "frame": 119,
+      "simulation_sec": 33.966667175
+    },
+    {
+      "source": "target/solar_loop_specialized/solar_escaping_wind/eye0_0119.png",
+      "sha256": "bc88be079695247a3775147bf79b8e3582bb8b8cebd6b99196015a0691c0bfed",
+      "bytes": 5973442,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "eye": 0,
+      "frame": 119,
+      "simulation_sec": 33.966667175
+    },
+    {
+      "source": "target/solar_loop_specialized/solar_granulation_horizon/eye0_0119.png",
+      "sha256": "cf112e8653e3b167796db7b30e497dd1897d3a3f3b875d1c14c15a7e9dfb88e9",
+      "bytes": 21730180,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "eye": 0,
+      "frame": 119,
+      "simulation_sec": 33.966667175
+    },
+    {
+      "source": "target/solar_loop_specialized/solar_limb_eruption/eye0_0119.png",
+      "sha256": "779cc2146bc915b13b7a1d04941bde19aeaf71fd314fa2a7a0e49688be135918",
+      "bytes": 15829008,
+      "dimensions": [
+        3400,
+        3468
+      ],
+      "eye": 0,
+      "frame": 119,
+      "simulation_sec": 33.966667175
+    }
+  ],
+  "crops": [
+    {
+      "file": "granulation_native_crop.png",
+      "source": "target/solar_loop_specialized/solar_granulation_horizon/eye0_0119.png",
+      "source_sha256": "cf112e8653e3b167796db7b30e497dd1897d3a3f3b875d1c14c15a7e9dfb88e9",
+      "sha256": "996c8c4aa51ce72c9e7e5a8f5cff639b067ff9230e51cddc3fde405b3076994e",
+      "bytes": 1241015,
+      "rectangle_xyxy_exclusive": [
+        1100,
+        2200,
+        2124,
+        3224
+      ],
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transform": "Exact 1:1 source pixels, PNG lossless; no resizing or color adjustment."
+    },
+    {
+      "file": "penumbra_native_crop.png",
+      "source": "target/solar_loop_specialized/solar_active_region/eye0_0119.png",
+      "source_sha256": "e3a6a7685bd6e86297b44fb0c1184eff5e804201e0f11bb79ae4a0a70514d4b5",
+      "sha256": "ba725bf83e666c9d77e949e942c132872ceda1eff0d8d794c519a2de5e2e611e",
+      "bytes": 1798648,
+      "rectangle_xyxy_exclusive": [
+        448,
+        2378,
+        1472,
+        3402
+      ],
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "transform": "Exact 1:1 source pixels, PNG lossless; no resizing or color adjustment."
+    }
+  ],
+  "source_snapshot_lf_sha256": {
+    "shaders/hero_doc_sun.wgsl": "ab75cd3acd4bf6f56ffac8e0bc65a82a2812bb91ea535a222e0b28ecd6f90689",
+    "shaders/solar_plasma.wgsl": "5a736b6c6ca95fbe2972ed073f0eea5fd2aa001be41b4e8ed2e3cdfd3b8563cb",
+    "crates/cosmos_render/src/pipeline.rs": "a7dcec3f3ca89bba2f51331eb4879cd16a398ffd529bc6bf86e3d84c19690cf5",
+    "crates/cosmos_render/src/scene_pass.rs": "7bf5874ddfc8ebb7cce2a9f369e4ebbf67a8804dd35ee572777cb69ccb172b08",
+    "crates/cosmos_render/tests/solar_surface_tests.rs": "ad94bfa7bd0560304201cee405de5d9e515a1c7f23354adc5ebf0a71b04d4f6f",
+    "crates/cosmos_render/tests/solar_geometry_tests.rs": "62b3baf7cfa540a9b422ed9f8f8bb0e2a582475f0d4655b6e23a8e433c2b8d2c",
+    "crates/cosmos_render/src/solar_blend_tests.rs": "19fe106ba935958c0a7e13ff8dafe65111e1128b7563893a26504745a36fa6c6"
+  },
+  "status": {
+    "full_local_suite": "Passed in 307.64 seconds; all three final surface tests passed in 1.78 seconds.",
+    "moving_camera_review": "Bounded sampled review completed; visual-explanation gaps and native headset acceptance remain open.",
+    "native_headset": "unverified; previous xrCreateInstance probe failed",
+    "artistic_and_learning_acceptance": "open",
+    "clippy": "Workspace all-target Clippy with warnings denied passed in 3.41 seconds.",
+    "full_cycle_capture": "Four 60-second stereo views completed in target/solar_refinement_cycles; 1,801 frames per eye/view, eight encoders successful. Bounded sampled motion review completed.",
+    "native_size_temporal_capture": "Two views, two eyes, 241 frames per eye/view completed; simulation time 30–32 seconds at 120 synthetic samples per second. Bounded sampled visual review completed; not native FPS.",
+    "cli_sweep": "Passed: 43 PNGs across all 25 experiences at 960x540 desktop reference."
+  },
+  "preview": {
+    "file": "surface_refinement_preview.mp4",
+    "sha256": "a51648a8d57da2244b7e01d64329d8a7741f6b38a49f4192aa581f0721c2c6b0",
+    "bytes": 19447134,
+    "provenance": "preview_manifest.json",
+    "duration_sec": 16,
+    "frames": 480,
+    "eye": 0,
+    "pixel_provenance": "Lossy video-derived review copy."
+  },
+  "motion_review": {
+    "phase_times_sec": [
+      0,
+      6,
+      12,
+      22,
+      32,
+      42,
+      48,
+      58,
+      59.966667,
+      60
+    ],
+    "wrap_times_sec": [
+      59.9,
+      59.933333,
+      59.966667,
+      60
+    ],
+    "native_evolution_times_sec": [
+      30,
+      31,
+      32
+    ],
+    "native_consecutive_frames": [
+      120,
+      121,
+      122,
+      123,
+      124,
+      125
+    ],
+    "eyes": [
+      0,
+      1
+    ],
+    "review_artifact_directory": "target/solar_refinement_motion_review",
+    "native_crop_directory": "target/solar_refinement_motion_review/native120",
+    "observed": "No obvious new pop/flash, proxy edge, world slip or bilateral phase mismatch in sampled review; evolving anchored granules and tapered filaments. Loop heating/cooling visible.",
+    "remaining_gaps": "Returning rain difficult to read; CME remains smooth luminous ropes/empty cavity without distinct cool core or leading front; blue wind overlaps cavity.",
+    "limitations": "Lossy source video and bounded temporal samples, not native headset cadence, sustained shimmer comfort or unaided comprehension. Identical native end-frame eye images are consistent with negligible astronomical disparity, not stereo proof.",
+    "native_consecutive_range_sec": [
+      31,
+      31.041666667
+    ]
+  },
+  "local_suite_results": {
+    "cpu": 75,
+    "application_including_warmup": 22,
+    "tour_framing": 1,
+    "renderer_library": 4,
+    "final_color_output": 1,
+    "renderer_regressions": 17,
+    "solar_geometry": 4,
+    "solar_surface": 3,
+    "solar_blending_and_specialization": 1,
+    "solar_noise_lattice": 1,
+    "typography": 14,
+    "application_integration": 3,
+    "application_renderer_doctest_cases": 0,
+    "elapsed_seconds": 307.64,
+    "phase_seconds": {
+      "dx12_correctness": 163.69,
+      "application_integration": 114.0
+    },
+    "note": "Counts describe suite groups; not native VR acceptance or a visual-quality score."
+  },
+  "cli_sweep": {
+    "result": "Passed; runner exited 0.",
+    "dimensions": [
+      960,
+      540
+    ],
+    "frames": 120,
+    "png_captures": 43,
+    "experiences": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25
+    ],
+    "min_ms": 0.615,
+    "mean_ms": 1.142,
+    "p99_ms": 2.727,
+    "max_ms": 3.189,
+    "scope": "Low-resolution desktop regression reference, separate from native-size synthetic stereo and native headset acceptance."
+  },
+  "source_snapshot_commit": "d791315463801c68114d046c68acf63a607da811",
+  "ci_compatibility_revision": {
+    "prior_commit": "d791315463801c68114d046c68acf63a607da811",
+    "change": "Rust 1.100 CI rejected six chunks_exact_to_as_chunks lint sites. Converted test-only table access to borrowed as_chunks views and removed redundant Vec<&slice> collections; probes, equations, budgets and rendering unchanged.",
+    "source_snapshot_lf_sha256": {
+      "crates/cosmos_render/tests/solar_surface_tests.rs": "40538f373d8e6d4798eef9f02abeb84944fae78c503952a97f6744351e0497c5"
+    },
+    "local_clippy": "Passed, workspace all-target with warnings denied, 0.91 seconds.",
+    "affected_gpu_tests": "All 3 passed in 3.09 seconds.",
+    "ci_status": "New CI result pending; no pass claimed.",
+    "evidence_scope": "Existing rendering captures and source-freeze full-suite results remain historical evidence for source_snapshot_commit; original source_snapshot_lf_sha256 values are preserved."
+  }
+}

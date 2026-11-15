@@ -158,6 +158,15 @@ pub fn init_for_dx12_luid(target_luid: Option<(u32, i32)>) -> Result<GpuContext,
             required_features |= opt;
         }
     }
+    if std::env::var("HYPERCOSMOS_GPU_PROFILE").is_ok_and(|value| value == "1") {
+        let profiling = wgpu::Features::TIMESTAMP_QUERY
+            | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+            | wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES;
+        if !supported.contains(profiling) {
+            return Err(RenderError::DeviceInit("GPU profiling requested but in-pass timestamps are unsupported".into()));
+        }
+        required_features |= profiling;
+    }
 
     let mut required_limits = wgpu::Limits::default();
     let adapter_limits = selected.limits();

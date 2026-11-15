@@ -202,7 +202,7 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
         let selections: &[(u8, &[usize])] = &[
             // Earth uses its connected, altitude-aware opening below.
             (3, &[]),
-            (4, &[0, 4, 7]),
+            (4, &[4, 7]),
             (5, &[0, 1]),
             (21, &[0]),
             (22, &[0]),
@@ -222,6 +222,8 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
             let zones = catalog.zones(exp_id);
             let mut beats = if exp_id == 3 {
                 build_earth_highlights_beats()
+            } else if exp_id == 4 {
+                build_solar_highlights_beats()
             } else {
                 Vec::new()
             };
@@ -237,9 +239,8 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
                 }
             }
             if exp_id == 4 && let Some(first) = beats.first_mut() {
-                // Physical Earth and the normalized Solar exhibit have distinct
-                // observer units. An authored chapter cut avoids interpolating
-                // an Earth observer inside a prematurely reanchored Solar frame.
+                // An authored chapter cut enters the separate solar observing
+                // location without a premature cross-sector interpolation.
                 first.transition_in = BeatTransition {
                     kind: TransitionKind::InstantBookmark,
                     duration_sec: 0.0,
@@ -374,6 +375,68 @@ fn build_earth_highlights_beats() -> Vec<JourneyBeat> {
         make_beat("earth_solar_wind", 0, Some(0), wind_observer, wind_target, 7.0, 24.0, 18.0),
         make_beat("earth_magnetic_deflection", 0, Some(1), wind_view * earth_radius * 42.0, field_target, 7.4, 24.0, 12.0),
         make_beat("earth_auroral_response", 2, Some(0), southern_observer * earth_radius * 1.10, southern_aurora, 5.65, 24.0, 14.0),
+    ]
+}
+
+/// Six quiet observations of one stable, co-rotating solar environment. The
+/// shader shares this active-region basis; the route never rotates the star to
+/// face the observer. Coordinates below are physical photospheric radii.
+fn build_solar_highlights_beats() -> Vec<JourneyBeat> {
+    let radius = cosmos_spatial::SUN_RADIUS_M
+        * 10.0_f64.powf(-cosmos_spatial::SOLAR_SECTOR_SCALE_EXP);
+    let latitude = 20.0_f64.to_radians();
+    let center = DVec3::new(0.0, latitude.sin(), latitude.cos());
+    let east = DVec3::X;
+    let north = DVec3::new(0.0, latitude.cos(), -latitude.sin());
+    let make_beat = |id: &str, feature, eye_r: DVec3, target_r: DVec3, dwell, travel| {
+        let position = eye_r * radius;
+        let target = target_r * radius;
+        let forward = (target - position).normalize();
+        let orientation = if eye_r.length() < 1.6 {
+            let right = forward.cross(eye_r.normalize()).normalize();
+            let up = right.cross(forward).normalize();
+            DQuat::from_mat3(&glam::DMat3::from_cols(right, up, -forward)).normalize()
+        } else {
+            orient_toward(position, target)
+        };
+        let pose = ScalePose64::new(SectorId::SOLAR_SYSTEM, position, 8.8, orientation);
+        let look_at = ScalePose64::new(SectorId::SOLAR_SYSTEM, target, 8.8, DQuat::IDENTITY);
+        JourneyBeat {
+            beat_id: id.to_owned(),
+            pose: SerializedPose64::from_pose64(&pose),
+            look_at_pose: Some(SerializedPose64::from_pose64(&look_at)),
+            target: BeatTargetSelector::CatalogZone {
+                experience_id: 4, zone_index: 0, feature_index: feature,
+                is_macro_zoomed_out: feature.is_none(),
+            },
+            motion: BeatMotionProfile {
+                kind: MotionProfileKind::StaticHold,
+                yaw_deg_per_sec: 0.0, pitch_wave_deg: 0.0,
+                scale_breathing_du: 0.0, orbit_radius_factor: 0.0,
+                max_sentences_per_vantage: 2,
+                min_dwell_sec: dwell, max_dwell_sec: dwell + 8.0,
+            },
+            transition_in: BeatTransition {
+                kind: TransitionKind::SolarOrbitArc,
+                duration_sec: travel, narration_lead_sec: 0.0,
+            },
+            caption_hint: None,
+        }
+    };
+    vec![
+        // Frame the whole disc and the late 2.8R eruption with margin in a
+        // square 72-degree view. The offset aim balances the star and outflow;
+        // change the observer, never the stable active-region/star orientation.
+        make_beat("exp04_z000_sun", None, (center + east * 0.55 + north * 0.65).normalize() * 5.0, center * 0.6, 24.0, 0.0),
+        make_beat("solar_energy_interior", Some(0), (center + east * 0.45 + north * 0.25).normalize() * 2.4, DVec3::ZERO, 32.0, 12.0),
+        make_beat("solar_granulation_horizon", Some(1), (center - east * 0.45 - north * 0.18).normalize() * 1.055, (center - east * 0.40 - north * 0.16).normalize() * 1.001, 32.0, 14.0),
+        // Observe across the E-aligned bipole, not along it: both roots must
+        // remain distinct while the upper arcade rises above the observer.
+        make_beat("solar_active_region", Some(2), (center + east * 0.025 + north * 0.16).normalize() * 1.10, center * 1.08, 60.0, 14.0),
+        // Keep the quiet limb and roots in the default view. The late eruption
+        // rises overhead, where the wearer can look up without a forced pan.
+        make_beat("solar_limb_eruption", Some(3), (center + east * 0.18 - north * 0.90).normalize() * 1.45, center * 1.30, 60.0, 12.0),
+        make_beat("solar_escaping_wind", Some(4), (center + east * 0.75 + north * 0.25).normalize() * 3.6, center * 1.85, 32.0, 16.0),
     ]
 }
 

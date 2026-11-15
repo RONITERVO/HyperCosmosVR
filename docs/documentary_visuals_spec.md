@@ -25,6 +25,25 @@ The Earth material combines daytime imagery from July 2004, nighttime lights fro
 
 **Legacy altitude lessons remain outside this acceptance scope.** Existing selected atmospheric/orbital overlays retain shell-relative illustrative placement and have not all received physical-scale or educational verification. In particular, the selected GEO marker remains at 1.7 Earth radii from the center, a physically incorrect location for geostationary orbit: the reference altitude is approximately 35,786 km above the surface, or 6.6 Earth radii from the center. [ESA orbit reference](https://www.esa.int/articles/about-us/directorates/space-transportation/types-of-orbits) These legacy lessons are absent from the new six-stop Earth opening. Do not extend its physical-scale claims to every existing Earth feature; require a separate review of geometry, observing poses and scientific meaning before accepting those lessons.
 
+### Solar flagship: current implementation and open acceptance
+
+The six-view solar chapter connects a physical-scale Sun, evolving granulation,
+stable magnetic footpoints, closed-loop return flow, an expanding eruption,
+separate open outflow and an explanatory interior. Visible-detail contrast,
+EUV false color and schematic interior transport are disclosed by spatial
+holographic instruments; none is a calibrated instrument reconstruction.
+The whole-Sun overview and visible-detail modes also explicitly disclose
+their composite of filtered visible light and illustrative coronal plasma;
+the colored strands and blue wind tracers are not an unassisted-eye view.
+The broader prominence/cavity/envelope revision supersedes the thin eruption
+in the completed diagnostic movies. Dedicated Sun pipelines and atmosphere
+integration changes reduce measured cost, but contouring, material detail,
+temporal stability and native-headset acceptance remain under review. The
+[physical contract](SOLAR_PHYSICAL_RENDERING.md) and
+[review report](../artifacts/solar_presence/README.md) record current evidence
+and limits. This work does not complete the stellar lifecycle, the fusion
+reaction lesson or the broader documentary-quality goal.
+
 **Verified Dataset Scope (Audited 1:1 against `Spanish-Quick-Apps` `01..25` & `HyperCosmosVR` crates):**
 - **25 Experiences (`01..25`):** Apps `01..02` continuous non-zonal sensory manifolds + Apps `03..25` spanning **`376` zones**
 - **`2,456` Feature Highlight Cues (`features[k]`):** Every single feature index (`active_feature_index`) specified cleanly below
@@ -43,7 +62,7 @@ The Earth material combines daytime imagery from July 2004, nighttime lights fro
 ## 1. Global VR Procedural Architecture, Shader Allocation & Performance Budgets
 
 ### 1.1 Render Pass DAG & Shader Compilation Order
-Every WGSL render and compute pipeline compiles with `common_oled.wgsl` prepended verbatim. Hero volumetric documentary shaders share one unified raymarching pass concatenating `common_oled.wgsl` -> `doc_common.wgsl` -> `hero_doc_cosmos.wgsl` -> `hero_doc_matter_mind.wgsl` -> `hero_doc_civilization_horizon.wgsl` -> `hero_volumetric.wgsl` (`CullMode::Front` unit cube `[-1, 1]^3`, Stereo Multiview `@builtin(view_index)`):
+Every WGSL render and compute pipeline compiles with `common_oled.wgsl` prepended verbatim. General documentary heroes concatenate `common_oled.wgsl` -> `doc_common.wgsl` -> `hero_doc_cosmos.wgsl` -> `hero_doc_matter_mind.wgsl` -> `hero_doc_civilization_horizon.wgsl` -> `hero_volumetric.wgsl` (`CullMode::Front` unit cube `[-1, 1]^3`, Stereo Multiview `@builtin(view_index)`). The Sun instead uses dedicated surface/corona programs and separate resolved-plasma absorption/emission passes; their exact module order and composition are specified in [Shader Contracts](../shaders/SHADER_CONTRACTS.md#1-shader-suite-inventory--compilation-rule). The following dispatch list retains general/legacy mappings and must not be used to infer the current Sun implementation:
 
 1. **Compute Simulation & PDE Pass (`compute_universe.wgsl`):**
    - `cs_advect_particles` (`@workgroup_size(256,1,1)`): updates up to `DEFAULT_PARTICLE_CAP = 65_536` (`DEFAULT_PARTICLE_COUNT = 32_768` default active) `SimParticle`s (`64 B` stride) across modes `0..15+` (`0` MW spiral, `1` Laniakea streamlines, `2` Cosmic Web Zel'dovich ridges, `3` QCD quarks, `4` atomic orbitals via `eval_spherical_orbital_density`, `5` Planck spin-foam, `6` Complexity Turing/BZ waves, `7` Connectome neural sparks, `8` App `02` cymatic ripples, `9` App `01` dwell-attracted chromatic motes, `10` Keplerian Asteroid/Kuiper belt, `11` Geodynamo & trade winds, `12` Rayleigh-Benard prebiotic swarm, `13` Cosmological redshift photon stream, `14` Transformer optical bus lattice, `15+` SETI & 25-Petal Hyper-Lotus convergence).
@@ -423,14 +442,16 @@ HeroVolumeInstance.kind_tags.w (u32):
 ### Experience `04`: Sistema Solar
 - **Placement & Scale:** `SectorId::SOLAR_SYSTEM` · `[+6.8, +13.6] (focus +11.2)` · Radius `4.0e13 m` · `ManifoldArchetype::HeliocentricSystem`
 - **Active Zones / Features:** `12` zones · `60` features · `11` bodies
-- **Shader Allocation:** `hero_doc_cosmos.wgsl (kind=1 -> shade_doc_solar_planet_surface, kind=2 -> Cassini rings), instanced_sprites.wgsl (kind=0,2 asteroids)`
+- **Shader Allocation:** The Sun uses `hero_doc_sun.wgsl`, `hero_solar_interior.wgsl`, `hero_solar_corona.wgsl`, `solar_hero.wgsl` and `solar_plasma.wgsl`. Other planetary surfaces/rings remain in `hero_doc_cosmos.wgsl`; asteroid sprites remain in `instanced_sprites.wgsl`.
 - **Continuity:** Bridges inward from 04 Tierra (1.00 UA) into 03 Earth; extends outward past Pluto & Kuiper (30-50 UA) into 05 Milky Way.
 - **2D `scene.js` -> 3D VR Architecture:** Horizontal heliocentric `X` orbital strip translated to logarithmic heliocentric 3D ecliptic plane (`11` procedural planets/belts + `moon` orbital sub-node inside Earth zone, logarithmic AU scale spacing).
 
 #### App `04` — Complete `BODY_LAYOUT` 3D Assemblies (11 Bodies)
+The source-catalog positions and historical blueprint scales below are not current physical sphere dimensions. Current radii, illumination, stereo policy and limitations are defined in the [solar physical contract](SOLAR_PHYSICAL_RENDERING.md).
+
 | # | `id` | Normalized Pos (`x`, `lane`, `2D r`) | Scale & Shader Variant | Procedural 3D Volumetric & Surface Blueprint |
 | :---: | :--- | :---: | :--- | :--- |
-| `00` | `sun` | `x=0.025, lane=0, r=92` | `u=+9.2` · `vid=1 (Solar Photosphere), kind=3 vid=4 (Corona Loops)` | Animated convective plasma granulation cells, 8-loop magnetic prominence arches, limb darkening & solar wind particle emitter (`x=0.025, r_2d=92`). |
+| `00` | `sun` | Heliocentric origin; catalog `x=0.025` is historical layout data | Physical radius 695,700 km; dedicated Sun pipelines | Evolving photosphere and fixed active regions, resolved loops/return flow, expanding eruption, separate open outflow and an explicitly schematic interior; visual acceptance remains open. |
 | `01` | `mercury` | `x=0.13, lane=-0.12, r=8` | `u=+6.4` · `kind=1 vid=0 (Craters & Iron Core)` | Multi-octave Voronoi impact craters, compressional lobate scarps (`acantilados`), sharp day/night 700K/100K terminator, shadowed polar ice glint (`x=0.13, r_2d=8`). |
 | `02` | `venus` | `x=0.21, lane=0.13, r=18` | `u=+6.8` · `kind=1 vid=2 (Super-rotating H2SO4 Bands)` | Opaque cream-sulfur cloud deck streaming in super-rotating retrograde shear bands, faint thermal IR surface glow beneath cloud gaps (`x=0.21, r_2d=18`). |
 | `03` | `earth` | `x=0.295, lane=-0.08, r=21` | `u=+6.8` · `kind=0 (Full Earth Surface + Aurora Shell)` | Rayleigh atmosphere, specular oceans, night city lights, cloud spirals & Continuity Anchor Beacon connecting smoothly into `App 03 Deep Earth` (`x=0.295, r_2d=21`). |
@@ -447,15 +468,15 @@ HeroVolumeInstance.kind_tags.w (u32):
 ##### Zone `[00]` `sun` — **Sol** (`scene_index`: None (`-1`) · Color `#FFC64A` `rgb(255, 198, 74)`)
 - **Telemetry `[0..3]` (`x0..x1 / au0..au1 (UA)`):** `[0.0, 0.09, 0.0, 0.15]` · Dist `Centro del sistema solar` · Period `Gira en unos 25–35 días según la latitud`
 - **Audio Bed (`sound`):** `sine` `196Hz` · LP `5200Hz` · noise `0.22` · pulse `0.16`
-- **3D Macro Geometry & Shader Behavior:** Heliocentric 3D assembly (u=+9.2 · vid=1 (Solar Photosphere), kind=3 vid=4 (Corona Loops)): Animated convective plasma granulation cells, 8-loop magnetic prominence arches, limb darkening & solar wind particle emitter (`x=0.025, r_2d=92`).
+- **3D Macro Geometry & Shader Behavior:** A fixed, physical-radius Sun at the heliocentric origin with an emissive filtered photosphere and a diffuse corona bounded at three photospheric radii. Surface activity evolves in a co-rotating frame. The new Highlights chapter gives six observations with no forced head pan; selected modes are disclosed by spatial holographic glyphs. See the [physical contract](SOLAR_PHYSICAL_RENDERING.md) for the separate clocks and unverified visual acceptance criteria.
 
 | `feat` | `features[k]` Title | 3D Spotlight Choreography & Shader Reaction (`VisualCueTag::FeatureSpotlight`, `doc_feat=k`) |
 | :---: | :--- | :--- |
-| `0` | **núcleo** | Focuses Deep Earth cutaway interior (`wall_r < 0.46`), accelerating helical outer-core dynamo convection or inner-core Fe anisotropy glint. (orbit azimuth `0°`, `emphasis=0.95`). *Cue context:* "En el centro, la fusión nuclear convierte hidrógeno en helio y libera enormes cantidades de energía." |
-| `1` | **fotosfera** | Targets solar photosphere granulation / starspot umbra, arches coronal magnetic loops (`kind=3 vid=4`) or shifts Planckian blackbody core. (orbit azimuth `72°`, `emphasis=0.95`). *Cue context:* "La superficie visible tiene una temperatura cercana a cinco mil quinientos grados Celsius." |
-| `2` | **mancha solar** | Targets solar photosphere granulation / starspot umbra, arches coronal magnetic loops (`kind=3 vid=4`) or shifts Planckian blackbody core. (orbit azimuth `144°`, `emphasis=0.95`). *Cue context:* "Regiones más frías y oscuras aparecen donde el campo magnético es especialmente intenso." |
-| `3` | **corona** | Targets solar photosphere granulation / starspot umbra, arches coronal magnetic loops (`kind=3 vid=4`) or shifts Planckian blackbody core. (orbit azimuth `216°`, `emphasis=0.95`). *Cue context:* "La atmósfera exterior del Sol alcanza temperaturas de millones de grados y se extiende al espacio." |
-| `4` | **viento solar** | Targets solar photosphere granulation / starspot umbra, arches coronal magnetic loops (`kind=3 vid=4`) or shifts Planckian blackbody core. (orbit azimuth `288°`, `emphasis=0.95`). *Cue context:* "Un flujo de partículas cargadas sale del Sol y llena todo el sistema planetario." |
+| `0` | **núcleo** | Opens an analytic solar octant with a curved core, radiative-zone packet paths and returning convection. Packet scales and transport clocks are schematic; hydrogen-to-helium reactions themselves are not visualized. *Cue context:* "En el centro, la fusión nuclear convierte hidrógeno en helio y libera enormes cantidades de energía." |
+| `1` | **fotosfera** | Approaches evolving granules and cool lanes using filtered visible-light detail with an explicit contrast-enhancement disclosure. *Cue context:* "La superficie visible tiene una temperatura cercana a cinco mil quinientos grados Celsius." |
+| `2` | **mancha solar** | Observes stable bipolar footpoints, umbra/penumbra and a closed-loop filling, heating, cooling and return-flow cycle over a 60-second hold. *Cue context:* "Regiones más frías y oscuras aparecen donde el campo magnético es especialmente intenso." |
+| `3` | **corona** | Uses an illustrative EUV mapping for the lower atmosphere and a rooted erupting branch with prominence, cavity and envelope morphology. The viewer may look overhead; this is not a calibrated instrument image or reconnection simulation. *Cue context:* "La atmósfera exterior del Sol alcanza temperaturas de millones de grados y se extiende al espacio." |
+| `4` | **viento solar** | Shows separate outward flow rooted in a low-emission coronal region, with the same EUV disclosure. Constant packet phase illustrates bulk outflow rather than solving wind acceleration. *Cue context:* "Un flujo de partículas cargadas sale del Sol y llena todo el sistema planetario." |
 
 ##### Zone `[01]` `mercury` — **Mercurio** (`scene_index`: None (`-1`) · Color `#B9AD9D` `rgb(185, 173, 157)`)
 - **Telemetry `[0..3]` (`x0..x1 / au0..au1 (UA)`):** `[0.09, 0.17, 0.15, 0.55]` · Period `88 días terrestres` · Certainty `Planeta rocoso`

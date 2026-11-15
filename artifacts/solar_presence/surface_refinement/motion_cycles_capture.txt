@@ -1,0 +1,45 @@
+adapter=NVIDIA GeForce RTX 5070
+eye=1280x720
+renderer_init_seconds=46.914
+capture_stride=0 (0=consecutive render burst, last-frame capture only)
+synthetic stereo; no headset/compositor; readback excluded from frame timing
+experience=4
+motion=SolarReview
+synthetic_capture_hz=30
+vertical_fov_degrees=72
+horizontal_fov_degrees=104.504864
+near_plane_m=0.002
+far_plane=infinite reversed-Z
+frustum_tangents_left_right_bottom_top=-1.291631161,1.291631161,-0.726542528,0.726542528
+ipd_m=0.064
+head_yaw_deg=10*sin(2*pi*t/8); head_pitch_deg=4*sin(2*pi*t/11); roll=0
+head_translation_local_m=(0.10*sin(2*pi*t/6),0.04*sin(2*pi*t/9),0.06*sin(2*pi*t/8))
+orbit_yaw_deg=8*sin(2*pi*t/16); axis=body+Y; radius=authored distance; look_target=authored fixed world target
+motion_t_seconds=frame/30 (independent of simulation start); unused mode components are zero
+head translation converted from meters using sector scale, not observer zoom
+synthetic_capture_hz sets simulation steps and encoded playback; not measured native headset FPS
+head_look_up_pitch_deg=15*(1-cos(2*pi*t/60)); replaces normal pitch only in head-look-up mode; capture-only voluntary-look illustration
+video_encoding_active=true
+gpu_profile_requested=false
+gpu_profile_readback=after CPU frame-time sample; warmups excluded; timestamps do not establish native headset cadence
+ffmpeg=ffmpeg version 7.1.1-full_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers
+video=per-eye MP4; CPU libx264; preset=fast; crf=18; pix_fmt=yuv420p; encoder_threads_per_eye=4; filter_threads_per_eye=1; fps=30
+video_color=BT.709 matrix/primaries; sRGB transfer; limited YUV range; lossy review copy, PNG retains original RGBA
+video_records_all_frames_independent_of_png_stride=true
+encoding-run timings exclude readback/write calls but include concurrent CPU encoder contention; NOT an isolated rendering benchmark
+solar_granulation_horizon resolved_motion=HeadOrbit motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(-0.0016141614713034705, 0.0007734630950786447, 0.004012869353458383) sector_scale_exp=11.2
+solar_granulation_horizon eye0_video_frames=1801 encoder_exit=success
+solar_granulation_horizon eye1_video_frames=1801 encoder_exit=success
+solar_granulation_horizon zone=0 feature=Some(1) mean_ms=1.838 p95_ms=2.201 frames=1801 start_sec=0.000 end_sec=60.000
+solar_active_region resolved_motion=HeadOrbit motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.001621427160082314, 0.004454834509616593) sector_scale_exp=11.2
+solar_active_region eye0_video_frames=1801 encoder_exit=success
+solar_active_region eye1_video_frames=1801 encoder_exit=success
+solar_active_region zone=0 feature=Some(2) mean_ms=2.352 p95_ms=2.876 frames=1801 start_sec=0.000 end_sec=60.000
+solar_limb_eruption resolved_motion=HeadLookUp motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.0019517178778768595, 0.005362300798612566) sector_scale_exp=11.2
+solar_limb_eruption eye0_video_frames=1801 encoder_exit=success
+solar_limb_eruption eye1_video_frames=1801 encoder_exit=success
+solar_limb_eruption zone=0 feature=Some(3) mean_ms=1.763 p95_ms=2.257 frames=1801 start_sec=0.000 end_sec=60.000
+solar_escaping_wind resolved_motion=HeadOrbit motion_body_center_sector=DVec3(0.0, 0.0, 0.0) motion_look_target_sector=DVec3(0.0, 0.0027774446723632233, 0.007630966521102497) sector_scale_exp=11.2
+solar_escaping_wind eye0_video_frames=1801 encoder_exit=success
+solar_escaping_wind eye1_video_frames=1801 encoder_exit=success
+solar_escaping_wind zone=0 feature=Some(4) mean_ms=1.899 p95_ms=2.143 frames=1801 start_sec=0.000 end_sec=60.000

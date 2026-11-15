@@ -244,9 +244,13 @@ fn overlay_hook_and_stereo_multiview_render_both_eye_layers() {
         near_plane: 0.04,
     };
 
-    let pose = ScalePose64::new(SectorId::SOLAR_SYSTEM, DVec3::new(0.0, 0.0, 3.0), 11.2, DQuat::IDENTITY);
+    let solar_observer = 3.0 * cosmos_spatial::SUN_RADIUS_M
+        / 10.0_f64.powf(cosmos_spatial::SOLAR_SECTOR_SCALE_EXP);
+    let pose = ScalePose64::new(SectorId::SOLAR_SYSTEM, DVec3::new(0.0, 0.0, solar_observer), 8.8, DQuat::IDENTITY);
     let mut input = SceneBuildInput::desktop_default(pose, stereo_cam, 256, 256);
     input.active_experience_id = 4;
+    input.documentary.active_zone_index = 0;
+    input.diegetic.wrist_pos = Some(Vec3::new(0.24, -0.20, -0.60));
     input.particle_budget = 2048;
     let scene = builder.build(&index, &input);
 
@@ -289,7 +293,7 @@ fn overlay_hook_and_stereo_multiview_render_both_eye_layers() {
 
     let left_px = readback_layer(renderer.device(), renderer.queue(), &stereo_tex, 256, 256, 0);
     let right_px = readback_layer(renderer.device(), renderer.queue(), &stereo_tex, 256, 256, 1);
-    let sun = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == 1)
+    let sun = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == 1400)
         .expect("the stereo fixture must contain the Sun");
     for (eye_index, pixels) in [&left_px, &right_px].into_iter().enumerate() {
         let clip = stereo_cam.eyes[eye_index].view_proj * Vec3::from_slice(&sun.pos_radius).extend(1.0);
@@ -307,7 +311,7 @@ fn overlay_hook_and_stereo_multiview_render_both_eye_layers() {
     }
     assert_ne!(
         left_px, right_px,
-        "left and right stereo multiview eyes must exhibit horizontal IPD parallax disparity"
+        "nearby holographic controls must retain IPD parallax even when the Sun is astronomically distant"
     );
 }
 
@@ -904,11 +908,93 @@ fn world_presence_explicit_policy_survives_a_tracked_surface_crossing() {
     assert!(!earth_environment_is_physical(&tracked, 3), "the test must cross the physical surface");
     let mut input = SceneBuildInput::desktop_default(tracked,
         RenderCamera::mono(Quat::IDENTITY, 72.0_f32.to_radians(), 1.0, 0.02), 384, 384);
-    input.physical_earth_units = Some(physical);
+    input.physical_environment_units = Some(physical);
     let scene = UniverseSceneBuilder::new().build(&index, &input);
     let earth = scene.heroes_surface.iter().find(|h| h.kind_tags[0] == 0).unwrap();
     assert!((earth.pos_radius[3] * 0.84 - 6_371_000.0).abs() < 2.0,
         "head tracking cannot change the frame's previously resolved unit policy");
+}
+
+#[test]
+fn world_presence_sun_keeps_real_scale_and_frame_through_free_roam() {
+    use cosmos_render::universe_scene::environment_is_physical;
+    use cosmos_spatial::{solar_body_local_pose, solar_body_radius_m, EntityKind, SpatialEntity, SUN_RADIUS_M};
+    let mut index = build_default_universe_index();
+    for zone in 0..12 {
+        let (local_pos, scale_exp, radius_m) = solar_body_local_pose(zone, 0.5, 0.0, 20.0);
+        index.insert_entity(SpatialEntity {
+            id: 950_000 + u64::from(zone), experience_id: 4, zone_index: zone, feature_index: 0,
+            sector_id: SectorId::SOLAR_SYSTEM, local_pos, orient: DQuat::IDENTITY,
+            radius_m, scale_exp, kind: EntityKind::CelestialBody, salience_weight: 1.5,
+        }).unwrap();
+    }
+    let sector_unit_m = 10.0_f64.powf(cosmos_spatial::SOLAR_SECTOR_SCALE_EXP);
+    let mut builder = UniverseSceneBuilder::new();
+    for distance_r in [0.0, 0.5, 1.0, 1.025, 1.15, 2.7, 12.0, 18.0, 24.0] {
+        let position = DVec3::Z * (distance_r * SUN_RADIUS_M / sector_unit_m);
+        for scale in [6.3, 8.8, 11.4, 12.8, 13.5] {
+            let pose = ScalePose64::new(SectorId::SOLAR_SYSTEM, position, scale, DQuat::IDENTITY);
+            assert!(environment_is_physical(&pose, 4));
+            assert!(!environment_is_physical(&pose, 18));
+            for rotation in [Quat::IDENTITY, Quat::from_rotation_y(std::f32::consts::PI)] {
+                let mut input = SceneBuildInput::desktop_default(pose,
+                    RenderCamera::mono(rotation, 72.0_f32.to_radians(), 1.0, 0.02), 384, 384);
+                input.active_experience_id = 4;
+                input.documentary.active_zone_index = 0;
+                input.diegetic.wrist_pos = Some(Vec3::new(-0.2, -0.2, -0.5));
+                let scene = builder.build(&index, &input);
+                let suns: Vec<_> = scene.heroes_surface.iter().filter(|hero| hero.kind_tags[1] == 1400).collect();
+                assert_eq!(suns.len(), 1,
+                    "one Sun persists at every head direction, including an observer inside its proxy: distance={distance_r}R scale={scale}");
+                let sun = suns[0];
+                assert!((sun.pos_radius[3] * 0.84 - SUN_RADIUS_M as f32).abs() < 256.0);
+                let expected = (-position * sector_unit_m).as_vec3();
+                assert!(Vec3::from_slice(&sun.pos_radius).distance(expected) < 2048.0);
+                assert_eq!(sun.rot_quat, [0.0, 0.0, 0.0, 1.0]);
+                let corona = scene.heroes_volume.iter().find(|hero| hero.kind_tags[0] == 3 && hero.kind_tags[1] == 1400).unwrap();
+                assert!((corona.pos_radius[3] / SUN_RADIUS_M as f32 - 3.0).abs() < 1e-5);
+                assert!((corona.phys_a[1] - 1.0 / 3.0).abs() < 1e-6);
+                let baseline = cosmos_render::universe_scene::build_far_shell_uniforms(scale as f32, 4, &input.documentary);
+                if distance_r == 12.0 {
+                    assert_eq!(scene.far.regime_weights, [0.0; 4]);
+                } else if distance_r == 18.0 {
+                    assert!((scene.far.regime_weights[0] - baseline.regime_weights[0] * 0.5).abs() < 1e-6,
+                        "the distant sky must return continuously between 12 and 24 solar radii");
+                } else if distance_r == 24.0 {
+                    assert_eq!(scene.far.regime_weights, baseline.regime_weights);
+                }
+                if distance_r < 12.0 {
+                    assert_eq!(scene.particle_draw_count, 0);
+                    assert_eq!(scene.far.regime_weights, [0.0; 4]);
+                    assert_eq!(scene.far.galaxy_north[3], 0.0);
+                    assert_eq!(scene.far.extra_weights[..2], [0.0; 2],
+                        "a solar-filtered observer cannot see luminous Galactic haze or stars");
+                    assert_eq!(scene.heroes_surface.len(), 1);
+                    assert_eq!(scene.heroes_volume.len(), 1, "no orbital hairlines around a nearby photosphere");
+                    assert!(scene.sprites.iter().all(|sprite| sprite.tags_f[0] == 4.0));
+                }
+                let wrist = scene.sprites.iter().find(|sprite| sprite.tags_f[0] == 4.0).unwrap();
+                assert!(Vec3::from_slice(&wrist.pos_size).length() < 1.0);
+            }
+        }
+    }
+    // Physical body radius is independent of the navigation zoom and display
+    // floor. Other bodies can be tiny in an overview without becoming giants.
+    for zone in [1, 2, 3, 4, 6, 7, 8, 9, 11] {
+        let entity = index.iter_entities().find(|e| e.id == 950_000 + u64::from(zone)).unwrap();
+        let (pose, _) = index.navigation_pose_for_entity(entity, DVec3::Z).unwrap();
+        let mut input = SceneBuildInput::desktop_default(pose,
+            RenderCamera::mono(pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02), 384, 384);
+        input.active_experience_id = 4;
+        input.documentary.active_zone_index = zone;
+        let scene = builder.build(&index, &input);
+        let body = scene.heroes_surface.iter().find(|hero| hero.kind_tags[1] == 1400 + u32::from(zone)).unwrap();
+        let expected = solar_body_radius_m(zone).unwrap() as f32;
+        assert!((body.pos_radius[3] * 0.84 / expected - 1.0).abs() < 1e-5);
+        let to_sun = (-entity.local_pos).normalize().as_vec3();
+        assert!(Vec3::from_slice(&body.phys_b).dot(to_sun) > 0.99999,
+            "planetary illumination must point to the same heliocentric Sun");
+    }
 }
 
 #[test]
@@ -1113,8 +1199,8 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
         }
     }
 
-    // Exp 4 Solar System Saturn framing (u=10.72) & Panorama (u=11.45):
-    // True Saturn (kind=1, vid=2 + kind=2, vid=2) + all planets visible across LODs without enclosing anchor Sun.
+    // Physical Saturn inspection plus an astronomical panorama. Bodies too
+    // small to resolve in the panorama must not be enlarged into giant discs.
     let mut solar_idx = build_default_universe_index();
     for zi in 0u16..=11u16 {
         let (local_pos, body_u, radius_m) =
@@ -1136,13 +1222,10 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     let saturn_ent = solar_idx
         .find_zone_entity(4, 7)
         .expect("Solar System zone 7 (Saturn) must exist");
-    let saturn_eye = saturn_ent.local_pos + DVec3::new(-0.88, 0.36, 0.58);
-    let saturn_target = saturn_ent.local_pos + DVec3::new(0.28, -0.03, -0.18);
-    let saturn_dir = (saturn_target - saturn_eye).normalize().as_vec3();
-    let saturn_q = Quat::from_rotation_arc(Vec3::NEG_Z, saturn_dir);
-    let cam_saturn = RenderCamera::mono(saturn_q, 72.0_f32.to_radians(), 1.0, 0.02);
+    let (saturn_pose, _) = solar_idx.navigation_pose_for_entity(saturn_ent, DVec3::new(-0.88, 0.36, 0.58)).unwrap();
+    let cam_saturn = RenderCamera::mono(saturn_pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02);
     let mut saturn_in = SceneBuildInput::desktop_default(
-        ScalePose64::new(SectorId::SOLAR_SYSTEM, saturn_eye, 10.72, DQuat::IDENTITY),
+        saturn_pose,
         cam_saturn,
         384,
         384,
@@ -1164,7 +1247,8 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     );
     let saturn_dist = Vec3::from_slice(&saturn_body.pos_radius[..3]).length();
     assert!(
-        saturn_body.pos_radius[3] > 0.08 && saturn_body.pos_radius[3] < saturn_dist * 0.5,
+        saturn_body.pos_radius[3] * 0.84 / saturn_dist > 0.19
+            && saturn_body.pos_radius[3] < saturn_dist * 0.5,
         "Saturn radius {} must frame cleanly at dist {}",
         saturn_body.pos_radius[3],
         saturn_dist
@@ -1174,21 +1258,13 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
         .iter()
         .filter(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == 1)
         .collect();
-    assert_eq!(sun_heroes.len(), 1, "Exp 4 must emit exactly one true Sun (no duplicate anchor Sun)");
-    assert!(
-        sun_heroes[0].pos_radius[3] < saturn_dist * 0.5,
-        "true Sun radius {} must not swallow Saturn at dist {}",
-        sun_heroes[0].pos_radius[3],
-        saturn_dist
-    );
-    let kepler = saturn_scene
-        .heroes_volume
-        .iter()
-        .find(|h| h.kind_tags[0] == 2 && h.kind_tags[1] == 4)
-        .expect("Exp 4 must emit hairline Keplerian orbit plane (kind=2, vid=4)");
-    assert!(kepler.phys_a[2] >= 1.0 - 1e-4, "track_scale must be encoded in phys_a[2]");
+    assert!(sun_heroes.len() <= 1, "Exp 4 must never duplicate the true Sun at its anchor");
+    for sun in sun_heroes {
+        assert!((sun.pos_radius[3] * 0.84 / cosmos_spatial::SUN_RADIUS_M as f32 - 1.0).abs() < 1e-5);
+    }
 
-    // Panorama u=11.45: Sun, Saturn, and outer planets remain visible across all LOD tiers
+    // Navigation metadata still includes every body, but a wide view must use
+    // angular culling instead of inflating subpixel planets into giant worlds.
     let pano_eye = DVec3::new(-4.6, 8.8, 16.2);
     let pano_dir = (DVec3::new(0.0, -0.2, 0.0) - pano_eye).normalize().as_vec3();
     let pano_q = Quat::from_rotation_arc(Vec3::NEG_Z, pano_dir);
@@ -1201,17 +1277,21 @@ fn phase7b_zone_routing_framing_and_sprite_clamps_hold() {
     );
     pano_in.active_experience_id = 4;
     let pano_scene = builder.build(&solar_idx, &pano_in);
-    assert!(
-        pano_scene.heroes_surface.len() >= 10,
-        "Exp 4 panorama must render >= 10 analytical Solar bodies across LODs, got {}",
-        pano_scene.heroes_surface.len()
-    );
+    assert_eq!(solar_idx.zone_entities_for_experience(4).iter()
+        .filter(|e| e.kind == cosmos_spatial::EntityKind::CelestialBody).count(), 12);
+    let resolvable_planets = solar_idx.query_visible(&pano_in.cam_pose,
+        pano_in.camera.cyclopean_view_projection(), 0.05_f32.to_radians(), None).unwrap()
+        .visible.iter().filter(|v| v.kind == cosmos_spatial::EntityKind::CelestialBody
+            && cosmos_spatial::solar_body_radius_m(v.zone_index).is_some()).count();
+    assert_eq!(resolvable_planets, 0, "fixture is intentionally too distant for resolved planetary discs");
+    assert!(pano_scene.heroes_surface.len() <= 2,
+        "only the two explicit belt teaching stages can remain resolved in this panorama");
     assert!(
         pano_scene
             .heroes_volume
             .iter()
-            .any(|h| h.kind_tags[0] == 2 && h.kind_tags[1] == 2),
-        "Exp 4 panorama must emit Saturn's analytical ring (kind=2, vid=2)"
+            .any(|h| h.kind_tags[0] == 2 && h.kind_tags[1] == 4),
+        "Exp 4 panorama retains the explicit orbital overview"
     );
 }
 
@@ -1518,41 +1598,46 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             salience_weight: 1.65,
         });
     }
+    let highlights = cosmos_journey::StoryJourneyManifest::from_json_str(include_str!(
+        "../../../assets/journeys/cosmic_highlights_tour.hcj.json"
+    )).expect("shipped Highlights observation manifest");
+    let solar_observations = [
+        "solar_energy_interior", "solar_granulation_horizon", "solar_active_region",
+        "solar_limb_eruption", "solar_escaping_wind",
+    ].map(|id| {
+        let beat = highlights.chapters.iter().flat_map(|chapter| &chapter.beats)
+            .find(|beat| beat.beat_id == id).expect("authored solar observation");
+        beat.pose.to_pose64(id).expect("authored solar camera pose")
+    });
     for zone in 0u16..=11u16 {
         let ent = solar_idx
             .find_zone_entity(4, zone)
             .expect("Exp 04 Solar System zone entity must exist");
-        let (eye, target) = if zone == 0 {
-            (ent.local_pos + DVec3::new(-1.15, 0.42, 0.75), ent.local_pos)
-        } else {
-            let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
-            let tang = DVec3::new(-rad.z, 0.0, rad.x);
-            let offset = match zone {
-                1 => -rad * 0.21 + tang * 0.22 + DVec3::Y * 0.08,
-                2 => -rad * 0.30 + tang * 0.46 + DVec3::Y * 0.18,
-                5 | 7 | 10 => -rad * 0.38 + tang * 0.90 + DVec3::Y * 0.36,
-                _ => -rad * 0.34 + tang * 0.78 + DVec3::Y * 0.30,
-            };
-            let t_shift = if zone >= 3 {
-                tang * -0.05 + DVec3::Y * 0.02
-            } else {
-                DVec3::ZERO
-            };
-            (ent.local_pos + offset, ent.local_pos + t_shift)
-        };
-        let look = (target - eye).normalize().as_vec3();
-        let cam_q = Quat::from_rotation_arc(Vec3::NEG_Z, look);
-        let cam = RenderCamera::mono(cam_q, 72.0_f32.to_radians(), 1.0, 0.02);
+        let direction = if zone == 0 {
+            // View through the explicit core cutaway's positive E/N/C octant.
+            DVec3::new(0.45, 0.58, 0.80)
+        } else { DVec3::new(0.30, 0.22, 1.0) };
+        let (body_pose, _) = solar_idx.navigation_pose_for_entity(ent, direction).unwrap();
+        let cam = RenderCamera::mono(body_pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02);
 
         let mut renders = Vec::with_capacity(5);
         for feat in 0u16..5u16 {
+            let (body_pose, cam) = if zone == 0 {
+                let pose = solar_observations[feat as usize];
+                (pose, RenderCamera::mono(pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02))
+            } else { (body_pose, cam) };
             let mut input = SceneBuildInput::desktop_default(
-                ScalePose64::new(SectorId::SOLAR_SYSTEM, eye, 10.72, DQuat::IDENTITY),
+                body_pose,
                 cam,
                 384,
                 384,
             );
             input.active_experience_id = 4;
+            if zone == 0 {
+                // Observe the authored thermal cycle: quiet interior/convection,
+                // populated arcade, rising prominence and established outflow.
+                input.time_sec = [8.0, 12.0, 18.0, 24.0, 36.0][feat as usize];
+            }
             input.documentary = DocumentaryFocusState {
                 active_zone_index: zone,
                 active_feature_index: feat,
@@ -1615,7 +1700,37 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 .iter()
                 .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
                 .count();
-            assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 04 Z{zone:02} F{feat}"));
+            if zone == 0 {
+                capture_review_frame(&format!("solar_feature_{feat}"), &px, 384, 384);
+                // A close photospheric horizon may fill the eye. Verify its
+                // actual observing background independently of occupied pixels.
+                if feat == 1 {
+                    let mut sky = scene.clone();
+                    sky.heroes_surface.clear();
+                    sky.heroes_volume.clear();
+                    let black = renderer.render_to_offscreen_rgba8(&sky, 384, 384, |_, _| {})
+                        .expect("filtered solar sky");
+                    assert!(black.as_chunks::<4>().0.iter().all(|pixel| pixel[..3] == [0,0,0]),
+                        "the near-Sun observing background must remain exactly black");
+                }
+                if matches!(feat, 1 | 3) {
+                    // Features select observations of one persistent world.
+                    // F1/F2 share visible continuum and F3/F4 share EUV mode;
+                    // neither pair is allowed to recolor/remodel the same view.
+                    input.documentary.active_feature_index = feat + 1;
+                    let mut same_view = builder.build(&solar_idx, &input);
+                    // The output dither is deliberately frame-dependent; hold
+                    // its sample fixed when comparing material identity.
+                    same_view.frame.stereo_params[2] = scene.frame.stereo_params[2];
+                    let same_px = renderer.render_to_offscreen_rgba8(&same_view, 384, 384, |_, _| {})
+                        .expect("unchanged solar observing mode");
+                    capture_review_frame(&format!("solar_feature_{feat}_same_pose_next_feature"), &same_px, 384, 384);
+                    assert!(px == same_px,
+                        "Solar F{feat}/F{} must preserve world material at identical pose/time", feat+1);
+                }
+            } else {
+                assert_oled_unlit_patch(&px, 384, 384, &format!("Exp 04 Z{zone:02} F{feat}"));
+            }
             assert!(
                 lit_px > 180,
                 "Exp 04 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
@@ -1644,17 +1759,12 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
         (10u16, 2u16, 3u16, 0.35f32, "Exp 04 Z10 Kuiper F2 vs F3 at completed narration weight 0.35"),
     ] {
         let ent = solar_idx.find_zone_entity(4, zone).expect("Exp 04 zone entity");
-        let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
-        let tang = DVec3::new(-rad.z, 0.0, rad.x);
-        let off = -rad * 0.34 + tang * 0.78 + DVec3::Y * 0.30;
-        let eye = ent.local_pos + off;
-        let target = ent.local_pos + tang * -0.05 + DVec3::Y * 0.02;
-        let look = (target - eye).normalize().as_vec3();
-        let cam_f = RenderCamera::mono(Quat::from_rotation_arc(Vec3::NEG_Z, look), 72.0_f32.to_radians(), 1.0, 0.02);
+        let (body_pose, _) = solar_idx.navigation_pose_for_entity(ent, DVec3::new(0.30, 0.22, 1.0)).unwrap();
+        let cam_f = RenderCamera::mono(body_pose.orient.as_quat(), 72.0_f32.to_radians(), 1.0, 0.02);
         let mut pair = Vec::with_capacity(2);
         for feat in [feat_a, feat_b] {
             let mut input = SceneBuildInput::desktop_default(
-                ScalePose64::new(SectorId::SOLAR_SYSTEM, eye, 10.72, DQuat::IDENTITY),
+                body_pose,
                 cam_f,
                 384,
                 384,
