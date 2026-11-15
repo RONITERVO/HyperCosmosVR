@@ -223,10 +223,10 @@ fn probe_penumbral_ensemble(@builtin(global_invocation_id) id:vec3<u32>) {
     let mut failures = Vec::new();
     let mut max_temperature_bias = 0.0_f64;
     let mut max_outer_coverage_error = 0.0_f64;
-    for (case, probes) in cases.iter().zip(output.chunks_exact(ANGLES * ROWS)) {
+    for (case, probes) in cases.iter().zip(output.as_chunks::<{ ANGLES * ROWS }>().0) {
         let mut resolved = [0.0_f64; 3];
         let mut filtered = [0.0_f64; 3];
-        for rows in probes.chunks_exact(ROWS) {
+        for rows in probes.as_chunks::<ROWS>().0 {
             assert!(
                 rows.iter()
                     .flatten()
@@ -341,12 +341,12 @@ fn probe_boundaries(@builtin(global_invocation_id) id:vec3<u32>) {
     );
     let output = run_surface_probe(source, "probe_boundaries", directions, &cases, ROWS);
     assert_eq!(output.len(), PROBES * cases.len() * ROWS);
-    for (case, records) in cases.iter().zip(output.chunks_exact(PROBES * ROWS)) {
+    for (case, records) in cases.iter().zip(output.as_chunks::<{ PROBES * ROWS }>().0) {
         let mut actual_boundaries = 0;
         let mut largest_jump = 0.0_f64;
         let mut largest_step = 0.0_f32;
         let mut failures = Vec::new();
-        for (index, rows) in records.chunks_exact(ROWS).enumerate() {
+        for (index, rows) in records.as_chunks::<ROWS>().0.iter().enumerate() {
             assert!(
                 rows.iter().flatten().all(|v| v.is_finite()),
                 "case{case:?} probe{index}: nonfinite boundary result"
@@ -427,13 +427,15 @@ fn solar_surface_preserves_ensemble_radiance_and_continuity_across_detail_lod() 
         })
     };
     for (group_index, group) in output
-        .chunks_exact(SAMPLE_COUNT * FOOTPRINTS.len())
+        .as_chunks::<{ SAMPLE_COUNT * FOOTPRINTS.len() }>()
+        .0
+        .iter()
         .enumerate()
     {
         let feature = FEATURES[group_index / PHYSICAL_TIMES.len()];
         let time = PHYSICAL_TIMES[group_index % PHYSICAL_TIMES.len()];
-        let samples: Vec<_> = group.chunks_exact(SAMPLE_COUNT).collect();
-        let unresolved = mean(samples[8]);
+        let samples = group.as_chunks::<SAMPLE_COUNT>().0;
+        let unresolved = mean(&samples[8]);
         let reference = unresolved[0] * 0.2126 + unresolved[1] * 0.7152 + unresolved[2] * 0.0722;
         assert!(reference.is_finite() && reference > 0.0);
         for (index, sample) in samples.iter().enumerate() {
@@ -471,7 +473,7 @@ fn solar_surface_preserves_ensemble_radiance_and_continuity_across_detail_lod() 
                 }
             }
         }
-        let resolved_mean = mean(samples[0]);
+        let resolved_mean = mean(&samples[0]);
         let resolved_energy =
             resolved_mean[0] * 0.2126 + resolved_mean[1] * 0.7152 + resolved_mean[2] * 0.0722;
         let variance = samples[0]
@@ -494,7 +496,7 @@ fn solar_surface_preserves_ensemble_radiance_and_continuity_across_detail_lod() 
         for [left, right] in [[9, 10], [11, 12], [13, 14]] {
             let signed = samples[left]
                 .iter()
-                .zip(samples[right])
+                .zip(&samples[right])
                 .map(|(a, b)| luminance(b) - luminance(a))
                 .collect::<Vec<_>>();
             let jump = signed.iter().sum::<f64>().abs() / SAMPLE_COUNT as f64 / reference;

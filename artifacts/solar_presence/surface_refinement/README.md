@@ -160,6 +160,17 @@ executable. Its [120-frame benchmark log](benchmark_sweep.txt) records a
 native-size stereo table above and provide no headset performance or visual
 quality conclusion. All final local automated gates passed.
 
+CI at `d791315463801c68114d046c68acf63a607da811` subsequently failed Rust 1.100's
+new `chunks_exact_to_as_chunks` lint at six test-only sites. The compatibility
+change uses borrowed `as_chunks` views and removes redundant slice collections;
+probes, equations, budgets and rendering are unchanged. Local
+[workspace Clippy](ci_compatibility_clippy.txt) passed in 0.91 seconds, and
+[all three affected GPU tests](ci_compatibility_tests.txt) passed again in
+3.09 seconds. **The new CI result is pending.** The manifest retains the
+historical source hashes at that commit and records the revised test file's
+LF-normalized hash separately; existing captures and full-suite results above
+remain evidence from the original source freeze.
+
 Four complete [60-second stereo cycles](motion_cycles_capture.txt) finished under
 `target/solar_refinement_cycles`, with 1,801 frames per eye/view and all eight
 encoders exiting successfully. They cover granulation, active region, eruption

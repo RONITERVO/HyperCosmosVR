@@ -68,7 +68,7 @@
       "source_sha256": "de8e0b2608a3b82a4e472bd58bf4fa12a5a1e33cf24cc6449e4e7e89c7655334",
       "sha256": "de8e0b2608a3b82a4e472bd58bf4fa12a5a1e33cf24cc6449e4e7e89c7655334",
       "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
-      "scope": "Two completed 241-frame stereo recordings at 3400x3468 and 120 synthetic samples per second, simulation time 30\u201332 seconds. Visual samples, not native headset cadence or a benchmark."
+      "scope": "Two completed 241-frame stereo recordings at 3400x3468 and 120 synthetic samples per second, simulation time 30–32 seconds. Visual samples, not native headset cadence or a benchmark."
     },
     {
       "source": "target/solar_refinement_motion_review/native120/solar_granulation_horizon_crop_metadata.json",
@@ -109,6 +109,22 @@
       "sha256": "7466ba4632dfb62cceb5d12aa90de1d4c33c79df4c8819f36950de124ac7b2a1",
       "transformation": "UTF-8 without BOM; LF line endings. No data redaction or alteration.",
       "scope": "Final current-executable CLI regression sweep; 43 PNG captures across all 25 experiences, successful exit reported by the runner."
+    },
+    {
+      "source": "target/solar_surface_ci_compatibility_clippy.txt",
+      "file": "ci_compatibility_clippy.txt",
+      "source_sha256": "e79fabbbfc35eb2252b57d1f9da7d720356ca194e311df2a0f80df809d26de15",
+      "sha256": "8c4cf65db4bf6529b384710c6d2d9a78279ab37d116a9ad48388502e4debe765",
+      "transformation": "UTF-8 without BOM; LF line endings; trailing empty lines removed, retaining one terminating LF. No result or diagnostic content changed.",
+      "scope": "Local workspace all-target Clippy with warnings denied passed in 0.91 seconds after the test-only Rust 1.100 lint compatibility change; not new CI acceptance."
+    },
+    {
+      "source": "target/solar_surface_ci_compatibility_tests.txt",
+      "file": "ci_compatibility_tests.txt",
+      "source_sha256": "d745c2c6dabf0364e679879c6027287ff154b1a421d899ac950e48c46767c0eb",
+      "sha256": "0dcefd7a29e0de323eec2cb5e3becc56bfbbab5e3ea80dff00eadc1b2df1ef1d",
+      "transformation": "UTF-8 without BOM; LF line endings; trailing empty lines removed, retaining one terminating LF. No result or diagnostic content changed.",
+      "scope": "All three affected solar surface GPU tests passed in 3.09 seconds after the test-only borrowed as_chunks conversion; no probe, equations, budgets or rendering changes."
     }
   ],
   "native_originals": [
@@ -239,7 +255,7 @@
     "artistic_and_learning_acceptance": "open",
     "clippy": "Workspace all-target Clippy with warnings denied passed in 3.41 seconds.",
     "full_cycle_capture": "Four 60-second stereo views completed in target/solar_refinement_cycles; 1,801 frames per eye/view, eight encoders successful. Bounded sampled motion review completed.",
-    "native_size_temporal_capture": "Two views, two eyes, 241 frames per eye/view completed; simulation time 30\u201332 seconds at 120 synthetic samples per second. Bounded sampled visual review completed; not native FPS.",
+    "native_size_temporal_capture": "Two views, two eyes, 241 frames per eye/view completed; simulation time 30–32 seconds at 120 synthetic samples per second. Bounded sampled visual review completed; not native FPS.",
     "cli_sweep": "Passed: 43 PNGs across all 25 experiences at 960x540 desktop reference."
   },
   "preview": {
@@ -359,5 +375,17 @@
     "p99_ms": 2.727,
     "max_ms": 3.189,
     "scope": "Low-resolution desktop regression reference, separate from native-size synthetic stereo and native headset acceptance."
+  },
+  "source_snapshot_commit": "d791315463801c68114d046c68acf63a607da811",
+  "ci_compatibility_revision": {
+    "prior_commit": "d791315463801c68114d046c68acf63a607da811",
+    "change": "Rust 1.100 CI rejected six chunks_exact_to_as_chunks lint sites. Converted test-only table access to borrowed as_chunks views and removed redundant Vec<&slice> collections; probes, equations, budgets and rendering unchanged.",
+    "source_snapshot_lf_sha256": {
+      "crates/cosmos_render/tests/solar_surface_tests.rs": "40538f373d8e6d4798eef9f02abeb84944fae78c503952a97f6744351e0497c5"
+    },
+    "local_clippy": "Passed, workspace all-target with warnings denied, 0.91 seconds.",
+    "affected_gpu_tests": "All 3 passed in 3.09 seconds.",
+    "ci_status": "New CI result pending; no pass claimed.",
+    "evidence_scope": "Existing rendering captures and source-freeze full-suite results remain historical evidence for source_snapshot_commit; original source_snapshot_lf_sha256 values are preserved."
   }
 }
