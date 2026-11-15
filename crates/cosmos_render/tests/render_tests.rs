@@ -1513,6 +1513,286 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             }
         }
     }
+
+    // 7. Near-camera (dist < 0.2) active landmark clamp safety (PR #6 P1 regression test)
+    for (exp_id, sector, u_val, zone_id) in [
+        (5u8, SectorId::MILKY_WAY, 20.5, 0u16),
+        (6u8, SectorId::LOCAL_GROUP, 22.0, 4u16),
+        (7u8, SectorId::LANIAKEA, 23.8, 3u16),
+    ] {
+        let mut near_idx = build_default_universe_index();
+        let (local_pos, lm_u, radius_m) = cosmos_spatial::landmark_local_pose(0.25, 0.05, 64.0, u_val);
+        let _ = near_idx.insert_entity(cosmos_spatial::SpatialEntity {
+            id: 99_000 + exp_id as u64,
+            experience_id: exp_id,
+            zone_index: zone_id,
+            feature_index: 0,
+            sector_id: sector,
+            local_pos,
+            orient: DQuat::IDENTITY,
+            radius_m,
+            scale_exp: lm_u,
+            kind: cosmos_spatial::EntityKind::GalacticLandmark,
+            salience_weight: 1.65,
+        });
+        for dist_step in [0.18_f64, 0.12_f64, 0.06_f64] {
+            let eye = local_pos + DVec3::new(0.0, 0.0, dist_step);
+            let look = (local_pos - eye).normalize().as_vec3();
+            let cam_near = RenderCamera::mono(
+                Quat::from_rotation_arc(Vec3::NEG_Z, look),
+                72.0_f32.to_radians(),
+                1.0,
+                0.02,
+            );
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(sector, eye, u_val, DQuat::IDENTITY),
+                cam_near,
+                384,
+                384,
+            );
+            input.active_experience_id = exp_id;
+            input.documentary.active_zone_index = zone_id;
+            let scene = builder.build(&near_idx, &input);
+            assert!(
+                !scene.heroes_volume.is_empty(),
+                "Near-camera dist={dist_step} active landmark in Exp {exp_id:02} must not panic and must emit volume hero"
+            );
+        }
+    }
+
+    // 8. Exp 06 Local Group full 9-zone (Z00..=Z08) [TIER-A] routing, companions (3680..=3688), and 45/45 feature GPU verification
+    for z in 0u16..=8u16 {
+        assert!(
+            is_zone_migrated_tier_a(6, z),
+            "Exp 06 Z{z:02} must be migrated Tier-A"
+        );
+        let d = DocumentaryFocusState {
+            active_zone_index: z,
+            ..Default::default()
+        };
+        assert_eq!(resolve_zone_shader_vid(6, &d), 1600 + z as u32);
+    }
+    let mut lg_idx = build_default_universe_index();
+    let lg_sizes = [170.0f32, 118.0, 84.0, 104.0, 94.0, 68.0, 168.0, 86.0, 150.0];
+    let lg_lanes = [-0.04f32, 0.05, -0.03, 0.06, -0.07, 0.15, -0.02, 0.09, 0.0];
+    let lg_p = [0.035f32, 0.125, 0.24, 0.36, 0.49, 0.605, 0.745, 0.868, 0.965];
+    for zi in 0u16..=8u16 {
+        let (local_pos, lm_u, radius_m) =
+            cosmos_spatial::landmark_local_pose(lg_p[zi as usize], lg_lanes[zi as usize], lg_sizes[zi as usize], 22.0);
+        let _ = lg_idx.insert_entity(cosmos_spatial::SpatialEntity {
+            id: 97_000 + zi as u64,
+            experience_id: 6,
+            zone_index: zi,
+            feature_index: 0,
+            sector_id: SectorId::LOCAL_GROUP,
+            local_pos,
+            orient: DQuat::IDENTITY,
+            radius_m,
+            scale_exp: lm_u,
+            kind: cosmos_spatial::EntityKind::GalacticLandmark,
+            salience_weight: 1.65,
+        });
+    }
+    for zone in 0u16..=8u16 {
+        let ent = lg_idx
+            .find_zone_entity(6, zone)
+            .expect("Exp 06 Local Group landmark entity must exist");
+        let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
+        let tang = DVec3::new(-rad.z, 0.0, rad.x);
+        let eye = ent.local_pos + rad * 0.55 + tang * 1.85 + DVec3::Y * 0.38;
+        let target = ent.local_pos + tang * -0.04 + DVec3::Y * 0.02;
+        let look = (target - eye).normalize().as_vec3();
+        let cam_lg = RenderCamera::mono(Quat::from_rotation_arc(Vec3::NEG_Z, look), 72.0_f32.to_radians(), 1.0, 0.02);
+
+        let mut renders = Vec::with_capacity(5);
+        for feat in 0u16..5u16 {
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::LOCAL_GROUP, eye, 21.85, DQuat::IDENTITY),
+                cam_lg,
+                384,
+                384,
+            );
+            input.active_experience_id = 6;
+            input.documentary = DocumentaryFocusState {
+                active_zone_index: zone,
+                active_feature_index: feat,
+                scene_index: -1,
+                narration_cue_progress: 0.68,
+                narration_active_weight: 0.92,
+                zone_accent_rgb: [0.42, 0.86, 1.52],
+                telemetry: [0.0; 4],
+                cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                submode_override: 0,
+                emphasis_boost: 1.0,
+            };
+            let scene = builder.build(&lg_idx, &input);
+            let expected_vid = 1600 + zone as u32;
+            let comp_vid = 3680 + zone as u32;
+            assert!(
+                scene
+                    .heroes_volume
+                    .iter()
+                    .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == expected_vid),
+                "Exp 06 Z{zone:02} F{feat} must emit primary landmark volume hero (kind=3, vid={expected_vid})"
+            );
+            assert!(
+                scene
+                    .heroes_volume
+                    .iter()
+                    .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == comp_vid),
+                "Exp 06 Z{zone:02} F{feat} must emit canonical companion landmark (kind=3, vid={comp_vid})"
+            );
+
+            let px = renderer
+                .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                .expect("Exp 06 offscreen render");
+            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let blown_px = px
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                .count();
+            assert!(
+                void_px * 100 >= total_px * 58,
+                "Exp 06 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
+            );
+            assert!(
+                lit_px > 180,
+                "Exp 06 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
+            );
+            assert!(
+                blown_px * 1000 < total_px * 5,
+                "Exp 06 Z{zone:02} F{feat} must avoid highlight blowout, got {blown_px}"
+            );
+            renders.push(px);
+        }
+        for i in 0..5 {
+            for j in (i + 1)..5 {
+                assert_ne!(
+                    renders[i], renders[j],
+                    "Exp 06 Z{zone:02} features F{i} and F{j} must render distinctly"
+                );
+            }
+        }
+    }
+
+    // 9. Exp 07 Laniakea full 10-zone (Z00..=Z09) [TIER-A] routing, companions (3700..=3709), and 50/50 feature GPU verification
+    for z in 0u16..=9u16 {
+        assert!(
+            is_zone_migrated_tier_a(7, z),
+            "Exp 07 Z{z:02} must be migrated Tier-A"
+        );
+        let d = DocumentaryFocusState {
+            active_zone_index: z,
+            ..Default::default()
+        };
+        assert_eq!(resolve_zone_shader_vid(7, &d), 1700 + z as u32);
+    }
+    let mut lan_idx = build_default_universe_index();
+    let lan_sizes = [150.0f32, 104.0, 140.0, 112.0, 145.0, 160.0, 118.0, 196.0, 230.0, 180.0];
+    let lan_lanes = [-0.02f32, 0.04, -0.04, 0.09, -0.03, 0.0, -0.18, 0.06, 0.0, 0.0];
+    let lan_p = [0.032f32, 0.12, 0.225, 0.345, 0.46, 0.585, 0.69, 0.805, 0.915, 0.982];
+    for zi in 0u16..=9u16 {
+        let (local_pos, lm_u, radius_m) =
+            cosmos_spatial::landmark_local_pose(lan_p[zi as usize], lan_lanes[zi as usize], lan_sizes[zi as usize], 23.8);
+        let _ = lan_idx.insert_entity(cosmos_spatial::SpatialEntity {
+            id: 98_000 + zi as u64,
+            experience_id: 7,
+            zone_index: zi,
+            feature_index: 0,
+            sector_id: SectorId::LANIAKEA,
+            local_pos,
+            orient: DQuat::IDENTITY,
+            radius_m,
+            scale_exp: lm_u,
+            kind: cosmos_spatial::EntityKind::GalacticLandmark,
+            salience_weight: 1.65,
+        });
+    }
+    for zone in 0u16..=9u16 {
+        let ent = lan_idx
+            .find_zone_entity(7, zone)
+            .expect("Exp 07 Laniakea landmark entity must exist");
+        let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
+        let tang = DVec3::new(-rad.z, 0.0, rad.x);
+        let eye = ent.local_pos + rad * 0.55 + tang * 1.85 + DVec3::Y * 0.38;
+        let target = ent.local_pos + tang * -0.04 + DVec3::Y * 0.02;
+        let look = (target - eye).normalize().as_vec3();
+        let cam_lan = RenderCamera::mono(Quat::from_rotation_arc(Vec3::NEG_Z, look), 72.0_f32.to_radians(), 1.0, 0.02);
+
+        let mut renders = Vec::with_capacity(5);
+        for feat in 0u16..5u16 {
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::LANIAKEA, eye, 23.55, DQuat::IDENTITY),
+                cam_lan,
+                384,
+                384,
+            );
+            input.active_experience_id = 7;
+            input.documentary = DocumentaryFocusState {
+                active_zone_index: zone,
+                active_feature_index: feat,
+                scene_index: -1,
+                narration_cue_progress: 0.68,
+                narration_active_weight: 0.92,
+                zone_accent_rgb: [0.35, 0.88, 1.55],
+                telemetry: [0.0; 4],
+                cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                submode_override: 0,
+                emphasis_boost: 1.0,
+            };
+            let scene = builder.build(&lan_idx, &input);
+            let expected_vid = 1700 + zone as u32;
+            let comp_vid = 3700 + zone as u32;
+            assert!(
+                scene
+                    .heroes_volume
+                    .iter()
+                    .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == expected_vid),
+                "Exp 07 Z{zone:02} F{feat} must emit primary landmark volume hero (kind=3, vid={expected_vid})"
+            );
+            assert!(
+                scene
+                    .heroes_volume
+                    .iter()
+                    .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == comp_vid),
+                "Exp 07 Z{zone:02} F{feat} must emit canonical companion landmark (kind=3, vid={comp_vid})"
+            );
+
+            let px = renderer
+                .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                .expect("Exp 07 offscreen render");
+            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let blown_px = px
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                .count();
+            assert!(
+                void_px * 100 >= total_px * 58,
+                "Exp 07 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
+            );
+            assert!(
+                lit_px > 180,
+                "Exp 07 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
+            );
+            assert!(
+                blown_px * 1000 < total_px * 5,
+                "Exp 07 Z{zone:02} F{feat} must avoid highlight blowout, got {blown_px}"
+            );
+            renders.push(px);
+        }
+        for i in 0..5 {
+            for j in (i + 1)..5 {
+                assert_ne!(
+                    renders[i], renders[j],
+                    "Exp 07 Z{zone:02} features F{i} and F{j} must render distinctly"
+                );
+            }
+        }
+    }
 }
 
 trait BindGroupLayoutTestExt {

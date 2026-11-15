@@ -242,6 +242,7 @@ impl UniverseSceneBuilder {
         let mut sprites = Vec::with_capacity(512);
 
         let min_angular = 0.05_f32.to_radians();
+        let mut active_zone_shell: Option<(Vec3, f32, [f32; 4], f32)> = None;
         if let Ok(query) = index.query_visible(
             &input.cam_pose,
             input.camera.eyes[0].view_proj,
@@ -249,6 +250,28 @@ impl UniverseSceneBuilder {
             Some(4096),
         ) {
             for vis in &query.visible {
+                if vis.kind == EntityKind::ZoneShell
+                    && vis.experience_id == input.active_experience_id
+                    && vis.zone_index == input.documentary.active_zone_index
+                {
+                    let z_pos = vis.pose.pos;
+                    let z_dist = z_pos.length();
+                    let z_fwd = z_pos.normalize_or_zero().dot(input.camera.cam_forward);
+                    if z_pos.is_finite() && (0.25..=6.0).contains(&z_dist) && z_fwd > 0.65 {
+                        let z_rot = vis.pose.orient;
+                        let z_dwell = if input.focused_entity_id == Some(vis.id) {
+                            input.diegetic.dwell_progress.clamp(0.0, 1.0)
+                        } else {
+                            input.diegetic.dwell_progress
+                        };
+                        active_zone_shell = Some((
+                            z_pos,
+                            vis.pose.rel_scale.clamp(0.65, 2.8),
+                            [z_rot.x, z_rot.y, z_rot.z, z_rot.w],
+                            z_dwell,
+                        ));
+                    }
+                }
                 emit_visible_entity(
                     vis,
                     input,
@@ -259,16 +282,31 @@ impl UniverseSceneBuilder {
             }
         }
 
-        // Ensure hero prism / harp / Earth / stage are richly populated even when looking near/inside anchor
+        // Ensure hero prism / harp / Earth / stage are richly populated even when looking near/inside anchor or at a ZoneShell
         if heroes_surface.is_empty() && heroes_volume.is_empty() {
-            emit_fallback_hero(
-                input.active_experience_id,
-                u_cam,
-                input,
-                &mut heroes_surface,
-                &mut heroes_volume,
-                &mut sprites,
-            );
+            if let Some((zs_pos, zs_scale, zs_rot, zs_dwell)) = active_zone_shell {
+                emit_doc_stage_hero(
+                    input.active_experience_id,
+                    zs_pos,
+                    zs_scale,
+                    zs_rot,
+                    Vec3::new(0.62, 0.45, -0.64).normalize(),
+                    zs_dwell,
+                    input,
+                    &mut heroes_surface,
+                    &mut heroes_volume,
+                    &mut sprites,
+                );
+            } else {
+                emit_fallback_hero(
+                    input.active_experience_id,
+                    u_cam,
+                    input,
+                    &mut heroes_surface,
+                    &mut heroes_volume,
+                    &mut sprites,
+                );
+            }
         }
 
         emit_diegetic_ui(&input.diegetic, input.time_sec, accent, &mut sprites);

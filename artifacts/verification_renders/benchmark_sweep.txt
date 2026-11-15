@@ -1,7 +1,7 @@
 HyperCosmosVR RTX 5070 Benchmark Sweep (120 frames across u=[-35..+28.5])
 Adapter: NVIDIA GeForce RTX 5070
 Resolution: 1600x900
-min_ms:  0.820
-mean_ms: 1.931 (518.0 FPS)
-p99_ms:  4.735
-max_ms:  5.462
+min_ms:  0.837
+mean_ms: 1.974 (506.7 FPS)
+p99_ms:  5.109
+max_ms:  5.188

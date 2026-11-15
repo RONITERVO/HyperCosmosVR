@@ -87,7 +87,7 @@ pub const fn canonical_companion_vid(experience_id: u8, slot: u8) -> u32 {
 pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool {
     matches!(
         (experience_id, zone_index),
-        (3, 0..=13) | (4, 0..=11) | (5, 0..=12)
+        (3, 0..=13) | (4, 0..=11) | (5, 0..=12) | (6, 0..=8) | (7, 0..=9)
     )
 }
 
@@ -748,30 +748,45 @@ pub fn emit_celestial_or_landmark(
         {
             return;
         }
-        let is_active_exp05 = vis.experience_id == 5
-            && input.active_experience_id == 5
+        let is_active_landmark = matches!(vis.experience_id, 5..=7)
+            && vis.experience_id == input.active_experience_id
             && input.documentary.active_zone_index == vis.zone_index;
         if (vis.lod == LodTier::Hero && (vis.experience_id == input.active_experience_id || matches!(input.active_experience_id, 5..=9)))
-            || (is_active_exp05 && matches!(vis.lod, LodTier::Hero | LodTier::Impostor | LodTier::MacroCloud))
+            || (is_active_landmark && matches!(vis.lod, LodTier::Hero | LodTier::Impostor | LodTier::MacroCloud))
         {
             let max_r = (dist * 0.40).clamp(0.05, 16.0);
-            let floor_r = if is_active_exp05 {
-                (dist * 0.24).clamp(0.08, max_r)
+            let floor_r = if is_active_landmark {
+                let min_floor = 0.08_f32.min(max_r);
+                (dist * 0.24).clamp(min_floor, max_r)
             } else {
-                0.05
+                0.05_f32.min(max_r)
             };
-            let r_l = vis.pose.rel_scale.max(floor_r).clamp(0.05, max_r);
-            if vis.experience_id == 5 {
-                let z_idx = vis.zone_index.min(12);
-                let lm_doc = if is_active_exp05 {
+            let r_l = vis.pose.rel_scale.max(floor_r).clamp(0.05_f32.min(max_r), max_r);
+            if matches!(vis.experience_id, 5..=7) {
+                let max_z = match vis.experience_id {
+                    5 => 12,
+                    6 => 8,
+                    _ => 9,
+                };
+                let max_comp_z = match vis.experience_id {
+                    5 => 11,
+                    6 => 8,
+                    _ => 9,
+                };
+                let z_idx = vis.zone_index.min(max_z);
+                let lm_doc = if is_active_landmark {
                     input.documentary
                 } else {
                     DocumentaryFocusState::default()
                 };
-                let canon_vid = canonical_zone_vid(5, z_idx);
-                let comp_vid = canonical_companion_vid(5, (z_idx as u8).min(11));
-                let base_sub = if z_idx == 12 { 32 } else { z_idx as u32 };
-                let primary_vid = if is_active_exp05 || z_idx == 12 {
+                let canon_vid = canonical_zone_vid(vis.experience_id, z_idx);
+                let comp_vid = canonical_companion_vid(vis.experience_id, (z_idx as u8).min(max_comp_z as u8));
+                let base_sub = if vis.experience_id == 5 && z_idx == 12 {
+                    32
+                } else {
+                    z_idx as u32
+                };
+                let primary_vid = if is_active_landmark || (vis.experience_id == 5 && z_idx == 12) {
                     canon_vid
                 } else {
                     comp_vid
@@ -785,8 +800,9 @@ pub fn emit_celestial_or_landmark(
                     phys_b: sun,
                     kind_tags: pack_doc_tags(3, primary_vid, 0, base_sub, &lm_doc),
                 });
-                if is_active_exp05 && z_idx <= 11 {
-                    let comp_r = (r_l * 0.42).clamp(0.04, (dist * 0.16).clamp(0.04, 4.0));
+                if is_active_landmark && z_idx <= max_comp_z {
+                    let comp_max_r = (dist * 0.16).clamp(0.04, 4.0);
+                    let comp_r = (r_l * 0.42).clamp(0.04_f32.min(comp_max_r), comp_max_r);
                     let comp_pos = pos + stage_right * (r_l * 1.15) + stage_up * (r_l * 0.22);
                     let comp_sub = lm_doc.active_feature_index.min(4) as u32;
                     heroes_volume.push(HeroVolumeInstance {
@@ -802,12 +818,7 @@ pub fn emit_celestial_or_landmark(
                 return;
             }
 
-            let vid = match vis.experience_id {
-                6 => 6,
-                7 => 7,
-                8 => 8,
-                _ => vis.experience_id as u32,
-            };
+            let vid = vis.experience_id as u32;
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_l],
                 rot_quat: rot_arr,
@@ -856,7 +867,7 @@ pub fn emit_celestial_or_landmark(
     } else {
         (dist_s * 0.011).min(0.048)
     };
-    let r_spr = vis.pose.rel_scale.clamp(0.004, max_ang);
+    let r_spr = vis.pose.rel_scale.clamp(0.004, max_ang.max(0.004));
     let fade = if vis.experience_id == 4 {
         1.0
     } else {
@@ -1196,6 +1207,8 @@ pub fn emit_doc_stage_hero(
         6..=10 => {
             let max_r = (pos.length() * 0.42).clamp(0.04, 24.0);
             let r_g = rel_scale.clamp(0.04, max_r);
+            let stage_vid = resolve_zone_shader_vid(experience_id, doc);
+            let submode = (doc.active_zone_index as u32).min(31);
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_g],
                 rot_quat,
@@ -1203,7 +1216,7 @@ pub fn emit_doc_stage_hero(
                 color_b: [zone_c.x, zone_c.y, zone_c.z, 0.92],
                 phys_a: [input.time_sec * 0.2, 0.0, 0.8, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(3, experience_id as u32, 0, 0, doc),
+                kind_tags: pack_doc_tags(3, stage_vid, 0, submode, doc),
             });
         }
 
