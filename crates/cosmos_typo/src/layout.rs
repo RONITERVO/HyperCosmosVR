@@ -30,6 +30,8 @@ pub enum GlyphInkMode {
     SpanishGhostRibbon = 2,
     RememberedMuted = 3,
     DwellFocusedHeading = 4,
+    /// Solid, softly edged world-space quad behind a spatial control (no atlas sampling).
+    ControlBackdrop = 5,
 }
 
 /// How an ambient label's radial placement handles distant/far-shell entities.
@@ -317,6 +319,8 @@ pub struct PlacedAmbientLabel {
 pub struct TypoFrameOutput {
     pub glyphs: Vec<GlyphInstance>,
     pub tethers: Vec<TetherInstance>,
+    /// First foreground glyph and tether; trailing instances are spatial controls.
+    pub foreground_start: Option<(usize, usize)>,
     pub placed_ambient: Vec<PlacedAmbientLabel>,
     pub ambient_culled_count: usize,
     pub active_narration_rect: Option<AngularRect>,

@@ -32,7 +32,7 @@ struct GlyphInstance {
     // rgb = linear HDR halo color (typically obsidian 0.002, 0.003, 0.006), w = halo opacity [0..1]
     halo_color: vec4<f32>,
     // x = glyph_t0 [0..1], y = glyph_t1 [0..1], z = reveal_cursor (>=1.5 static, <-0.5 hidden, 0..1.2 live ink),
-    // w = mode (0=spatial label, 1=live-ink phrase, 2=bilingual ghost track, 3=remembered/visited, 4=focused)
+    // w = mode (0=spatial label, 1=live-ink phrase, 2=bilingual ghost track, 3=remembered/visited, 4=focused, 5=control backdrop)
     ink_params: vec4<f32>,
 };
 
@@ -133,6 +133,13 @@ fn vs_glyph_stereo(
 fn fs_glyph_main(in: GlyphVSOut) -> @location(0) vec4<f32> {
     if in.ink_params.z < -0.5 || u_text_pass.params_a.x <= 1e-4 {
         discard;
+    }
+
+    if in.ink_params.w == 5.0 {
+        // A camera-relative 3D surface for readable controls over bright close-up scenery.
+        let edge = min(in.local_uv, vec2<f32>(1.0) - in.local_uv);
+        let feather = smoothstep(vec2<f32>(0.0), vec2<f32>(0.035, 0.14), edge);
+        return vec4<f32>(in.color_hdr.rgb, in.color_hdr.a * feather.x * feather.y * u_text_pass.params_a.x);
     }
 
     let msdf_sample = textureSample(msdf_atlas, msdf_samp, in.uv);

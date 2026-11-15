@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cosmos_manifest::{Locale, NONE_ASSET, UniverseCatalog};
 use cosmos_math::{ScalePose64, SectorId};
 use cosmos_narration::TargetResolver;
-use cosmos_nav::COLD_START_SCALE_EXP;
+use cosmos_nav::{COLD_START_SCALE_EXP, EARTH_ORBIT_HOME_LOCAL_POS};
 use cosmos_spatial::{CosmosSpatialIndex, all_experience_placements, hsl_to_prism_local, music_filament_local};
 use glam::{DQuat, DVec3};
 
@@ -279,7 +279,9 @@ impl StoryJourneyPlugin for CosmicHighlightsPlugin {
 }
 
 fn cold_start_earth_pose() -> ScalePose64 {
-    let cam_pos = DVec3::new(0.22, 0.73, 1.01);
+    // Match the actual startup/home overview. The old copied pose (0.22, 0.73,
+    // 1.01) brought the first tour stop so close that Earth exceeded the FOV.
+    let cam_pos = EARTH_ORBIT_HOME_LOCAL_POS;
     ScalePose64::new(
         SectorId::EARTH_ORBIT,
         cam_pos,

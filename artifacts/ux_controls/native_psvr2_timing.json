@@ -1,0 +1,40 @@
+{
+  "source": "SteamVR IVRCompositor_028 GetFrameTiming",
+  "eye_resolution": [
+    3400,
+    3468
+  ],
+  "display_hz": 120,
+  "renderer_pid": 43460,
+  "samples": 900,
+  "duration_seconds": 15,
+  "metrics_ms": {
+    "m_flPreSubmitGpuMs": {
+      "mean": 11.663422060012817,
+      "p95": 12.144255638122559,
+      "max": 13.558335304260254
+    },
+    "m_flPostSubmitGpuMs": {
+      "mean": 0.009061546639746261,
+      "p95": 0.013311999849975109,
+      "max": 0.16687999665737152
+    },
+    "m_flTotalRenderGpuMs": {
+      "mean": 12.419615582360162,
+      "p95": 12.902495384216309,
+      "max": 14.308255195617676
+    },
+    "m_flCompositorRenderGpuMs": {
+      "mean": 0.747131982975536,
+      "p95": 0.7599039673805237,
+      "max": 0.7703360319137573
+    },
+    "m_flClientFrameIntervalMs": {
+      "mean": 2.5853562172253928,
+      "p95": 2.8957998752593994,
+      "max": 4.758600234985352
+    }
+  },
+  "frames_presented_more_than_once": 900,
+  "dropped_frames_sum": 0
+}

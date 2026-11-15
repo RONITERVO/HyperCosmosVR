@@ -329,5 +329,24 @@ mod tests {
             .expect("shipped json validates");
         assert_eq!(manifest.id, "cosmic_highlights_tour");
         assert_eq!(manifest.total_beats(), 44);
+        let first = &manifest.chapters[0].beats[0];
+        let pose = first.pose.to_pose64(&first.beat_id).unwrap();
+        assert_eq!(pose.local_pos, cosmos_nav::EARTH_ORBIT_HOME_LOCAL_POS);
+        let generated = CosmicHighlightsPlugin
+            .build_manifest(&catalog, &spatial)
+            .unwrap();
+        assert_eq!(
+            generated.chapters[0].beats[0].pose.local_pos,
+            first.pose.local_pos
+        );
+        let earth = ScalePose64::new(SectorId::EARTH_ORBIT, DVec3::ZERO, 6.8, DQuat::IDENTITY);
+        let relative = pose.project_entity(&spatial.tree, &earth, 6.371e6).unwrap();
+        let half_angle = (relative.rel_scale as f64 / relative.distance_render_units)
+            .asin()
+            .to_degrees();
+        assert!(
+            (15.0..25.0).contains(&half_angle),
+            "overview must fit a 72-degree vertical FOV with margin: {half_angle}"
+        );
     }
 }

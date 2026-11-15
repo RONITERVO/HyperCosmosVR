@@ -182,6 +182,8 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
 
 ### 3.5 `msdf_text.wgsl` (`cosmos_typo`)
 
+Desktop guidance uses trailing glyph/tether ranges selected by `MsdfTextRenderer::set_foreground_start` after upload. These ranges render last with `CompareFunction::Always` and leave depth writes disabled. VR holograms, normal labels, and narration retain `GreaterEqual`. `GlyphInkMode::ControlBackdrop` (`ink_params.w = 5`) draws a softly edged dark quad without atlas sampling **for desktop controls only**; VR emits no backdrop instances or foreground ranges. Buffer strides and bindings are unchanged. The mono/multiview GPU test checks normal visibility, complete near-depth occlusion, and foreground visibility against that same occluder.
+
 - **Vertex Buffer Layout:** **0 vertex buffers** (`draw(0..6, 0..instance_count)`).
 - **Pipeline State:** Target `Rgba16Float`, Depth `CompareFunction::GreaterEqual`, `depth_write_enabled = false`, `CullMode::None`, `BlendState::ALPHA_BLENDING` (`SrcAlpha` / `OneMinusSrcAlpha`). Output `rgb` is already divided back out of premultiplied fill+obsidian-halo composition so borders have zero dark seams.
 - **Entry Points:**
@@ -206,7 +208,7 @@ Two compute entry points share `@group(1)` storage buffers; `cs_field_grid` addi
   - `48..64`: `uv_rect: vec4<f32>` (`u_left, v_top, u_right, v_bottom`)
   - `64..80`: `color_hdr: vec4<f32>` (`rgb=linear HDR fill`, `a=opacity`)
   - `80..96`: `halo_color: vec4<f32>` (`rgb=obsidian outline e.g. 0.002,0.003,0.006`, `a=halo opacity`)
-  - `96..112`: `ink_params: vec4<f32>` (`x=glyph_t0`, `y=glyph_t1`, `z=reveal_cursor` [`>=1.5`: static, `<-0.5`: hidden, `0..1.2`: SyncVoice sweep], `w=mode`: `0=spatial anchor`, `1=live-ink active phrase`, `2=Spanish bilingual ghost ribbon`, `3=remembered/explored muted ink`, `4=dwell-focused heading`)
+  - `96..112`: `ink_params: vec4<f32>` (`x=glyph_t0`, `y=glyph_t1`, `z=reveal_cursor` [`>=1.5`: static, `<-0.5`: hidden, `0..1.2`: SyncVoice sweep], `w=mode`: `0=spatial anchor`, `1=live-ink active phrase`, `2=Spanish bilingual ghost ribbon`, `3=remembered/explored muted ink`, `4=dwell-focused heading`, `5=desktop control backdrop`)
 - **`TetherInstance` (48 B stride = 3 x `vec4`):**
   - `0..16`: `p0_width: vec4<f32>` (`xyz=start world pos`, `w=half_width_m`)
   - `16..32`: `p1_alpha: vec4<f32>` (`xyz=end world pos`, `w=opacity [0..1]`)

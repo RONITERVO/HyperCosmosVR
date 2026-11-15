@@ -31,6 +31,41 @@ fn hrir_path() -> PathBuf {
 }
 
 #[test]
+fn pause_holds_real_speech_and_syncvoice_then_resumes_same_clip() {
+    let cat = open_catalog();
+    let asset = cat.find_key_triple(4, "Tierra").unwrap().es_asset;
+    let mut engine = AudioEngine::new(None, AudioOutputMode::Headless).unwrap();
+    engine.play_asset(&cat, asset, Vec3::NEG_Z).unwrap();
+    let mut pcm = [0.0; AUDIO_BLOCK_FRAMES * 2];
+    for _ in 0..12 {
+        assert!(engine.render_headless_frames(&mut pcm));
+    }
+    let before = engine.playback_clock();
+    assert!(before.source_ms > 0 && before.is_speaking);
+    engine.set_narration_paused(true);
+    for _ in 0..120 {
+        assert!(engine.render_headless_frames(&mut pcm));
+        let paused = engine.playback_clock();
+        assert_eq!(paused.asset_idx, before.asset_idx);
+        assert_eq!(paused.source_ms, before.source_ms);
+        assert!(!paused.is_speaking && !paused.is_finished);
+        assert_eq!(engine.reactive_uniforms().levels_a[0], 0.0);
+    }
+    engine.set_narration_paused(false);
+    assert!(engine.render_headless_frames(&mut pcm));
+    let after = engine.playback_clock();
+    assert_eq!(after.asset_idx, before.asset_idx);
+    assert!(after.source_ms > before.source_ms && after.is_speaking);
+    // Stop must still finish its fade while paused; an old clip cannot reappear later.
+    engine.set_narration_paused(true);
+    engine.stop_narration();
+    for _ in 0..30 {
+        assert!(engine.render_headless_frames(&mut pcm));
+    }
+    assert!(engine.playback_clock().is_finished);
+}
+
+#[test]
 fn real_mp3_decode_wsola_rates_and_rubato_resample_produce_valid_pcm() {
     let cat = open_catalog();
     let triple = cat

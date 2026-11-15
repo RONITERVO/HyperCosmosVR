@@ -51,7 +51,7 @@ pub struct GlyphInstance {
     pub halo_color: [f32; 4],
     /// `x`: `glyph_t0 [0..1]`, `y`: `glyph_t1 [0..1]`,
     /// `z`: `reveal_cursor` (`>=1.5` static, `<-0.5` hidden, `0..1.2` SyncVoice sweep),
-    /// `w`: mode (`0=spatial anchor, 1=live-ink active, 2=Spanish ghost ribbon, 3=remembered muted, 4=dwell-focused`).
+    /// `w`: mode (`0=spatial anchor, 1=live-ink active, 2=Spanish ghost ribbon, 3=remembered muted, 4=dwell-focused, 5=control backdrop`).
     pub ink_params: [f32; 4],
 }
 
@@ -153,6 +153,9 @@ pub struct MsdfTextRenderer {
     glyph_mono_pipeline: wgpu::RenderPipeline,
     tether_stereo_pipeline: Option<wgpu::RenderPipeline>,
     glyph_stereo_pipeline: Option<wgpu::RenderPipeline>,
+    foreground_mono: [wgpu::RenderPipeline; 2],
+    foreground_stereo: Option<[wgpu::RenderPipeline; 2]>,
+    foreground_start: (u32, u32),
 }
 
 impl MsdfTextRenderer {
@@ -356,6 +359,7 @@ impl MsdfTextRenderer {
             "cosmos_tether_mono_pipeline",
             config,
             None,
+            wgpu::CompareFunction::GreaterEqual,
         );
         let glyph_mono_pipeline = build_render_pipeline(
             device,
@@ -366,37 +370,65 @@ impl MsdfTextRenderer {
             "cosmos_glyph_mono_pipeline",
             config,
             None,
+            wgpu::CompareFunction::GreaterEqual,
         );
 
-        let (tether_stereo_pipeline, glyph_stereo_pipeline) =
-            if config.enable_stereo_multiview && device.features().contains(wgpu::Features::MULTIVIEW)
-            {
-                let mask = NonZeroU32::new(0b11);
-                (
-                    Some(build_render_pipeline(
-                        device,
-                        &pipeline_layout,
-                        &shader,
-                        "vs_tether_stereo",
-                        "fs_tether_main",
-                        "cosmos_tether_stereo_pipeline",
-                        config,
-                        mask,
-                    )),
-                    Some(build_render_pipeline(
-                        device,
-                        &pipeline_layout,
-                        &shader,
-                        "vs_glyph_stereo",
-                        "fs_glyph_main",
-                        "cosmos_glyph_stereo_pipeline",
-                        config,
-                        mask,
-                    )),
-                )
+        let (tether_stereo_pipeline, glyph_stereo_pipeline) = if config.enable_stereo_multiview
+            && device.features().contains(wgpu::Features::MULTIVIEW)
+        {
+            let mask = NonZeroU32::new(0b11);
+            (
+                Some(build_render_pipeline(
+                    device,
+                    &pipeline_layout,
+                    &shader,
+                    "vs_tether_stereo",
+                    "fs_tether_main",
+                    "cosmos_tether_stereo_pipeline",
+                    config,
+                    mask,
+                    wgpu::CompareFunction::GreaterEqual,
+                )),
+                Some(build_render_pipeline(
+                    device,
+                    &pipeline_layout,
+                    &shader,
+                    "vs_glyph_stereo",
+                    "fs_glyph_main",
+                    "cosmos_glyph_stereo_pipeline",
+                    config,
+                    mask,
+                    wgpu::CompareFunction::GreaterEqual,
+                )),
+            )
+        } else {
+            (None, None)
+        };
+
+        // Desktop controls remain readable against close scenery. VR guidance never
+        // selects these ranges; its holograms use ordinary scene depth and occlusion.
+        let foreground = |stereo: bool| {
+            let entries = if stereo {
+                ["vs_tether_stereo", "vs_glyph_stereo"]
             } else {
-                (None, None)
+                ["vs_tether_main", "vs_glyph_main"]
             };
+            std::array::from_fn(|i| {
+                build_render_pipeline(
+                    device,
+                    &pipeline_layout,
+                    &shader,
+                    entries[i],
+                    ["fs_tether_main", "fs_glyph_main"][i],
+                    "cosmos_spatial_controls",
+                    config,
+                    if stereo { NonZeroU32::new(0b11) } else { None },
+                    wgpu::CompareFunction::Always,
+                )
+            })
+        };
+        let foreground_mono = foreground(false);
+        let foreground_stereo = glyph_stereo_pipeline.as_ref().map(|_| foreground(true));
 
         Self {
             group1_layout,
@@ -415,6 +447,9 @@ impl MsdfTextRenderer {
             glyph_mono_pipeline,
             tether_stereo_pipeline,
             glyph_stereo_pipeline,
+            foreground_mono,
+            foreground_stereo,
+            foreground_start: (0, 0),
         }
     }
 
@@ -491,6 +526,18 @@ impl MsdfTextRenderer {
 
         self.glyph_count = glyphs.len() as u32;
         self.tether_count = tethers.len() as u32;
+        self.foreground_start = (self.glyph_count, self.tether_count);
+    }
+
+    /// Marks trailing desktop controls, drawn after world text without scene depth
+    /// occlusion. Call after `upload`; VR must use `None` for normal world depth testing.
+    pub fn set_foreground_start(&mut self, start: Option<(usize, usize)>) {
+        self.foreground_start = start.map_or((self.glyph_count, self.tether_count), |(g, t)| {
+            (
+                (g as u32).min(self.glyph_count),
+                (t as u32).min(self.tether_count),
+            )
+        });
     }
 
     /// Draws glowing leader filaments then 3D MSDF glyphs inside an active `Rgba16Float` HDR render pass.
@@ -519,7 +566,7 @@ impl MsdfTextRenderer {
                 &self.tether_mono_pipeline
             };
             pass.set_pipeline(pipeline);
-            pass.draw(0..6, 0..self.tether_count);
+            pass.draw(0..6, 0..self.foreground_start.1);
         }
 
         if self.glyph_count > 0 {
@@ -531,7 +578,22 @@ impl MsdfTextRenderer {
                 &self.glyph_mono_pipeline
             };
             pass.set_pipeline(pipeline);
-            pass.draw(0..6, 0..self.glyph_count);
+            pass.draw(0..6, 0..self.foreground_start.0);
+        }
+        let foreground = if is_stereo {
+            self.foreground_stereo
+                .as_ref()
+                .unwrap_or(&self.foreground_mono)
+        } else {
+            &self.foreground_mono
+        };
+        if self.foreground_start.1 < self.tether_count {
+            pass.set_pipeline(&foreground[0]);
+            pass.draw(0..6, self.foreground_start.1..self.tether_count);
+        }
+        if self.foreground_start.0 < self.glyph_count {
+            pass.set_pipeline(&foreground[1]);
+            pass.draw(0..6, self.foreground_start.0..self.glyph_count);
         }
     }
 }
@@ -597,6 +659,7 @@ fn build_render_pipeline(
     label: &str,
     config: MsdfPipelineConfig,
     multiview_mask: Option<NonZeroU32>,
+    depth_compare: wgpu::CompareFunction,
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(label),
@@ -619,7 +682,7 @@ fn build_render_pipeline(
         depth_stencil: config.depth_format.map(|format| wgpu::DepthStencilState {
             format,
             depth_write_enabled: Some(false),
-            depth_compare: Some(wgpu::CompareFunction::GreaterEqual),
+            depth_compare: Some(depth_compare),
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
