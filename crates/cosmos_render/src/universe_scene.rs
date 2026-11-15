@@ -180,9 +180,9 @@ impl UniverseSceneBuilder {
             region_accent: [accent.x, accent.y, accent.z, input.active_experience_id as f32],
         };
 
-        let far = build_far_shell_uniforms(u_cam, input.active_experience_id);
+        let far = build_far_shell_uniforms(u_cam, input.active_experience_id, &input.documentary);
 
-        let compute_mode = select_compute_mode(u_cam, input.active_experience_id);
+        let compute_mode = select_compute_mode(u_cam, input.active_experience_id, &input.documentary);
         let particle_count = input.particle_budget.max(256);
         let reseed_compute_particles = if self.last_compute_mode != Some(compute_mode) {
             self.last_compute_mode = Some(compute_mode);
@@ -342,7 +342,11 @@ fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
-fn select_compute_mode(u_cam: f32, experience_id: u8) -> u32 {
+pub fn select_compute_mode(
+    u_cam: f32,
+    experience_id: u8,
+    doc: &DocumentaryFocusState,
+) -> u32 {
     match experience_id {
         1 => 9,
         2 => 8,
@@ -350,7 +354,24 @@ fn select_compute_mode(u_cam: f32, experience_id: u8) -> u32 {
         4 => 10,
         5 | 6 => 0,
         7 => 1,
-        8..=10 => 2,
+        8 => 2,
+        9 => match doc.active_zone_index {
+            4..=7 => 13,
+            8..=10 => 5,
+            _ => 2,
+        },
+        10 => match doc.active_zone_index {
+            0..=4 => 13,
+            5 => 3,
+            6..=8 => 5,
+            _ => {
+                if u_cam >= 26.8 {
+                    5
+                } else {
+                    2
+                }
+            }
+        },
         11 | 12 | 21 | 22 => 13,
         13 => {
             if u_cam < -12.5 {
@@ -385,15 +406,19 @@ fn select_compute_mode(u_cam: f32, experience_id: u8) -> u32 {
     }
 }
 
-fn build_far_shell_uniforms(u_cam: f32, experience_id: u8) -> FarShellUniforms {
+pub fn build_far_shell_uniforms(
+    u_cam: f32,
+    experience_id: u8,
+    doc: &DocumentaryFocusState,
+) -> FarShellUniforms {
     let mw_fade_in = smoothstep(5.0, 9.5, u_cam);
     let mw_fade_out = 1.0 - smoothstep(21.2, 23.6, u_cam);
     let galaxy_plane = (mw_fade_in * mw_fade_out).clamp(0.0, 1.0);
 
     // Keep Cosmic Web (u = 25.35) completely free of warm CMB haze, separate CMB (09) from Inflation (10),
     // and fade Inflation out cleanly above u = 27.4 so Final Horizon Lotus (u ~ 28.5) floats in >=70% #000000 void.
-    let cmb_alpha = (smoothstep(25.8, 26.28, u_cam) * (1.0 - smoothstep(26.9, 27.3, u_cam))).clamp(0.0, 1.0);
-    let inflation_alpha =
+    let mut cmb_alpha = (smoothstep(25.8, 26.28, u_cam) * (1.0 - smoothstep(26.9, 27.3, u_cam))).clamp(0.0, 1.0);
+    let mut inflation_alpha =
         (smoothstep(26.70, 27.05, u_cam) * (1.0 - smoothstep(27.20, 27.42, u_cam))).clamp(0.0, 1.0);
     let lotus_boost = if matches!(experience_id, 11 | 12 | 23 | 24 | 25) && u_cam > 26.0 {
         0.42
@@ -408,13 +433,42 @@ fn build_far_shell_uniforms(u_cam: f32, experience_id: u8) -> FarShellUniforms {
 
     let north = Vec3::new(0.18, 0.96, 0.21).normalize();
     let sun = Vec3::new(0.62, 0.45, -0.64).normalize();
-    let star_density = if u_cam < -20.0 {
+    let mut star_density = if u_cam < -20.0 {
         0.0
     } else if u_cam > 26.5 {
         0.25
     } else {
         1.0
     };
+
+    if doc.narration_active_weight >= 0.05 && doc.active_zone_index != u16::MAX {
+        match experience_id {
+            9 => {
+                if doc.active_zone_index < 8 {
+                    cmb_alpha = 0.0;
+                } else {
+                    cmb_alpha = cmb_alpha.max(0.62);
+                }
+                if matches!(doc.active_zone_index, 7 | 8) {
+                    star_density = 0.0;
+                }
+            }
+            10 => {
+                star_density = 0.0;
+                cmb_alpha = if doc.active_zone_index <= 1 {
+                    cmb_alpha.max(0.65)
+                } else {
+                    0.0
+                };
+                inflation_alpha = if doc.active_zone_index >= 7 {
+                    inflation_alpha.max(0.55)
+                } else {
+                    0.0
+                };
+            }
+            _ => {}
+        }
+    }
 
     FarShellUniforms {
         regime_weights: [galaxy_plane, cmb_alpha, inflation_alpha, lotus_alpha],

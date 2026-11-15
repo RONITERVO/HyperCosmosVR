@@ -2,7 +2,7 @@
 
 [Master Visual Roadmap](../CONTRIBUTOR_VISUAL_ROADMAP.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md) · [Shader Contracts](../../shaders/SHADER_CONTRACTS.md) · [Act I Map](ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) · [Act III Map](ACT_3_MATTER_AND_SPACETIME_MAP.md) · [Act IV Map](ACT_4_LIFE_MIND_AND_SENSES_MAP.md) · [Act V Map](ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md)
 
-> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`7 / 26` Act II packages = `100%` of Ch 1 `05_milky_way`, Ch 4 `06_local_group`, and Ch 5 `07_laniakea` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
+> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`15 / 26` Act II packages = `100%` of `05_milky_way`, `06_local_group`, `07_laniakea`, `08_cosmic_web`, `09_observable_universe`, and `10_early_universe` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
 
 > [!IMPORTANT]
 > **Odyssey Act II Travel Order (`&[5, 21, 22, 6, 7, 8, 9, 10]`):** [`odyssey.rs#L29-L32`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) embeds **Exp 21 (`21_cosmic_life`)** and **Exp 22 (`22_cosmic_contact`)** inside the Orion Spur between **Exp 05 (`05_milky_way`)** and **Exp 06 (`06_local_group`)**, while [`topology.rs#L419-L426`](../../crates/cosmos_spatial/src/topology.rs#L419-L426) links both `5 -> 21 -> 22` (`EmbeddedStellarArm`) and the outward cosmological ladder `5 -> 6 -> 7 -> 8 -> 9 -> 10` (`ScaleRiseOutward`). Chapters and Pick-Up Cards below follow exact **Odyssey Act II progression (`05 -> 21 -> 22 -> 06 -> 07 -> 08 -> 09 -> 10`)**.
@@ -16,12 +16,12 @@
 | 3 / 8 | `22` | `22_cosmic_contact` | Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones | **28** | `0 / 5 / 15 / 8` | **168** | `0 / 11 / 88 / 69` | 0 | `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs) | `3200..=3227` (3830..=3839) | `6` |
 | 4 / 8 | `06` | `06_local_group` | Espectro del Grupo Local: de la Vía Láctea a Andrómeda | **9** | `9 / 0 / 0 / 0` | **45** | `45 / 0 / 0 / 0` | 9 | **`[TIER-A]` Complete:** canonical `1600..=1608` stages + `3680..=3688` companions + `45/45` `doc_feat` | `1600..=1608` (3680..=3688) | `2` *(2 done)* |
 | 5 / 8 | `07` | `07_laniakea` | Espectro de Laniakea: del Grupo Local al Gran Atractor | **10** | `10 / 0 / 0 / 0` | **50** | `50 / 0 / 0 / 0` | 10 | **`[TIER-A]` Complete:** canonical `1700..=1709` stages + `3700..=3709` companions + `50/50` `doc_feat` | `1700..=1709` (3700..=3709) | `2` *(2 done)* |
-| 6 / 8 | `08` | `08_cosmic_web` | Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo | **11** | `0 / 6 / 3 / 2` | **55** | `0 / 19 / 6 / 30` | 0 | Single static `kind=3, vid=8` uniform Voronoi diorama (Mode 2) | `1800..=1810` (Zone-parameterized `submode` + `cs_field_grid` dark-matter scaffold) | `3` |
-| 7 / 8 | `09` | `09_observable_universe` | Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico | **11** | `0 / 5 / 4 / 2` | **55** | `0 / 12 / 6 / 37` | 0 | Single static `kind=3, vid=9` CMB + quasar jet (Mode 2 lock + `cmb_alpha=1.0` leak) | `1900..=1910` (Epoch-gated `compute_mode`) | `3` |
-| 8 / 8 | `10` | `10_early_universe` | Espectro del Universo Temprano: del Fondo Cósmico a la Inflación | **9** | `0 / 2 / 4 / 3` | **46** | `0 / 6 / 8 / 32` | 0 | Single static `kind=3, vid=10` expansion ring (Mode 2 lock; Modes 3/5 unused) | `2000..=2008` (Zone-gated compute) | `2` |
-| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`32 / 22 / 30 / 32`** | **`684`** | **`160 / 58 / 140 / 326`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **27.6% Tier-A · 19.0% B · 25.9% C · 27.6% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`7` done)* |
+| 6 / 8 | `08` | `08_cosmic_web` | Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo | **11** | `11 / 0 / 0 / 0` | **55** | `55 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `1800..=1810` stages (`shade_doc_cosmic_web_stage`) + Mode 2 & `cs_field_grid` cues + `55/55` `doc_feat` | `1800..=1810` (Mode 2 + `cs_field_grid` cues) | `3` *(3 done)* |
+| 7 / 8 | `09` | `09_observable_universe` | Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico | **11** | `11 / 0 / 0 / 0` | **55** | `55 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `1900..=1910` stages (`shade_doc_observable_universe_stage`) + Mode `2/13/5` & `cmb_alpha`/star isolation + `55/55` `doc_feat` | `1900..=1910` (Epoch-gated `compute_mode`) | `3` *(3 done)* |
+| 8 / 8 | `10` | `10_early_universe` | Espectro del Universo Temprano: del Fondo Cósmico a la Inflación | **9** | `9 / 0 / 0 / 0` | **46** | `46 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `2000..=2008` stages (`shade_doc_early_universe_stage`) + Mode `13/3/5` & pre-stellar isolation + `46/46` `doc_feat` | `2000..=2008` (Zone-gated compute) | `2` *(2 done)* |
+| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`63 / 9 / 19 / 25`** | **`684`** | **`316 / 21 / 120 / 227`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **54.3% Tier-A · 7.8% B · 16.4% C · 21.6% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`15` done)* |
 
-*Feature distribution across Act II (`684` features): `23.4%` Tier-A (`160`), `8.5%` Tier-B (`58`), `20.5%` Tier-C (`140`), `47.7%` Tier-D (`326`).*
+*Feature distribution across Act II (`684` features): `46.2%` Tier-A (`316`), `3.1%` Tier-B (`21`), `17.5%` Tier-C (`120`), `33.2%` Tier-D (`227`).*
 
 ## 2. P0 Core Pipeline Prerequisites & Act II Architectural Findings
 
@@ -32,7 +32,7 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
    - Eliminate `zone_index % 3` landmark hashing in **Exp 05** (`doc_stages.rs#L359-L362`), constant `6/7/8/9/10` landmark/anchor collapse (`doc_stages.rs#L363-L367, #L696-L708`), and constant `210`/`220` flattening in **Exps 21 & 22** (`doc_stages.rs#L75-L82`).
 2. **[`PKG-P0-FEATURE-AND-CUE-PLUMBING`](../CONTRIBUTOR_VISUAL_ROADMAP.md#pkg-p0-feature-and-cue-plumbing)** (`crates/cosmos_app/src/engine.rs#L1691-L1699`, `crates/cosmos_render/src/universe_scene.rs#L17-L25`, `#L301-L377`, `crates/cosmos_narration/src/resolver.rs#L952-L1095`):
    - Forward `SegmentVisualHint::cue_tags` & `emphasis_boost` into `DocumentaryFocusState` (currently dropped at `engine.rs#L1691-L1699`), pack `base_flags` + `submode` via `pack_doc_tags`, and replace the single global `doc_feat * 0.45` orbital offset with real per-feature `doc_feat(inst)` (`0..=7`) + smooth `doc_cue(inst)` + `doc_weight(inst)` shader choreography.
-   - Uncouple **`select_compute_mode(u_cam, experience_id)`** ([`universe_scene.rs#L301-L315`](../../crates/cosmos_render/src/universe_scene.rs#L301-L315)) and **`build_far_shell_uniforms`** ([`universe_scene.rs#L344-L377`](../../crates/cosmos_render/src/universe_scene.rs#L344-L377)): stop locking Exps `08..=10` to Compute Mode 2 (Cosmic Web filaments) across Reionization, CMB, Quark Era (`compute_universe.wgsl#L162-L187` Mode 3 already implemented!), and Planck/Inflation (`compute_universe.wgsl#L209-L222` Mode 5 already implemented!); stop leaking `cmb_alpha=1.0` across pre-CMB zones (`09 Z00..Z07`) and stop drawing `star_density = 0.25` stars inside pre-stellar epochs (`09 Z07..Z08`, `10 Z00..Z08`).
+   - **`[COMPLETED FOR EXPS 08..=10]`** Uncouple **`select_compute_mode(u_cam, experience_id, doc)`** and **`build_far_shell_uniforms(u_cam, experience_id, doc)`** ([`universe_scene.rs`](../../crates/cosmos_render/src/universe_scene.rs)): Exps `08..=10` now route epoch-accurate compute modes (`08 => 2`, `09 Z04..=Z07 => 13`, `09 Z08..=Z10 => 5`, `10 Z00..=Z04 => 13`, `10 Z05 => 3` QCD, `10 Z06..=Z08 => 5` Planck spin-foam) and gate `far_shell` (`cmb_alpha = 0` on pre-CMB `09 Z00..=Z07`, `star_density = 0` on pre-stellar `09 Z07..=Z10` & `10 Z00..=Z08`, `inf_alpha` on `10 Z07..=Z08`).
 3. **[`PKG-P0-CATALOG-SCENE-AND-CI`](../CONTRIBUTOR_VISUAL_ROADMAP.md#pkg-p0-catalog-scene-and-ci)** ([`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json)):
    - Split **Exp 22**'s 5 duplicated `scene` indices (`0`: `Z00/Z01`, `8`: `Z09/Z10`, `13`: `Z15/Z16`, `14`: `Z17/Z18`, `15`: `Z19/Z20`) — or guarantee `doc_stage_variant_id(22)` keys on `doc.active_zone_index` so shared scenes never collide.
    - Backfill explicit `scene = 0..z_max` values across **Exps `05, 06, 07, 08, 09, 10`** (currently `null` in all `63` zones) and resolve **Exp 05 `z=12` (`galactic-edge`)** lacking a baked landmark entry.
@@ -64,14 +64,14 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 | [`PKG-ACT2-EXP06-Z05-08`](#pkg-act2-exp06-z05-08) | `06` | `Z05..Z08` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1605..=1608` + `3685..=3688`):** Triangulum M33/NGC 604, Andromeda M31/M32/M110, Barycenter & Zero-Velocity Rim + `20/20` `doc_feat` transitions |
 | [`PKG-ACT2-EXP07-Z00-04`](#pkg-act2-exp07-z00-04) | `07` | `Z00..Z04` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1700..=1704` + `3700..=3704`):** LG Turnaround, Local Volume, Local Sheet / Council of Giants, Virgo Cluster / M87 & Supercluster + `25/25` `doc_feat` transitions |
 | [`PKG-ACT2-EXP07-Z05-09`](#pkg-act2-exp07-z05-09) | `07` | `Z05..Z09` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1705..=1709` + `3705..=3709`):** Peculiar Flows, Local Void Cavity, Great Attractor / Norma / ZoA, Laniakea Basin & Watershed Divide + `25/25` `doc_feat` transitions |
-| [`PKG-ACT2-EXP08-Z00-03`](#pkg-act2-exp08-z00-03) | `08` | `Z00..Z03` (4) | `20` | Phase 3 · **Medium-High** | `0/2/2/0` | `0/6/4/10` | Laniakea Divide, Inter-Supercluster Space, Filaments & Nodes (`z=00..03`) |
-| [`PKG-ACT2-EXP08-Z04-07`](#pkg-act2-exp08-z04-07) | `08` | `Z04..Z07` (4) | `20` | Phase 3 · **High** | `0/2/1/1` | `0/8/2/10` | Cosmic Voids, Galactic Walls, Junctions & Supercluster Complexes (`z=04..07`) |
-| [`PKG-ACT2-EXP08-Z08-10`](#pkg-act2-exp08-z08-10) | `08` | `Z08..Z10` (3) | `15` | Phase 3 · **Medium-High** | `0/2/0/1` | `0/5/0/10` | Deep Cosmic Web, Homogeneity Scale & Large-Scale Architecture (`z=08..10`) |
-| [`PKG-ACT2-EXP09-Z00-03`](#pkg-act2-exp09-z00-03) | `09` | `Z00..Z03` (4) | `20` | Phase 3 · **High** | `0/1/1/2` | `0/3/1/16` | Large-Scale Continuity, Deep Field, Lookback Cone & High-z Galaxies (`z=00..03`) |
-| [`PKG-ACT2-EXP09-Z04-07`](#pkg-act2-exp09-z04-07) | `09` | `Z04..Z07` (4) | `20` | Phase 3 · **High** | `0/1/3/0` | `0/2/4/14` | Quasar Era, First Galaxies, Reionization & Cosmic Dark Ages (`z=04..07`) |
-| [`PKG-ACT2-EXP09-Z08-10`](#pkg-act2-exp09-z08-10) | `09` | `Z08..Z10` (3) | `15` | Phase 3 · **High** | `0/3/0/0` | `0/7/1/7` | CMB Last-Scattering Shell, Cosmological Horizon & Observable Limit (`z=08..10`) |
-| [`PKG-ACT2-EXP10-Z00-04`](#pkg-act2-exp10-z00-04) | `10` | `Z00..Z04` (5) | `25` | Phase 3 + Phase 4 · **Critical** | `0/1/1/3` | `0/3/3/19` | CMB Stretched Sky, Recombination Fog, Plasma Acoustic Oscillations, BBN & Leptons (`z=00..04`) |
-| [`PKG-ACT2-EXP10-Z05-08`](#pkg-act2-exp10-z05-08) | `10` | `Z05..Z08` (4) | `21` | Phase 3 + Phase 4 · **Critical** | `0/1/3/0` | `0/3/5/13` | Quark-Gluon Plasma (Mode 3), Electroweak Higgs (Mode 5), Inflation & Known-Physics Limit (`z=05..08`) |
+| [`PKG-ACT2-EXP08-Z00-03`](#pkg-act2-exp08-z00-03) | `08` | `Z00..Z03` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1800..=1803`, Mode 2):** Laniakea Divide, Inter-Supercluster Space, Filaments & Nodes + `20/20` `doc_feat` transitions |
+| [`PKG-ACT2-EXP08-Z04-07`](#pkg-act2-exp08-z04-07) | `08` | `Z04..Z07` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1804..=1807`, Mode 2):** Cosmic Voids, Galactic Walls, Junctions & Supercluster Complexes + `20/20` `doc_feat` transitions |
+| [`PKG-ACT2-EXP08-Z08-10`](#pkg-act2-exp08-z08-10) | `08` | `Z08..Z10` (3) | `15` | Phase 3 · **`[COMPLETED — TIER-A]`** | `3/0/0/0` | `15/0/0/0` | **Completed (`1808..=1810`, Mode 2):** Deep Cosmic Web, Homogeneity Scale & Large-Scale Architecture + `15/15` `doc_feat` transitions |
+| [`PKG-ACT2-EXP09-Z00-03`](#pkg-act2-exp09-z00-03) | `09` | `Z00..Z03` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1900..=1903`, Mode 2, `cmb_alpha=0`):** Large-Scale Continuity, Deep Field, Lookback Cone & High-z Galaxies + `20/20` `doc_feat` transitions |
+| [`PKG-ACT2-EXP09-Z04-07`](#pkg-act2-exp09-z04-07) | `09` | `Z04..Z07` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1904..=1907`, Mode 13, pre-star isolation):** Quasar Era, First Galaxies, Reionization & Cosmic Dark Ages + `20/20` `doc_feat` transitions |
+| [`PKG-ACT2-EXP09-Z08-10`](#pkg-act2-exp09-z08-10) | `09` | `Z08..Z10` (3) | `15` | Phase 3 · **`[COMPLETED — TIER-A]`** | `3/0/0/0` | `15/0/0/0` | **Completed (`1908..=1910`, Mode 5, isolated CMB shell):** CMB Last-Scattering Shell, Cosmological Horizon & Observable Limit + `15/15` `doc_feat` transitions |
+| [`PKG-ACT2-EXP10-Z00-04`](#pkg-act2-exp10-z00-04) | `10` | `Z00..Z04` (5) | `25` | Phase 3 + Phase 4 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`2000..=2004`, Mode 13, `star_density=0`):** CMB Stretched Sky, Recombination Fog, Plasma BAO, BBN & Leptons + `25/25` `doc_feat` transitions |
+| [`PKG-ACT2-EXP10-Z05-08`](#pkg-act2-exp10-z05-08) | `10` | `Z05..Z08` (4) | `21` | Phase 3 + Phase 4 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `21/0/0/0` | **Completed (`2005..=2008`, Mode 3/5, inflation isolation):** Quark-Gluon Plasma, Electroweak Higgs, Inflation (`6` feats) & Known-Physics Limit + `21/21` `doc_feat` transitions |
 
 ---
 
@@ -2627,21 +2627,22 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 08: `08_cosmic_web` — Red Cósmica / Cosmic Web (`11` Zones, `55` Features, `0` Landmarks)
+### Exp 08: `08_cosmic_web` — Red Cósmica / Cosmic Web (`11` Zones, `55` Features, `0` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo* — Spectrum of the Cosmic Web: from Laniakea to the Structure of the Universe
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **6 / 8** (Chapter `act2_exp08`)
 - **Spatial & Scale Band:** `SectorId::COSMIC_WEB` · `u ∈ [24.5, 26.0]` · `focus_scale_exp = 25.3` (`topology.rs:167`)
-- **Compute & Far Shell:** `mode = 2` (Zel'dovich cosmic web filaments & void evacuation, `compute_universe.wgsl:140-161`, `universe_scene.rs:309`) · `web_alpha` 3D cosmic-web background filaments (`u ∈ [22, 26.2]`, `far_shell.wgsl:106-112`)
-- **Current Render Dispatch:** `doc_stages.rs:696-708` emits single static `kind=3, vid=8` (`hero_doc_cosmos.wgsl:556-564`: uniform Voronoi edges + supercluster spheres; zero `doc_zone`/`doc_feat` branching, 0 baked landmarks -> `ZoneShell`/`FeatureNode` spiral dots in `assets.rs:273-326`).
-- **Granular Audit Tally:** Zones `0A / 6B / 3C / 2D` (`11`) · Features `0A / 19B / 6C / 30D` (`55`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `laniakea` (exists), plus `filamento`, `nodo`, `vacio`, `muralla`, `pared`, `cumulo`, `materia`, `oscura`, `homogeneidad`
+- **Compute & Far Shell (`[COMPLETED]`):** `mode = 2` (Zel'dovich cosmic web filaments & void evacuation, `compute_universe.wgsl:140-161`, `universe_scene.rs`) · `web_alpha` 3D cosmic-web background filaments (`u ∈ [22, 26.2]`, `far_shell.wgsl:106-112`)
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a(8, 0..=10)` -> `1800..=1810`) and `shade_doc_cosmic_web_stage` in `shaders/hero_doc_cosmos.wgsl` across all `55/55` features (`render_tests.rs` Section 10 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `11A / 0B / 0C / 0D` (`11`) · Features `55A / 0B / 0C / 0D` (`55`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added bilingual `Exp 08` tokens (`laniakea` existing, plus `filamento`, `filament`, `nodo`, `node`, `vacio`, `muralla`, `wall`, `pared`, `cumulo`, `materia`, `darkmatter`, `homogeneidad`, `homogeneity`).
 
 <a id="pkg-act2-exp08-z00-03"></a>
-### PKG-ACT2-EXP08-Z00-03: Laniakea Divide, Inter-Supercluster Space, Filaments & Nodes (`z=00..03`) — `Phase 3` · Priority: **Medium-High**
+### PKG-ACT2-EXP08-Z00-03: Laniakea Divide, Inter-Supercluster Space, Filaments & Nodes (`z=00..03`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1800..=1803`, Laniakea divide bridge, inter-supercluster rarefied gap, galactic filament strands & dark-matter bridges, cluster nodes & X-ray knots, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **Medium-High** (`Completed`)
 
-**Current State:** Zones `Z00..Z03` (`4` zones, `20` features) | Zone Tiers `0A / 2B / 2C / 0D` | Feature Tiers `0A / 6B / 4C / 10D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L556-L564`](../../shaders/hero_doc_cosmos.wgsl#L556-L564) — Single static `kind=3, vid=8` uniform Voronoi diorama (Mode 2). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z03` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 2B / 2C / 0D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 6B / 4C / 10D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1800..=1803`) -> `shade_doc_cosmic_web_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 10.
 
 **Reserved Target IDs:**
 
@@ -2754,9 +2755,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp08-z04-07"></a>
-### PKG-ACT2-EXP08-Z04-07: Cosmic Voids, Galactic Walls, Junctions & Supercluster Complexes (`z=04..07`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP08-Z04-07: Cosmic Voids, Galactic Walls, Junctions & Supercluster Complexes (`z=04..07`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1804..=1807`, cosmic void expansion basins, planar galactic walls & sheet horizons, multi-filament junctions, massive supercluster complexes, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z04..Z07` (`4` zones, `20` features) | Zone Tiers `0A / 2B / 1C / 1D` | Feature Tiers `0A / 8B / 2C / 10D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L556-L564`](../../shaders/hero_doc_cosmos.wgsl#L556-L564) — Single static `kind=3, vid=8` uniform Voronoi diorama (Mode 2). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z04..Z07` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 2B / 1C / 1D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 8B / 2C / 10D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1804..=1807`) -> `shade_doc_cosmic_web_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 10.
 
 **Reserved Target IDs:**
 
@@ -2869,9 +2871,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp08-z08-10"></a>
-### PKG-ACT2-EXP08-Z08-10: Deep Cosmic Web, Homogeneity Scale & Large-Scale Architecture (`z=08..10`) — `Phase 3` · Priority: **Medium-High**
+### PKG-ACT2-EXP08-Z08-10: Deep Cosmic Web, Homogeneity Scale & Large-Scale Architecture (`z=08..10`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1808..=1810`, deep redshift cosmic web shell, cosmological homogeneity averaging cube/scale, cosmic web-to-observable-universe architecture handoff, `15/15` `doc_feat 0..=4` wired & GPU-verified) · Priority: **Medium-High** (`Completed`)
 
-**Current State:** Zones `Z08..Z10` (`3` zones, `15` features) | Zone Tiers `0A / 2B / 0C / 1D` | Feature Tiers `0A / 5B / 0C / 10D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L556-L564`](../../shaders/hero_doc_cosmos.wgsl#L556-L564) — Single static `kind=3, vid=8` uniform Voronoi diorama (Mode 2). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `15` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z08..Z10` (`3` zones, `15` features) | Live Zone Tiers `3A / 0B / 0C / 0D` *(up from `0A / 2B / 0C / 1D`)* | Live Feature Tiers `15A / 0B / 0C / 0D` *(up from `0A / 5B / 0C / 10D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1808..=1810`) -> `shade_doc_cosmic_web_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 10.
 
 **Reserved Target IDs:**
 
@@ -2967,21 +2970,22 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 09: `09_observable_universe` — Universo Observable / Observable Universe (`11` Zones, `55` Features, `0` Landmarks)
+### Exp 09: `09_observable_universe` — Universo Observable / Observable Universe (`11` Zones, `55` Features, `0` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico* — Spectrum of the Observable Universe: from the Cosmic Web to the Cosmic Horizon
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **7 / 8** (Chapter `act2_exp09`)
 - **Spatial & Scale Band:** `SectorId::OBSERVABLE_CMB` · `u ∈ [26.0, 26.6]` · `focus_scale_exp = 26.4` (`topology.rs:180`)
-- **Compute & Far Shell:** **BUG (`universe_scene.rs:309`)**: `8..=10 => 2` locks Cosmic Web galaxy filaments even through Reionization, Dark Ages, CMB, and Horizon! · **BUG (`universe_scene.rs:351`)**: `cmb_alpha = 1.0` leaks CMB mottling behind ALL 11 zones (`Z00..Z07` should not show CMB yet; starfield `star_density=0.25` persists into pre-star Dark Ages `Z07` & CMB `Z08`).
-- **Current Render Dispatch:** `doc_stages.rs:696-708` emits single static `kind=3, vid=9` (`hero_doc_cosmos.wgsl:565-572`: one CMB shell + single active relativistic quasar jet; forces wrong CMB+quasar stage on `Z00..Z03, Z05..Z07, Z09..Z10`, zero `doc_zone`/`doc_feat`).
-- **Granular Audit Tally:** Zones `0A / 5B / 4C / 2D` (`11`) · Features `0A / 12B / 6C / 37D` (`55`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `cuasar`, `reionizacion`, `cmb`, `horizonte` (exist!), plus `retrospeccion`, `corrimiento`, `oscuras`, `hidrogeno`, `expansion`, `luz`
+- **Compute & Far Shell (`[COMPLETED]`):** Epoch-gated compute in `select_compute_mode` (`universe_scene.rs`): `Z00..=Z03` -> Mode 2, `Z04..=Z07` -> Mode 13, `Z08..=Z10` -> Mode 5 · Far-shell isolation in `build_far_shell_uniforms`: `cmb_alpha = 0` on pre-CMB `Z00..=Z07`, active CMB shell on `Z08..=Z10`, `star_density = 0` on pre-stellar `Z07..=Z10`.
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a(9, 0..=10)` -> `1900..=1910`) and `shade_doc_observable_universe_stage` in `shaders/hero_doc_cosmos.wgsl` across all `55/55` features (`render_tests.rs` Section 11 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `11A / 0B / 0C / 0D` (`11`) · Features `55A / 0B / 0C / 0D` (`55`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added bilingual `Exp 09` tokens (`cuasar`, `reionizacion`, `reionization`, `cmb`, `horizonte`, `retrospeccion`, `lookback`, `corrimiento`, `redshift`, `oscuras`, `darkages`, `hidrogeno`, `hydrogen`, `expansion`, `luz`, `microondas`, `microwave`).
 
 <a id="pkg-act2-exp09-z00-03"></a>
-### PKG-ACT2-EXP09-Z00-03: Large-Scale Continuity, Deep Field, Lookback Cone & High-z Galaxies (`z=00..03`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP09-Z00-03: Large-Scale Continuity, Deep Field, Lookback Cone & High-z Galaxies (`z=00..03`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1900..=1903`, Mode 2 + `cmb_alpha=0`, large-scale continuity bridge, HUDF deep-field tunnel, relativistic lookback light-cone, high-z clumpy galaxies, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z00..Z03` (`4` zones, `20` features) | Zone Tiers `0A / 1B / 1C / 2D` | Feature Tiers `0A / 3B / 1C / 16D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L565-L572`](../../shaders/hero_doc_cosmos.wgsl#L565-L572) — Single static `kind=3, vid=9` CMB + quasar jet (Mode 2 lock + `cmb_alpha=1.0` leak). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z03` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 1B / 1C / 2D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 3B / 1C / 16D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1900..=1903`) -> `shade_doc_observable_universe_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 11.
 
 **Reserved Target IDs:**
 
@@ -3094,9 +3098,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp09-z04-07"></a>
-### PKG-ACT2-EXP09-Z04-07: Quasar Era, First Galaxies, Reionization & Cosmic Dark Ages (`z=04..07`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP09-Z04-07: Quasar Era, First Galaxies, Reionization & Cosmic Dark Ages (`z=04..07`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1904..=1907`, Mode 13 + pre-star far-shell isolation on `Z07`, luminous quasar accretion + relativistic jets, Pop III/early galaxy knots, Strömgren reionization bubbles, 21-cm neutral hydrogen Dark Ages void, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z04..Z07` (`4` zones, `20` features) | Zone Tiers `0A / 1B / 3C / 0D` | Feature Tiers `0A / 2B / 4C / 14D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L565-L572`](../../shaders/hero_doc_cosmos.wgsl#L565-L572) — Single static `kind=3, vid=9` CMB + quasar jet (Mode 2 lock + `cmb_alpha=1.0` leak). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z04..Z07` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 1B / 3C / 0D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 2B / 4C / 14D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1904..=1907`) -> `shade_doc_observable_universe_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 11.
 
 **Reserved Target IDs:**
 
@@ -3209,9 +3214,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp09-z08-10"></a>
-### PKG-ACT2-EXP09-Z08-10: CMB Last-Scattering Shell, Cosmological Horizon & Observable Limit (`z=08..10`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP09-Z08-10: CMB Last-Scattering Shell, Cosmological Horizon & Observable Limit (`z=08..10`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1908..=1910`, Mode 5 + isolated CMB far-shell & zero starfield, CMB acoustic last-scattering shell, light-travel cosmological horizon, observable-vs-unobservable boundary transition into `Exp 10`, `15/15` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z08..Z10` (`3` zones, `15` features) | Zone Tiers `0A / 3B / 0C / 0D` | Feature Tiers `0A / 7B / 1C / 7D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L565-L572`](../../shaders/hero_doc_cosmos.wgsl#L565-L572) — Single static `kind=3, vid=9` CMB + quasar jet (Mode 2 lock + `cmb_alpha=1.0` leak). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `15` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z08..Z10` (`3` zones, `15` features) | Live Zone Tiers `3A / 0B / 0C / 0D` *(up from `0A / 3B / 0C / 0D`)* | Live Feature Tiers `15A / 0B / 0C / 0D` *(up from `0A / 7B / 1C / 7D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1908..=1910`) -> `shade_doc_observable_universe_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 11.
 
 **Reserved Target IDs:**
 
@@ -3307,21 +3313,22 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 10: `10_early_universe` — Universo Temprano / Early Universe (`9` Zones, `46` Features, `0` Landmarks)
+### Exp 10: `10_early_universe` — Universo Temprano / Early Universe (`9` Zones, `46` Features, `0` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro del Universo Temprano: del Fondo Cósmico a la Inflación* — Spectrum of the Early Universe: from the Cosmic Microwave Background to Inflation
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **8 / 8** (Chapter `act2_exp10`)
 - **Spatial & Scale Band:** `SectorId::EARLY_INFLATION` · `u ∈ [26.6, 27.2]` · `focus_scale_exp = 26.9` (`topology.rs:193`)
-- **Compute & Far Shell:** **CRITICAL UNWIRED BUG (`universe_scene.rs:309`)**: `8..=10 => 2` runs Cosmic Web GALAXY FILAMENTS across Recombination, BBN, Leptons, Quarks, Electroweak, Inflation & Planck! Meanwhile **Mode 3 (QCD Quark-Gluon, `compute_universe.wgsl:162-187`)** and **Mode 5 (Planck Spin-Foam, `compute_universe.wgsl:209-222`)** already exist and are UNWIRED! · **ANACHRONISTIC OVERLAP BUG (`universe_scene.rs:351-370`)**: `cmb_alpha = 1.0`, `inflation_alpha ≈ 0.58`, AND `star_density = 0.25` (rendered stars!) persist across ALL 9 pre-stellar zones (`Z00..Z08`)!
-- **Current Render Dispatch:** `doc_stages.rs:696-708` emits single static `kind=3, vid=10` (`hero_doc_cosmos.wgsl:573`: a single thin golden expansion shock shell, falling short on every epoch from Recombination (`Z01`) and BBN (`Z03`) to QCD/Electroweak (`Z05..Z06`), Inflation (`Z07`, 6 features!), and Planck boundary (`Z08`)).
-- **Granular Audit Tally:** Zones `0A / 2B / 4C / 3D` (`9`) · Features `0A / 6B / 8C / 32D` (`46`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `cmb`, `inflacion`, `quark`, `higgs`, `planck`, `horizonte` (exist!), plus `recombinacion`, `plasma`, `nucleosintesis`, `lepton`, `electrodebil`, `cuantica`, `singularidad`
+- **Compute & Far Shell (`[COMPLETED]`):** Zone-gated compute in `select_compute_mode` (`universe_scene.rs`): `Z00..=Z04` -> Mode 13, `Z05` -> Mode 3 (QCD Quark-Gluon Plasma), `Z06..=Z08` -> Mode 5 (Planck Spin-Foam) · Far-shell pre-stellar isolation in `build_far_shell_uniforms`: `star_density = 0.0` across `Z00..=Z08`, `cmb_alpha` gated on `Z00..=Z01`, `inf_alpha` gated on `Z07..=Z08`.
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a(10, 0..=8)` -> `2000..=2008`) and `shade_doc_early_universe_stage` in `shaders/hero_doc_cosmos.wgsl` across all `46/46` features (`6` features `0u..=5u` on `Z07` Inflation; centerless geometry across `Z01..=Z08`, `render_tests.rs` Section 12 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `9A / 0B / 0C / 0D` (`9`) · Features `46A / 0B / 0C / 0D` (`46`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added bilingual `Exp 10` tokens (`cmb`, `inflacion`, `quark`, `higgs`, `planck`, `horizonte` existing, plus `recombinacion`, `recombination`, `plasma`, `nucleosintesis`, `nucleosynthesis`, `lepton`, `electrodebil`, `electroweak`, `cuantica`, `quantum`, `singularidad`, `singularity`).
 
 <a id="pkg-act2-exp10-z00-04"></a>
-### PKG-ACT2-EXP10-Z00-04: CMB Stretched Sky, Recombination Fog, Plasma Acoustic Oscillations, BBN & Leptons (`z=00..04`) — `Phase 3 + Phase 4` · Priority: **Critical**
+### PKG-ACT2-EXP10-Z00-04: CMB Stretched Sky, Recombination Fog, Plasma Acoustic Oscillations, BBN & Leptons (`z=00..04`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 + Phase 4 (`2000..=2004`, Mode 13 + `star_density=0`, CMB stretched surface, Thomson-scattering recombination transition, photon-baryon acoustic waves, BBN light-element nuclei, electron-positron / neutrino lepton soup, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Priority: **Critical** (`Completed`)
 
-**Current State:** Zones `Z00..Z04` (`5` zones, `25` features) | Zone Tiers `0A / 1B / 1C / 3D` | Feature Tiers `0A / 3B / 3C / 19D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L573`](../../shaders/hero_doc_cosmos.wgsl#L573) — Single static `kind=3, vid=10` expansion ring (Mode 2 lock; Modes 3/5 unused). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `25` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z04` (`5` zones, `25` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 1B / 1C / 3D`)* | Live Feature Tiers `25A / 0B / 0C / 0D` *(up from `0A / 3B / 3C / 19D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`2000..=2004`) -> `shade_doc_early_universe_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 12.
 
 **Reserved Target IDs:**
 
@@ -3452,9 +3459,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp10-z05-08"></a>
-### PKG-ACT2-EXP10-Z05-08: Quark-Gluon Plasma (Mode 3), Electroweak Higgs (Mode 5), Inflation & Known-Physics Limit (`z=05..08`) — `Phase 3 + Phase 4` · Priority: **Critical**
+### PKG-ACT2-EXP10-Z05-08: Quark-Gluon Plasma (Mode 3), Electroweak Higgs (Mode 5), Inflation & Known-Physics Limit (`z=05..08`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 + Phase 4 (`2005..=2008`, Mode 3 QCD + Mode 5 Planck + `star_density=0`, deconfined R/G/B quark-gluon plasma & hadronization, electroweak Higgs Mexican-hat symmetry breaking, 6-feature centerless inflationary horizon expansion, singularity-free Planck quantum-gravity boundary, `21/21` `doc_feat` wired & GPU-verified) · Priority: **Critical** (`Completed`)
 
-**Current State:** Zones `Z05..Z08` (`4` zones, `21` features) | Zone Tiers `0A / 1B / 3C / 0D` | Feature Tiers `0A / 3B / 5C / 13D` | Render path: [`doc_stages.rs#L696-L708`](../../crates/cosmos_render/src/doc_stages.rs#L696-L708) -> [`shaders/hero_doc_cosmos.wgsl#L573`](../../shaders/hero_doc_cosmos.wgsl#L573) — Single static `kind=3, vid=10` expansion ring (Mode 2 lock; Modes 3/5 unused). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `21` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z05..Z08` (`4` zones, `21` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 1B / 3C / 0D`)* | Live Feature Tiers `21A / 0B / 0C / 0D` *(up from `0A / 3B / 5C / 13D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`2005..=2008`) -> `shade_doc_early_universe_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 12.
 
 **Reserved Target IDs:**
 

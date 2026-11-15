@@ -1793,6 +1793,361 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             }
         }
     }
+
+    // Helper for Sections 10..=12: count pixels differing by >= 4 on any RGB channel.
+    let count_diff_px = |a: &[u8], b: &[u8]| -> usize {
+        a.as_chunks::<4>()
+            .0
+            .iter()
+            .zip(b.as_chunks::<4>().0.iter())
+            .filter(|(pa, pb)| {
+                pa[0].abs_diff(pb[0])
+                    .max(pa[1].abs_diff(pb[1]))
+                    .max(pa[2].abs_diff(pb[2]))
+                    >= 4
+            })
+            .count()
+    };
+    let idx_macro = build_default_universe_index();
+    let macro_cam = |eye: DVec3| -> RenderCamera {
+        let look = (-eye).normalize().as_vec3();
+        RenderCamera::mono(
+            Quat::from_rotation_arc(Vec3::NEG_Z, look),
+            72.0_f32.to_radians(),
+            1.0,
+            0.02,
+        )
+    };
+
+    // 10. Exp 08 Cosmic Web full 11-zone (Z00..=Z10, vid=1800..=1810) [TIER-A] and 55/55 feature GPU verification
+    {
+        let eye = DVec3::new(0.0, 0.25, 3.20);
+        let cam8 = macro_cam(eye);
+        let mut zone_f0: Vec<Vec<u8>> = Vec::with_capacity(11);
+        for zone in 0u16..=10u16 {
+            assert!(
+                is_zone_migrated_tier_a(8, zone),
+                "Exp 08 Z{zone:02} must be migrated Tier-A"
+            );
+            let d = DocumentaryFocusState {
+                active_zone_index: zone,
+                ..Default::default()
+            };
+            assert_eq!(resolve_zone_shader_vid(8, &d), 1800 + zone as u32);
+
+            let mut renders = Vec::with_capacity(5);
+            for feat in 0u16..5u16 {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::COSMIC_WEB, eye, 25.35, DQuat::IDENTITY),
+                    cam8,
+                    384,
+                    384,
+                );
+                input.active_experience_id = 8;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [0.85, 0.58, 1.65],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], 2, "Exp 08 must select Compute Mode 2");
+                let expected_vid = 1800 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == expected_vid),
+                    "Exp 08 Z{zone:02} F{feat} must emit primary stage hero (kind=3, vid={expected_vid})"
+                );
+                let px = renderer
+                    .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                    .expect("Exp 08 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                    .count();
+                assert!(
+                    void_px * 100 >= total_px * 55,
+                    "Exp 08 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px}"
+                );
+                assert!(
+                    lit_px >= 1200,
+                    "Exp 08 Z{zone:02} F{feat} must illuminate hero >=1200 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 08 Z{zone:02} F{feat} must have 0 clipped highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..5 {
+                for j in (i + 1)..5 {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 250,
+                        "Exp 08 Z{zone:02} features F{i} and F{j} must differ by >=250 px, got {diff}"
+                    );
+                }
+            }
+            zone_f0.push(renders.remove(0));
+        }
+        for z in 0..10 {
+            let diff = count_diff_px(&zone_f0[z], &zone_f0[z + 1]);
+            assert!(
+                diff >= 800,
+                "Exp 08 consecutive zones Z{z:02} and Z{:02} must differ by >=800 px, got {diff}",
+                z + 1
+            );
+        }
+    }
+
+    // 11. Exp 09 Observable Universe full 11-zone (Z00..=Z10, vid=1900..=1910), compute modes, far-shell gating, and 55/55 features
+    {
+        use cosmos_render::{build_far_shell_uniforms, select_compute_mode};
+        let eye = DVec3::new(0.0, 0.25, 3.20);
+        let cam9 = macro_cam(eye);
+        let mut zone_f0: Vec<Vec<u8>> = Vec::with_capacity(11);
+        for zone in 0u16..=10u16 {
+            assert!(
+                is_zone_migrated_tier_a(9, zone),
+                "Exp 09 Z{zone:02} must be migrated Tier-A"
+            );
+            let doc_chk = DocumentaryFocusState {
+                active_zone_index: zone,
+                narration_active_weight: 0.92,
+                ..Default::default()
+            };
+            assert_eq!(resolve_zone_shader_vid(9, &doc_chk), 1900 + zone as u32);
+            let expected_mode = match zone {
+                4..=7 => 13,
+                8..=10 => 5,
+                _ => 2,
+            };
+            assert_eq!(
+                select_compute_mode(26.35, 9, &doc_chk),
+                expected_mode,
+                "Exp 09 Z{zone:02} compute mode mismatch"
+            );
+            let far = build_far_shell_uniforms(26.35, 9, &doc_chk);
+            if zone < 8 {
+                assert_eq!(far.regime_weights[1], 0.0, "Exp 09 Z{zone:02} pre-CMB cmb_alpha must be 0.0");
+            } else {
+                assert!(far.regime_weights[1] >= 0.62, "Exp 09 Z{zone:02} cmb_alpha must be active");
+            }
+            if matches!(zone, 7 | 8) {
+                assert_eq!(far.galaxy_north[3], 0.0, "Exp 09 Z{zone:02} star_density must be 0.0");
+            }
+
+            let mut renders = Vec::with_capacity(5);
+            for feat in 0u16..5u16 {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::OBSERVABLE_CMB, eye, 26.35, DQuat::IDENTITY),
+                    cam9,
+                    384,
+                    384,
+                );
+                input.active_experience_id = 9;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [1.15, 0.75, 0.52],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                let expected_vid = 1900 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == expected_vid),
+                    "Exp 09 Z{zone:02} F{feat} must emit primary stage hero (kind=3, vid={expected_vid})"
+                );
+                let px = renderer
+                    .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                    .expect("Exp 09 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                    .count();
+                let min_void_pct = if zone >= 8 { 51 } else { 55 };
+                assert!(
+                    void_px * 100 >= total_px * min_void_pct,
+                    "Exp 09 Z{zone:02} F{feat} must preserve >={min_void_pct}% #000000 OLED void, got {void_px}/{total_px}"
+                );
+                assert!(
+                    lit_px >= 1200,
+                    "Exp 09 Z{zone:02} F{feat} must illuminate hero >=1200 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 09 Z{zone:02} F{feat} must have 0 clipped highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..5 {
+                for j in (i + 1)..5 {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 250,
+                        "Exp 09 Z{zone:02} features F{i} and F{j} must differ by >=250 px, got {diff}"
+                    );
+                }
+            }
+            zone_f0.push(renders.remove(0));
+        }
+        for z in 0..10 {
+            let diff = count_diff_px(&zone_f0[z], &zone_f0[z + 1]);
+            assert!(
+                diff >= 800,
+                "Exp 09 consecutive zones Z{z:02} and Z{:02} must differ by >=800 px, got {diff}",
+                z + 1
+            );
+        }
+    }
+
+    // 12. Exp 10 Early Universe full 9-zone (Z00..=Z08, vid=2000..=2008), Mode 3/5/13, pre-stellar gating, and 46/46 features (Z07 F0..=F5)
+    {
+        use cosmos_render::{build_far_shell_uniforms, select_compute_mode};
+        let eye = DVec3::new(0.0, 0.25, 3.10);
+        let cam10 = macro_cam(eye);
+        let mut zone_f0: Vec<Vec<u8>> = Vec::with_capacity(9);
+        for zone in 0u16..=8u16 {
+            assert!(
+                is_zone_migrated_tier_a(10, zone),
+                "Exp 10 Z{zone:02} must be migrated Tier-A"
+            );
+            let doc_chk = DocumentaryFocusState {
+                active_zone_index: zone,
+                narration_active_weight: 0.92,
+                ..Default::default()
+            };
+            assert_eq!(resolve_zone_shader_vid(10, &doc_chk), 2000 + zone as u32);
+            let expected_mode = match zone {
+                0..=4 => 13,
+                5 => 3,
+                _ => 5,
+            };
+            assert_eq!(
+                select_compute_mode(27.0, 10, &doc_chk),
+                expected_mode,
+                "Exp 10 Z{zone:02} compute mode mismatch"
+            );
+            let far = build_far_shell_uniforms(27.0, 10, &doc_chk);
+            assert_eq!(far.galaxy_north[3], 0.0, "Exp 10 Z{zone:02} pre-stellar star_density must be 0.0");
+            if zone <= 1 {
+                assert!(far.regime_weights[1] >= 0.65, "Exp 10 Z{zone:02} cmb_alpha must be active");
+            } else {
+                assert_eq!(far.regime_weights[1], 0.0, "Exp 10 Z{zone:02} cmb_alpha must be 0.0");
+            }
+            if zone >= 7 {
+                assert!(far.regime_weights[2] >= 0.55, "Exp 10 Z{zone:02} inflation_alpha must be active");
+            } else {
+                assert_eq!(far.regime_weights[2], 0.0, "Exp 10 Z{zone:02} inflation_alpha must be 0.0");
+            }
+
+            let feat_count: u16 = if zone == 7 { 6 } else { 5 };
+            let mut renders = Vec::with_capacity(feat_count as usize);
+            for feat in 0u16..feat_count {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::EARLY_INFLATION, eye, 27.0, DQuat::IDENTITY),
+                    cam10,
+                    384,
+                    384,
+                );
+                input.active_experience_id = 10;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [1.55, 0.58, 0.35],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                let expected_vid = 2000 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == expected_vid),
+                    "Exp 10 Z{zone:02} F{feat} must emit primary stage hero (kind=3, vid={expected_vid})"
+                );
+                let px = renderer
+                    .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                    .expect("Exp 10 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                    .count();
+                let min_void_pct = if zone <= 1 { 51 } else { 55 };
+                assert!(
+                    void_px * 100 >= total_px * min_void_pct,
+                    "Exp 10 Z{zone:02} F{feat} must preserve >={min_void_pct}% #000000 OLED void, got {void_px}/{total_px}"
+                );
+                assert!(
+                    lit_px >= 1200,
+                    "Exp 10 Z{zone:02} F{feat} must illuminate hero >=1200 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 10 Z{zone:02} F{feat} must have 0 clipped highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..feat_count as usize {
+                for j in (i + 1)..feat_count as usize {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 250,
+                        "Exp 10 Z{zone:02} features F{i} and F{j} must differ by >=250 px, got {diff}"
+                    );
+                }
+            }
+            zone_f0.push(renders.remove(0));
+        }
+        for z in 0..8 {
+            let diff = count_diff_px(&zone_f0[z], &zone_f0[z + 1]);
+            assert!(
+                diff >= 800,
+                "Exp 10 consecutive zones Z{z:02} and Z{:02} must differ by >=800 px, got {diff}",
+                z + 1
+            );
+        }
+    }
 }
 
 trait BindGroupLayoutTestExt {

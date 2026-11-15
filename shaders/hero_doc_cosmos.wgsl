@@ -1752,6 +1752,637 @@ fn shade_doc_laniakea_stage(
     return vec4<f32>(min(neb_col, vec3<f32>(1.28)), out_d);
 }
 
+fn doc_cosmo_finish(raw_col: vec3<f32>, dens: f32) -> vec4<f32> {
+    let comp_col = raw_col / (vec3<f32>(1.0) + 0.30 * max(raw_col, vec3<f32>(0.0)));
+    let out_d = select(0.0, min(dens, 1.36), dens >= 0.045);
+    return vec4<f32>(min(comp_col, vec3<f32>(1.24)), out_d);
+}
+
+fn doc_cosmo_filament_field(p: vec3<f32>, scale: f32) -> vec4<f32> {
+    let w_warp = curl_noise3(p * (scale * 0.65));
+    let pw = p * scale + w_warp * 0.22;
+    let f_a = fbm3(pw, 2);
+    let f_b = fbm3(pw + vec3<f32>(6.1, -3.7, 4.9), 2);
+    let ridge_d = length(vec2<f32>(f_a, f_b));
+    let c_fil = pow(smoothstep(0.11, 0.0, ridge_d), 2.1);
+    let c_wall = exp(-abs(f_a) * 18.0) * 0.55;
+    let c_node = pow(smoothstep(0.45, 0.92, snoise3(p * (scale * 1.45))), 2.6);
+    let c_void = smoothstep(0.14, 0.42, ridge_d);
+    return vec4<f32>(c_fil, c_wall, c_node, c_void);
+}
+
+fn shade_doc_cosmic_web_stage(
+    vid: u32,
+    p: vec3<f32>,
+    r: f32,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec4<f32> {
+    if (r > 0.76) {
+        return vec4<f32>(0.0);
+    }
+    let z_idx = select(
+        select(clamp(doc_zone(inst), 0u, 10u), 10u, doc_zone(inst) > 10u),
+        vid - 1800u,
+        vid >= 1800u && vid <= 1810u
+    );
+    let f0 = doc_feat_focus(inst, 0u);
+    let f1 = doc_feat_focus(inst, 1u);
+    let f2 = doc_feat_focus(inst, 2u);
+    let f3 = doc_feat_focus(inst, 3u);
+    let f4 = doc_feat_focus(inst, 4u);
+    let g0 = doc_solar_feat_gate(inst, 0u);
+    let g1 = doc_solar_feat_gate(inst, 1u);
+    let g2 = doc_solar_feat_gate(inst, 2u);
+    let g3 = doc_solar_feat_gate(inst, 3u);
+    let g4 = doc_solar_feat_gate(inst, 4u);
+
+    let env_outer = (1.0 - smoothstep(0.48, 0.72, r)) * 0.76;
+    let web = doc_cosmo_filament_field(p, 3.2);
+    let fil_base = web.x;
+    let wall_base = web.y;
+    let node_base = web.z;
+    var dens: f32 = 0.0;
+    var neb_col = mix(vec3<f32>(0.26, 0.56, 1.38), vec3<f32>(1.18, 0.72, 1.42), clamp(fil_base + node_base, 0.0, 1.0));
+
+    if (z_idx == 0u) {
+        // Z00 Laniakea Limit (1800): Laniakea funnel (F0), velocity divide membrane (F1), Perseus-Pisces basin (F2), 100->500 Mly scale rings (F3), outer web (F4)
+        let lan_p = p - vec3<f32>(-0.22, -0.06, 0.04);
+        let lan_r = length(lan_p);
+        let lan_funnel = (exp(-lan_r * 13.0) + exp(-abs(atan2(lan_p.y, lan_p.x) * 3.0)) * exp(-lan_r * 5.0) * 0.75) * (0.26 + 1.35 * f0);
+        let divide_surf = exp(-abs(p.x - 0.05 * sin(p.y * 7.0) - 0.04 * cos(p.z * 6.0)) * 34.0) * exp(-r * 2.2) * (0.20 + 1.42 * f1);
+        let pp_p = p - vec3<f32>(0.26, 0.08, -0.04);
+        let pp_basin = (exp(-length(pp_p) * 14.0) + exp(-abs(length(pp_p.xz) - 0.14) * 30.0) * exp(-abs(pp_p.y) * 18.0)) * (0.24 + 1.40 * f2);
+        let ring_a = exp(-abs(r - 0.24) * 42.0);
+        let ring_b = exp(-abs(r - 0.42) * 42.0);
+        let ring_c = exp(-abs(r - 0.56) * 42.0);
+        let scale_rings = (ring_a + ring_b * 0.9 + ring_c * 0.8) * (0.16 + 1.42 * f3);
+        let outer_web = (fil_base * 0.92 + node_base * 0.75) * smoothstep(0.18, 0.42, r) * (0.20 + 1.38 * f4);
+        dens = (lan_funnel + divide_surf + pp_basin + scale_rings + outer_web) * env_outer;
+        neb_col = mix(vec3<f32>(0.24, 0.72, 1.42), vec3<f32>(1.48, 0.98, 0.36), clamp(lan_funnel * 1.15 + g0 * 0.3, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.32, 1.26) * (divide_surf * (0.6 + g1) + pp_basin * g2)
+            + vec3<f32>(0.92, 0.48, 1.45) * (scale_rings * g3 + outer_web * g4) * 0.75;
+    } else if (z_idx == 1u) {
+        // Z01 Intersupercluster Space (1801): dark gap between twin supernodes (F0), sparse field galaxies (F1), tenuous bridge (F2), baseline ruler (F3), survey wedge (F4)
+        let n_left = exp(-length(p - vec3<f32>(-0.34, 0.02, 0.02)) * 13.0);
+        let n_right = exp(-length(p - vec3<f32>(0.34, -0.02, -0.02)) * 13.0);
+        let gap_hollow = smoothstep(0.08, 0.26, abs(p.x));
+        let supernodes = (n_left + n_right) * (0.34 + 1.25 * f0) + exp(-r * 6.0) * 0.14 * (1.0 - gap_hollow);
+        let stipple = pow(max(0.0, snoise3(p * 18.0)), 9.0) * exp(-abs(p.y) * 5.0) * (0.22 + 1.45 * f1);
+        let bridge_d = length(vec2<f32>(p.y - 0.06 * sin(p.x * 5.5), p.z));
+        let bridge = exp(-bridge_d * 34.0) * smoothstep(0.42, 0.05, abs(p.x)) * (0.18 + 1.42 * f2);
+        let ruler_y = abs(p.y + 0.22);
+        let ticks = 0.45 + 0.55 * pow(max(0.0, cos(p.x * 36.0)), 10.0);
+        let ruler = exp(-ruler_y * 42.0) * exp(-abs(p.z) * 24.0) * ticks * smoothstep(0.46, 0.04, abs(p.x)) * (0.14 + 1.44 * f3);
+        let wedge_ang = atan2(p.y, p.x + 0.36);
+        let survey_wedge = smoothstep(0.42, 0.06, abs(wedge_ang)) * exp(-abs(p.z) * 14.0) * smoothstep(-0.32, 0.38, p.x) * (1.0 - smoothstep(0.28, 0.54, p.x)) * 0.58 * (0.14 + 1.40 * f4);
+        dens = (supernodes + stipple + bridge + ruler + survey_wedge) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.64, 1.38), vec3<f32>(1.46, 0.94, 0.38), clamp(supernodes * 1.1 + stipple * 0.8, 0.0, 1.0))
+            + vec3<f32>(0.42, 1.18, 1.46) * (bridge * (0.65 + g2) + survey_wedge * g4)
+            + vec3<f32>(1.24, 0.86, 0.32) * ruler * (0.5 + g3);
+    } else if (z_idx == 2u) {
+        // Z02 Galactic Filaments (1802): dominant filament spine (F0), wide indigo DM sheath (F1), warm WHIM gas (F2), galaxy beads (F3), potential contour rings (F4)
+        let spine_c = vec2<f32>(0.10 * sin(p.x * 4.5), 0.06 * cos(p.x * 3.8));
+        let tube_r = length(p.yz - spine_c);
+        let spine = exp(-tube_r * 28.0) * smoothstep(0.56, 0.06, abs(p.x)) * (0.34 + 1.32 * f0);
+        let dm_sheath = exp(-tube_r * 7.5) * smoothstep(0.58, 0.08, abs(p.x)) * 0.62 * (0.20 + 1.38 * f1);
+        let whim = exp(-abs(tube_r - 0.075) * 38.0) * smoothstep(0.52, 0.08, abs(p.x)) * (0.55 + 0.45 * fbm3(p * 10.0, 2)) * (0.18 + 1.42 * f2);
+        let bead_wave = pow(max(0.0, cos(p.x * 34.0)), 14.0);
+        let beads = exp(-tube_r * 22.0) * bead_wave * smoothstep(0.48, 0.04, abs(p.x)) * (0.20 + 1.48 * f3);
+        let pot_rings = (exp(-abs(tube_r - 0.14) * 44.0) + exp(-abs(tube_r - 0.22) * 44.0)) * smoothstep(0.44, 0.08, abs(p.x)) * (0.14 + 1.42 * f4);
+        dens = (spine + dm_sheath + whim + beads + pot_rings) * env_outer;
+        neb_col = mix(vec3<f32>(0.38, 0.28, 1.32), vec3<f32>(0.96, 1.18, 1.48), clamp(spine * 1.4 + beads, 0.0, 1.0))
+            + vec3<f32>(1.48, 0.78, 0.28) * whim * (0.65 + g2)
+            + vec3<f32>(1.44, 1.12, 0.40) * beads * (0.5 + g3)
+            + vec3<f32>(0.24, 1.24, 1.36) * pot_rings * g4;
+    } else if (z_idx == 3u) {
+        // Z03 Cluster Nodes (1803): 5-spoke converging node (F0), galaxy swarm (F1), rose-violet X-ray bremsstrahlung core (F2), blue Einstein lensing arcs (F3), infalling subclumps (F4)
+        let sp1 = exp(-length(p.yz - vec2<f32>(0.32 * p.x, -0.14 * p.x)) * 22.0);
+        let sp2 = exp(-length(p.xz - vec2<f32>(-0.28 * p.y, 0.30 * p.y)) * 22.0);
+        let sp3 = exp(-length(p.xy - vec2<f32>(0.22 * p.z, 0.26 * p.z)) * 22.0);
+        let spokes = (sp1 + sp2 + sp3 * 0.85 + exp(-r * 13.0)) * (0.28 + 1.35 * f0);
+        let swarm = pow(max(0.0, snoise3(p * 24.0)), 8.0) * smoothstep(0.28, 0.04, r) * 1.35 * (0.22 + 1.42 * f1);
+        let xray = exp(-r * 6.5) * 0.78 * (0.20 + 1.42 * f2);
+        let arc_r = length(p.xy);
+        let arc_az = abs(cos(atan2(p.y, p.x) * 2.0 + 0.4));
+        let lens_arc = exp(-abs(arc_r - 0.21) * 46.0) * pow(arc_az, 4.0) * exp(-abs(p.z) * 20.0) * (0.16 + 1.48 * f3);
+        let sc1 = exp(-length(p - vec3<f32>(0.32, 0.12, -0.05)) * 20.0);
+        let sc2 = exp(-length(p - vec3<f32>(-0.26, -0.22, 0.10)) * 20.0);
+        let sc3 = exp(-length(p - vec3<f32>(0.08, -0.30, 0.14)) * 20.0);
+        let subclumps = (sc1 + sc2 + sc3) * (0.20 + 1.42 * f4);
+        dens = (spokes + swarm + xray + lens_arc + subclumps) * env_outer;
+        neb_col = mix(vec3<f32>(1.15, 0.62, 1.38), vec3<f32>(1.52, 1.08, 0.44), clamp(spokes * 0.7 + swarm, 0.0, 1.0))
+            + vec3<f32>(1.42, 0.34, 0.86) * xray * (0.55 + g2)
+            + vec3<f32>(0.28, 0.96, 1.56) * lens_arc * (0.75 + g3)
+            + vec3<f32>(1.36, 0.88, 0.36) * subclumps * g4;
+    } else if (z_idx == 4u) {
+        // Z04 Cosmic Voids (1804): hollowed Voronoi void cell (F0), 4 sparse dwarf galaxies (F1), outward Hubble arrows (F2), bright boundary rim (F3), polyhedral wireframe (F4)
+        let rim_wall = exp(-abs(r - 0.38) * 26.0) * (0.55 + 0.45 * wall_base);
+        let void_fil = fil_base * smoothstep(0.28, 0.40, r) * 0.88;
+        let cavity_shell = (rim_wall * 0.72 + void_fil) * (0.30 + 1.28 * f0);
+        let dg1 = exp(-length(p - vec3<f32>(-0.14, 0.08, 0.05)) * 32.0);
+        let dg2 = exp(-length(p - vec3<f32>(0.12, -0.10, -0.06)) * 32.0);
+        let dg3 = exp(-length(p - vec3<f32>(0.04, 0.16, -0.08)) * 32.0);
+        let dwarfs = (dg1 + dg2 + dg3) * (0.18 + 1.48 * f1);
+        let az = atan2(p.z, p.x);
+        let out_phase = pow(max(0.0, cos(r * 34.0 - time * 1.4)), 6.0);
+        let hub_rays = pow(max(0.0, cos(az * 6.0)), 10.0) * exp(-abs(p.y) * 16.0) * smoothstep(0.08, 0.14, r) * (1.0 - smoothstep(0.28, 0.36, r)) * (0.45 + 0.85 * out_phase) * (0.16 + 1.46 * f2);
+        let bright_rim = exp(-abs(r - 0.40) * 44.0) * (0.20 + 1.44 * f3);
+        let cell_edge = exp(-abs(abs(sin(p.x * 11.0)) + abs(sin(p.y * 11.0)) - 0.92) * 28.0) * exp(-abs(r - 0.38) * 16.0) * (0.14 + 1.42 * f4);
+        dens = (cavity_shell + dwarfs + hub_rays + bright_rim + cell_edge) * env_outer;
+        neb_col = mix(vec3<f32>(0.24, 0.56, 1.26), vec3<f32>(1.18, 0.78, 1.42), clamp(bright_rim + void_fil, 0.0, 1.0))
+            + vec3<f32>(0.36, 1.28, 1.48) * (dwarfs * (0.6 + g1) + hub_rays * (0.7 + g2))
+            + vec3<f32>(1.42, 0.96, 0.38) * (bright_rim * g3 + cell_edge * g4) * 0.75;
+    } else if (z_idx == 5u) {
+        // Z05 Galactic Walls (1805): codimension-1 flattened 2D sheet (F0), galaxy-stippled sheet (F1), twin flanking voids (F2), embedded filaments/nodes (F3), edge-on profile tilt (F4)
+        let wall_y = p.y - 0.06 * sin(p.x * 4.5) * cos(p.z * 4.5);
+        let sheet = exp(-abs(wall_y) * 34.0) * smoothstep(0.56, 0.14, length(p.xz)) * (0.34 + 1.32 * f0);
+        let stipple = pow(max(0.0, snoise3(p * 22.0)), 7.0) * exp(-abs(wall_y) * 28.0) * (0.20 + 1.44 * f1);
+        let void_bound = (exp(-abs(p.y - 0.24) * 32.0) + exp(-abs(p.y + 0.24) * 32.0)) * smoothstep(0.46, 0.08, length(p.xz)) * 0.58 * (0.14 + 1.42 * f2);
+        let vein = exp(-abs(wall_y) * 24.0) * (fil_base * 1.15 + node_base * 0.95) * (0.20 + 1.44 * f3);
+        let cross_cut = exp(-abs(p.z) * 44.0) * exp(-abs(wall_y) * 22.0) * smoothstep(0.52, 0.08, abs(p.x)) * (0.14 + 1.44 * f4);
+        dens = (sheet + stipple + void_bound + vein + cross_cut) * env_outer;
+        neb_col = mix(vec3<f32>(0.42, 0.56, 1.42), vec3<f32>(1.46, 1.06, 0.48), clamp(stipple + vein * 0.7, 0.0, 1.0))
+            + vec3<f32>(0.34, 1.24, 1.44) * (void_bound * g2 + cross_cut * (0.65 + g4))
+            + vec3<f32>(1.36, 0.56, 1.24) * vein * g3;
+    } else if (z_idx == 6u) {
+        // Z06 Filament Intersections (1806): Y-fork bifurcation (F0), multi-spoke hub (F1), diffuse baryonic bridge (F2), infall chevrons (F3), minor vs primary knots (F4)
+        let trunk = exp(-length(p.yz - vec2<f32>(0.0, 0.0)) * 28.0) * smoothstep(0.04, -0.34, p.x);
+        let br_a = exp(-length(vec2<f32>(p.y - 0.72 * p.x, p.z - 0.22 * p.x)) * 28.0) * smoothstep(-0.04, 0.36, p.x);
+        let br_b = exp(-length(vec2<f32>(p.y + 0.72 * p.x, p.z + 0.22 * p.x)) * 28.0) * smoothstep(-0.04, 0.36, p.x);
+        let y_fork = (trunk + br_a + br_b) * (0.32 + 1.32 * f0);
+        let hub_ring = exp(-abs(r - 0.14) * 44.0) * pow(0.5 + 0.5 * cos(atan2(p.y, p.x) * 5.0), 3.0) * (0.18 + 1.44 * f1);
+        let b_bridge = exp(-length(p.yz) * 11.0) * smoothstep(0.46, 0.05, abs(p.x)) * 0.58 * (0.18 + 1.42 * f2);
+        let chev = pow(max(0.0, sin((abs(p.x) + abs(p.y) * 0.6) * 28.0 + time * 1.5)), 6.0) * (trunk + br_a + br_b) * (0.16 + 1.46 * f3);
+        let k_main = exp(-r * 14.0);
+        let k_sub = exp(-length(p - vec3<f32>(0.24, 0.17, 0.05)) * 24.0) + exp(-length(p - vec3<f32>(0.24, -0.17, -0.05)) * 24.0);
+        let knots = (k_main + k_sub * 0.85) * (0.22 + 1.40 * f4);
+        dens = (y_fork + hub_ring + b_bridge + chev + knots) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.66, 1.44), vec3<f32>(1.48, 0.98, 0.38), clamp(k_main + b_bridge * 0.8, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.28, 1.38) * (hub_ring * g1 + chev * (0.65 + g3))
+            + vec3<f32>(1.32, 0.48, 1.34) * knots * g4;
+    } else if (z_idx == 7u) {
+        // Z07 Supercluster Complexes (1807): 3 regional complexes (F0), nested cluster-of-clusters (F1), 3 flow basins (F2), Sloan Great Wall arc (F3), decentralized reticles (F4)
+        let c0 = vec3<f32>(-0.28, -0.10, 0.06);
+        let c1 = vec3<f32>(0.26, 0.16, -0.08);
+        let c2 = vec3<f32>(0.06, -0.22, -0.14);
+        let comp_a = exp(-length(p - c0) * 11.0);
+        let comp_b = exp(-length(p - c1) * 11.0);
+        let comp_c = exp(-length(p - c2) * 11.0);
+        let complexes = (comp_a + comp_b + comp_c) * (0.30 + 1.32 * f0);
+        let sub_halos = (exp(-length(p - (c0 + vec3<f32>(0.08, 0.06, 0.0))) * 24.0)
+            + exp(-length(p - (c1 - vec3<f32>(0.08, 0.05, 0.04))) * 24.0)
+            + exp(-length(p - (c2 + vec3<f32>(-0.07, 0.06, 0.04))) * 24.0)) * (0.20 + 1.44 * f1);
+        let basins = (exp(-abs(length(p - c0) - 0.16) * 32.0) + exp(-abs(length(p - c1) - 0.16) * 32.0) + exp(-abs(length(p - c2) - 0.15) * 32.0)) * (0.18 + 1.42 * f2);
+        let sloan_arc = exp(-abs(length(p.xz) - 0.34) * 30.0) * exp(-abs(p.y - 0.06 * sin(p.x * 5.0)) * 22.0) * smoothstep(-0.25, 0.10, p.z) * (0.18 + 1.44 * f3);
+        let ret_r = min(min(abs(length(p - c0) - 0.09), abs(length(p - c1) - 0.09)), abs(length(p - c2) - 0.09));
+        let dec_ret = exp(-ret_r * 46.0) * (0.14 + 1.46 * f4);
+        dens = (complexes + sub_halos + basins + sloan_arc + dec_ret + fil_base * 0.42) * env_outer;
+        neb_col = vec3<f32>(1.48, 0.98, 0.36) * comp_a * (0.7 + g2)
+            + vec3<f32>(0.28, 1.18, 1.48) * comp_b * (0.7 + g2)
+            + vec3<f32>(1.18, 0.46, 1.48) * comp_c * (0.7 + g2)
+            + vec3<f32>(1.38, 1.16, 0.62) * (sub_halos * g1 + sloan_arc * (0.65 + g3))
+            + vec3<f32>(0.38, 1.38, 1.24) * (basins * g2 + dec_ret * g4);
+    } else if (z_idx == 8u) {
+        // Z08 Deep Cosmic Web (1808): stepped depth slabs (F0), redshift color gradient (F1), SDSS/DESI double survey cones (F2), linear-to-web growth (F3), 3D isotropic web (F4)
+        let slab = (exp(-abs(p.z + 0.22) * 34.0) + exp(-abs(p.z) * 34.0) + exp(-abs(p.z - 0.22) * 34.0)) * (0.45 + 0.55 * fil_base) * (0.24 + 1.36 * f0);
+        let red_shell = smoothstep(0.10, 0.48, r) * (fil_base * 0.9 + node_base * 0.7) * (0.26 + 1.38 * f1);
+        let butterfly = smoothstep(0.08, -0.02, abs(p.y) - abs(p.x) * 0.62) * exp(-abs(p.z) * 10.0) * smoothstep(0.04, 0.14, abs(p.x)) * (0.48 + 0.68 * fil_base) * (0.16 + 1.44 * f2);
+        let lin_ripples = exp(-abs(r - 0.32 - 0.03 * snoise3(p * 6.0)) * 28.0) * (0.18 + 1.42 * f3);
+        let iso_web = (fil_base * 0.92 + wall_base * 0.35 + node_base * 0.65) * (0.28 + 1.34 * f4);
+        dens = (slab + red_shell + butterfly + lin_ripples + iso_web) * env_outer;
+        let z_col = mix(vec3<f32>(0.36, 0.82, 1.48), vec3<f32>(1.48, 0.42, 0.24), smoothstep(0.12, 0.52, r) * (0.55 + 0.65 * g1));
+        neb_col = z_col * (iso_web + red_shell + 0.35)
+            + vec3<f32>(0.28, 1.24, 1.38) * (slab * g0 + butterfly * (0.6 + g2))
+            + vec3<f32>(1.32, 0.96, 0.38) * lin_ripples * g3;
+    } else if (z_idx == 9u) {
+        // Z09 Homogeneity Scale (1809): coarse-grained smoothing (F0), 360-deg isotropy sightlines (F1), sample caliper sphere (F2), underlying web skeleton (F3), shifted origin grid (F4)
+        let smooth_avg = exp(-r * 3.8) * (0.36 + 0.18 * snoise3(p * 2.5)) * (0.24 + 1.36 * f0);
+        let iso_axes = (exp(-length(p.yz) * 28.0) + exp(-length(p.xz) * 28.0) + exp(-length(p.xy) * 28.0)) * smoothstep(0.05, 0.18, r) * (0.16 + 1.44 * f1);
+        let cal_r = 0.24 + 0.14 * f2;
+        let caliper = exp(-abs(r - cal_r) * 44.0) * (0.20 + 1.46 * f2);
+        let web_skel = (fil_base * 0.85 + node_base * 0.65) * (0.22 + 1.40 * f3);
+        let shift_p = p - vec3<f32>(0.16, 0.10, -0.06);
+        let princ_grid = exp(-abs(sin(shift_p.x * 16.0)) * 18.0) * exp(-abs(sin(shift_p.y * 16.0)) * 18.0) * exp(-abs(length(shift_p) - 0.24) * 18.0) * (0.16 + 1.42 * f4);
+        dens = (smooth_avg + iso_axes + caliper + web_skel + princ_grid) * env_outer;
+        neb_col = mix(vec3<f32>(0.42, 0.72, 1.38), vec3<f32>(1.18, 0.96, 1.44), clamp(smooth_avg * 1.4 + web_skel, 0.0, 1.0))
+            + vec3<f32>(0.26, 1.34, 1.28) * (iso_axes * g1 + caliper * (0.65 + g2))
+            + vec3<f32>(1.44, 0.96, 0.36) * princ_grid * g4;
+    } else {
+        // Z10 Large-Scale Structure & Vid 8 Fallback (1810 / 8): complete filament+wall+node tapestry (F0), parallax 3D depth (F1), soft vignette (F2), Laniakea pin marker (F3), outer horizon preview (F4)
+        let f_fil = select(1.0, 0.28 + 1.30 * f0, vid != 8u);
+        let full_web = (fil_base * 1.05 + wall_base * 0.42 + node_base * 0.95) * f_fil;
+        let depth_arcs = (exp(-abs(p.z + 0.18) * 30.0) + exp(-abs(p.z - 0.18) * 30.0)) * fil_base * (0.18 + 1.38 * f1);
+        let vig_halo = exp(-abs(r - 0.44) * 20.0) * 0.45 * (0.18 + 1.34 * f2);
+        let lan_pin_p = p - vec3<f32>(-0.18, -0.08, 0.04);
+        let lan_pin_d = length(lan_pin_p);
+        let lan_pin = (exp(-lan_pin_d * 26.0) + exp(-abs(lan_pin_d - 0.09) * 46.0)) * (0.20 + 1.50 * f3);
+        let horizon_rim = exp(-abs(r - 0.56) * 34.0) * (0.55 + 0.45 * wall_base) * (0.14 + 1.44 * f4);
+        dens = (full_web + depth_arcs + vig_halo + lan_pin + horizon_rim) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.54, 1.38), vec3<f32>(1.24, 0.72, 1.46), clamp(node_base * 1.3 + fil_base * 0.5, 0.0, 1.0))
+            + vec3<f32>(0.26, 1.18, 1.42) * depth_arcs * g1
+            + vec3<f32>(1.56, 1.14, 0.34) * lan_pin * (0.65 + g3)
+            + vec3<f32>(1.38, 0.74, 0.34) * horizon_rim * (0.55 + g4);
+    }
+
+    return doc_cosmo_finish(neb_col, dens);
+}
+
+fn shade_doc_observable_universe_stage(
+    vid: u32,
+    p: vec3<f32>,
+    r: f32,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec4<f32> {
+    if (r > 0.76) {
+        return vec4<f32>(0.0);
+    }
+    let is_overview = vid == 9u;
+    let z_idx = select(
+        select(clamp(doc_zone(inst), 0u, 10u), 8u, doc_zone(inst) > 10u),
+        vid - 1900u,
+        vid >= 1900u && vid <= 1910u
+    );
+    let f0 = doc_feat_focus(inst, 0u);
+    let f1 = doc_feat_focus(inst, 1u);
+    let f2 = doc_feat_focus(inst, 2u);
+    let f3 = doc_feat_focus(inst, 3u);
+    let f4 = doc_feat_focus(inst, 4u);
+    let g0 = doc_solar_feat_gate(inst, 0u);
+    let g1 = doc_solar_feat_gate(inst, 1u);
+    let g2 = doc_solar_feat_gate(inst, 2u);
+    let g3 = doc_solar_feat_gate(inst, 3u);
+    let g4 = doc_solar_feat_gate(inst, 4u);
+
+    let env_outer = (1.0 - smoothstep(0.48, 0.72, r)) * 0.76;
+    let web = doc_cosmo_filament_field(p, 3.6);
+    let fil_base = web.x;
+    let wall_base = web.y;
+    let node_base = web.z;
+    var dens: f32 = 0.0;
+    var neb_col = mix(vec3<f32>(0.28, 0.78, 1.44), vec3<f32>(1.44, 0.86, 0.42), clamp(r * 1.4, 0.0, 1.0));
+
+    if (is_overview) {
+        // Overview fallback (vid == 9u): compact porous particle-horizon sphere + cosmic web skeleton + inner core
+        let mer = exp(-abs(sin(p.y * 13.0)) * 20.0) + exp(-abs(sin(p.x * 11.0) * sin(p.z * 11.0)) * 22.0) * 0.65;
+        let shell_cmb = exp(-abs(r - 0.50) * 38.0) * (0.28 + 0.78 * clamp(mer, 0.0, 1.2));
+        let shell_hor = exp(-abs(r - 0.58) * 44.0) * 0.68;
+        let inner_web = (fil_base * 0.88 + node_base * 0.82) * smoothstep(0.48, 0.14, r);
+        let quasar_axis = exp(-length(p.xy) * 28.0) * smoothstep(0.50, 0.04, abs(p.z)) * select(0.25, 1.15, z_idx == 4u || z_idx == 6u);
+        dens = (shell_cmb + shell_hor + inner_web + quasar_axis) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.82, 1.48), vec3<f32>(1.52, 0.76, 0.34), clamp(shell_cmb * 0.95 + quasar_axis, 0.0, 1.0));
+        return doc_cosmo_finish(neb_col, dens);
+    }
+
+    if (z_idx == 0u) {
+        // Z00 Large-Scale Structure (1900): non-solid web skeleton (F0), warm local core (F1), nested scale shells (F2), contracting wavefront rings (F3), lookback ruler (F4)
+        let web_skel = (fil_base * 0.95 + node_base * 0.75) * (0.28 + 1.32 * f0);
+        let local_core = exp(-r * 9.5) * 0.72 * (0.22 + 1.42 * f1);
+        let scale_shells = (exp(-abs(r - 0.22) * 38.0) + exp(-abs(r - 0.38) * 38.0)) * (0.18 + 1.42 * f2);
+        let wf_phase = fract(r * 7.5 + time * 0.35);
+        let wavefronts = exp(-abs(wf_phase - 0.5) * 14.0) * smoothstep(0.08, 0.18, r) * smoothstep(0.56, 0.36, r) * 0.72 * (0.16 + 1.46 * f3);
+        let ticks = 0.45 + 0.55 * pow(max(0.0, cos(p.x * 36.0)), 10.0);
+        let ruler = exp(-length(p.yz - vec2<f32>(-0.20, 0.0)) * 36.0) * smoothstep(0.02, 0.08, p.x + 0.04) * smoothstep(0.54, 0.44, p.x) * ticks * (0.14 + 1.44 * f4);
+        dens = (web_skel + local_core + scale_shells + wavefronts + ruler) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.66, 1.42), vec3<f32>(1.48, 1.06, 0.46), clamp(local_core + g1 * 0.3, 0.0, 1.0))
+            + vec3<f32>(0.26, 1.32, 1.34) * (scale_shells * g2 + wavefronts * (0.65 + g3))
+            + vec3<f32>(1.42, 0.88, 0.32) * ruler * (0.55 + g4);
+    } else if (z_idx == 1u) {
+        // Z01 Deep Universe HUDF (1901): conical deep-field beam (F0), 4 epoch slice planes (F1), brightness dimming (F2), foreground lens Einstein arcs (F3), spiral->irregular depth gradient (F4)
+        let x_beam = clamp(p.x + 0.36, 0.0, 0.90);
+        let cone_r = 0.055 + 0.30 * x_beam;
+        let perp_r = length(p.yz);
+        let in_cone = smoothstep(cone_r + 0.02, cone_r - 0.02, perp_r) * smoothstep(-0.38, -0.30, p.x) * (1.0 - smoothstep(0.36, 0.48, p.x));
+        let cone_wall = exp(-abs(perp_r - cone_r) * 42.0) * smoothstep(-0.38, -0.28, p.x) * (1.0 - smoothstep(0.36, 0.48, p.x));
+        let gal_dots = pow(max(0.0, snoise3(p * 20.0)), 7.0) * in_cone;
+        let beam = (cone_wall * 0.72 + gal_dots * 1.1) * (0.28 + 1.34 * f0);
+        let slices = (exp(-abs(p.x + 0.20) * 48.0) + exp(-abs(p.x + 0.02) * 48.0) + exp(-abs(p.x - 0.16) * 48.0) + exp(-abs(p.x - 0.32) * 48.0)) * in_cone * (0.16 + 1.46 * f1);
+        let dim_band = smoothstep(0.05, 0.36, p.x) * in_cone * 0.55 * (0.16 + 1.40 * f2);
+        let lens_p = p - vec3<f32>(-0.14, 0.0, 0.0);
+        let einstein_ring = (exp(-length(lens_p) * 26.0) + exp(-abs(length(lens_p.yz) - 0.09) * 46.0) * exp(-abs(lens_p.x) * 28.0)) * (0.18 + 1.48 * f3);
+        let morph = smoothstep(-0.28, 0.28, p.x) * (0.45 + 0.55 * fil_base) * in_cone * (0.18 + 1.42 * f4);
+        dens = (beam + slices + dim_band + einstein_ring + morph) * env_outer;
+        neb_col = mix(vec3<f32>(0.38, 0.84, 1.48), vec3<f32>(1.48, 0.48, 0.28), smoothstep(-0.24, 0.34, p.x)) * (beam + morph + 0.3)
+            + vec3<f32>(0.26, 1.32, 1.24) * slices * (0.65 + g1)
+            + vec3<f32>(1.50, 1.12, 0.36) * einstein_ring * (0.65 + g3);
+    } else if (z_idx == 2u) {
+        // Z02 Lookback Time (1902): inward photons on 45-deg light-cone (F0), 1 yr = 1 ly ticks (F1), redshifting wave packet (F2), past light-cone wireframe (F3), detached t=now hyperplane (F4)
+        let cone_xz = length(p.xz);
+        let target_r = clamp(0.36 - p.y * 0.82, 0.02, 0.54);
+        let on_cone = exp(-abs(cone_xz - target_r) * 34.0) * smoothstep(-0.42, -0.32, p.y) * (1.0 - smoothstep(0.28, 0.38, p.y));
+        let ph_phase = exp(-abs(fract(cone_xz * 8.0 + time * 0.35) - 0.5) * 10.0);
+        let photons = on_cone * (0.35 + 0.95 * ph_phase) * (0.28 + 1.34 * f0);
+        let ly_ticks = exp(-abs(p.x) * 40.0) * exp(-abs(p.z) * 40.0) * pow(max(0.0, cos(p.y * 42.0)), 8.0) * smoothstep(0.42, 0.04, abs(p.y)) * (0.14 + 1.44 * f1);
+        let z_wave = on_cone * (0.5 + 0.5 * sin(cone_xz * 48.0 * (1.3 - p.y))) * (0.20 + 1.42 * f2);
+        let wire_mer = pow(max(0.0, cos(atan2(p.z, p.x) * 8.0)), 8.0);
+        let wireframe = on_cone * (0.4 + 0.85 * wire_mer) * (0.20 + 1.42 * f3);
+        let t_now = exp(-abs(p.y - 0.32) * 42.0) * exp(-abs(cone_xz - 0.24) * 26.0) * pow(0.5 + 0.5 * cos(atan2(p.z, p.x) * 10.0), 4.0) * (0.14 + 1.48 * f4);
+        dens = (photons + ly_ticks + z_wave + wireframe + t_now) * env_outer;
+        neb_col = mix(vec3<f32>(0.38, 0.82, 1.52), vec3<f32>(1.48, 0.44, 0.26), smoothstep(0.28, -0.32, p.y))
+            + vec3<f32>(1.52, 1.12, 0.34) * (photons * 0.45 + ly_ticks * g1)
+            + vec3<f32>(0.26, 1.28, 1.36) * t_now * (0.65 + g4);
+    } else if (z_idx == 3u) {
+        // Z03 Distant Galaxies (1903): compact irregular protogalaxies (F0), blue-UV starburst knots (F1), tidal galaxy merger (F2), low-metallicity blue continuum (F3), IR redshift bar (F4)
+        let proto_noise = 0.5 + 0.5 * fbm3(p * 11.0, 2);
+        let pg1 = exp(-length(p - vec3<f32>(-0.24, 0.14, 0.04)) * 16.0);
+        let pg2 = exp(-length(p - vec3<f32>(0.24, -0.10, -0.06)) * 16.0);
+        let pg3 = exp(-length(p - vec3<f32>(0.02, 0.26, -0.10)) * 16.0);
+        let protos = (pg1 + pg2 + pg3) * (0.65 + 0.55 * proto_noise) * (0.30 + 1.32 * f0);
+        let h2_knots = pow(max(0.0, snoise3(p * 24.0)), 8.0) * smoothstep(0.42, 0.08, r) * 1.4 * (0.20 + 1.46 * f1);
+        let m_a = exp(-length(p - vec3<f32>(-0.08, -0.04, 0.0)) * 20.0);
+        let m_b = exp(-length(p - vec3<f32>(0.09, 0.05, 0.02)) * 20.0);
+        let t_arc = exp(-abs(length(p.xy) - 0.14) * 36.0) * exp(-abs(p.z) * 24.0);
+        let merger = (m_a + m_b + t_arc * 0.85) * (0.24 + 1.42 * f2);
+        let uv_glow = exp(-r * 6.5) * 0.56 * (0.18 + 1.40 * f3);
+        let ir_bar = exp(-abs(p.y + 0.26) * 42.0) * exp(-abs(p.z) * 24.0) * smoothstep(0.44, 0.04, abs(p.x)) * (0.14 + 1.48 * f4);
+        dens = (protos + h2_knots + merger + uv_glow + ir_bar) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.78, 1.54), vec3<f32>(0.92, 0.58, 1.46), clamp(protos * 0.8 + g0 * 0.2, 0.0, 1.0))
+            + vec3<f32>(0.38, 1.24, 1.56) * (h2_knots * g1 + uv_glow * g3)
+            + vec3<f32>(1.48, 0.48, 0.26) * ir_bar * (0.75 + smoothstep(-0.35, 0.35, p.x) * 0.5 + g4);
+    } else if (z_idx == 4u) {
+        // Z04 Quasar Era (1904): luminous AGN core (F0), relativistic accretion disk + BH shadow (F1), bipolar plasma jets (F2), diffuse host envelope (F3), Lyman-alpha forest beacon (F4)
+        let agn_core = exp(-r * 19.0) * (0.34 + 1.38 * f0);
+        let dp = doc_rot_x(p, 0.42);
+        let dr = length(dp.xz);
+        let acc_disk = exp(-abs(dp.y) * 46.0) * smoothstep(0.045, 0.075, dr) * (1.0 - smoothstep(0.18, 0.26, dr)) * (0.28 + 1.40 * f1);
+        let bh_shadow = smoothstep(0.032, 0.056, dr);
+        let jet_axis = length(dp.xz);
+        let jet_knots = 0.55 + 0.45 * pow(max(0.0, cos(dp.y * 32.0 - time * 2.4)), 4.0);
+        let jets = exp(-jet_axis * 34.0) * smoothstep(0.04, 0.10, abs(dp.y)) * (1.0 - smoothstep(0.36, 0.54, abs(dp.y))) * jet_knots * (0.22 + 1.46 * f2);
+        let host = exp(-length(dp * vec3<f32>(1.0, 1.6, 1.0)) * 7.5) * 0.52 * (0.16 + 1.42 * f3);
+        let lya_clouds = 0.35 + 0.85 * pow(max(0.0, sin(p.x * 26.0)), 6.0);
+        let lya_ray = exp(-length(p.yz - vec2<f32>(0.08 * p.x, 0.0)) * 38.0) * smoothstep(0.02, 0.10, p.x) * (1.0 - smoothstep(0.40, 0.56, p.x)) * lya_clouds * (0.14 + 1.48 * f4);
+        dens = (agn_core * bh_shadow + acc_disk + jets + host + lya_ray) * env_outer;
+        neb_col = mix(vec3<f32>(1.52, 1.14, 0.44), vec3<f32>(0.42, 0.92, 1.56), clamp(jets * 1.15, 0.0, 1.0))
+            + vec3<f32>(1.54, 1.24, 0.52) * (acc_disk * g1 + lya_ray * (0.65 + g4))
+            + vec3<f32>(1.26, 0.58, 1.44) * host * g3;
+    } else if (z_idx == 5u) {
+        // Z05 First Galaxies / Cosmic Dawn (1905): first star clusters (F0), indigo DM minihalo wells (F1), massive UV Pop-III stars (F2), bottom-up halo mergers (F3), UV ionization shells (F4)
+        let h0 = exp(-length(p - vec3<f32>(-0.24, 0.14, 0.04)) * 18.0);
+        let h1 = exp(-length(p - vec3<f32>(0.22, -0.14, 0.06)) * 18.0);
+        let h2 = exp(-length(p - vec3<f32>(0.02, 0.04, -0.02)) * 16.0);
+        let clusters = (h0 + h1 + h2) * (0.30 + 1.32 * f0);
+        let dm_wells = (exp(-length(p - vec3<f32>(-0.24, 0.14, 0.04)) * 7.5) + exp(-length(p - vec3<f32>(0.22, -0.14, 0.06)) * 7.5) + exp(-r * 6.5)) * 0.48 * (0.20 + 1.38 * f1);
+        let pop3 = (exp(-length(p - vec3<f32>(-0.18, 0.10, 0.02)) * 34.0) + exp(-length(p - vec3<f32>(0.18, -0.10, 0.04)) * 34.0) + exp(-length(p - vec3<f32>(0.02, 0.04, -0.02)) * 34.0)) * (0.20 + 1.48 * f2);
+        let merge_stream = exp(-length(p.yz - vec2<f32>(-0.58 * p.x, 0.12 * p.x)) * 28.0) * smoothstep(0.32, 0.04, abs(p.x)) * (0.18 + 1.42 * f3);
+        let uv_shells = (exp(-abs(length(p - vec3<f32>(-0.24, 0.14, 0.04)) - 0.12) * 44.0) + exp(-abs(length(p - vec3<f32>(0.02, 0.04, -0.02)) - 0.14) * 44.0)) * (0.16 + 1.46 * f4);
+        dens = (clusters + dm_wells + pop3 + merge_stream + uv_shells) * env_outer;
+        neb_col = mix(vec3<f32>(0.36, 0.28, 1.36), vec3<f32>(0.54, 1.12, 1.56), clamp(clusters + pop3, 0.0, 1.0))
+            + vec3<f32>(0.68, 1.38, 1.56) * pop3 * g2
+            + vec3<f32>(1.18, 0.48, 1.52) * uv_shells * (0.65 + g4);
+    } else if (z_idx == 6u) {
+        // Z06 Reionization (1906): carved ionized bubbles (F0), neutral HI fog outside bubbles (F1), crisp cyan ionization fronts (F2), percolating bubble bridges (F3), staggered seed sizes (F4)
+        let b0 = length(p - vec3<f32>(-0.20, 0.12, 0.04)) - 0.15;
+        let b1 = length(p - vec3<f32>(0.20, -0.10, -0.04)) - 0.14;
+        let b2 = length(p - vec3<f32>(0.02, -0.22, 0.12)) - 0.11;
+        let b3 = length(p - vec3<f32>(0.08, 0.20, -0.10)) - 0.10;
+        let d_bub = min(min(b0, b1), min(b2, b3));
+        let in_bubble = 1.0 - smoothstep(-0.02, 0.02, d_bub);
+        let outside_fog = smoothstep(-0.01, 0.04, d_bub) * smoothstep(0.56, 0.24, r);
+        let bub_core = (exp(-length(p - vec3<f32>(-0.20, 0.12, 0.04)) * 22.0) + exp(-length(p - vec3<f32>(0.20, -0.10, -0.04)) * 22.0)) * (0.28 + 1.32 * f0);
+        let hi_fog = outside_fog * (0.45 + 0.55 * fbm3(p * 6.0, 2)) * 0.62 * (0.24 + 1.36 * f1);
+        let i_front = exp(-abs(d_bub) * 48.0) * (0.24 + 1.48 * f2);
+        let perc_bridge = exp(-abs(b0 + b1 + 0.06) * 26.0) * smoothstep(0.28, 0.04, r) * (0.16 + 1.44 * f3);
+        let seed_rings = exp(-abs(b2) * 44.0) * 0.85 * (0.16 + 1.42 * f4);
+        dens = (bub_core * (0.6 + 0.4 * in_bubble) + hi_fog + i_front + perc_bridge + seed_rings) * env_outer;
+        neb_col = mix(vec3<f32>(1.28, 0.52, 0.24), vec3<f32>(0.24, 1.32, 1.54), clamp(i_front + in_bubble, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.44, 1.56) * i_front * (0.55 + g2)
+            + vec3<f32>(1.18, 0.68, 1.46) * (perc_bridge * g3 + seed_rings * g4);
+    } else if (z_idx == 7u) {
+        // Z07 Dark Ages (1907): pre-stellar cosmic darkness without stars (F0), neutral H/He mist (F1), Gaussian potential ripples (F2), 21-cm false-color slice (F3), proto-halo compression (F4)
+        let dim_void = exp(-r * 5.2) * 0.28 * (0.24 + 1.34 * f0);
+        let neutral_mist = (0.35 + 0.65 * fbm3(p * 5.5, 2)) * smoothstep(0.56, 0.14, r) * 0.44 * (0.22 + 1.38 * f1);
+        let pot_ripple = exp(-abs(cos(r * 22.0 + snoise3(p * 4.0))) * 14.0) * smoothstep(0.54, 0.12, r) * 0.62 * (0.18 + 1.44 * f2);
+        let slice_21cm = exp(-abs(p.y) * 44.0) * smoothstep(0.52, 0.10, length(p.xz)) * (0.45 + 0.55 * sin(snoise3(p * 8.0) * 6.0)) * (0.14 + 1.48 * f3);
+        let proto_comp = (exp(-length(p - vec3<f32>(-0.18, 0.10, 0.06)) * 16.0) + exp(-length(p - vec3<f32>(0.20, -0.10, -0.05)) * 16.0)) * 0.65 * (0.16 + 1.42 * f4);
+        dens = (dim_void + neutral_mist + pot_ripple + slice_21cm + proto_comp) * env_outer;
+        neb_col = mix(vec3<f32>(0.42, 0.28, 0.78), vec3<f32>(0.96, 0.56, 0.24), clamp(neutral_mist * 1.4 + dim_void, 0.0, 1.0))
+            + vec3<f32>(0.24, 1.22, 1.36) * slice_21cm * (0.75 + g3)
+            + vec3<f32>(0.92, 0.44, 1.32) * (pot_ripple * g2 + proto_comp * g4) * 0.65;
+    } else if (z_idx == 8u) {
+        // Z08 Cosmic Microwave Background (1908): Thomson last-scattering surface (F0), clearing transparency ring (F1), Planck +-200uK anisotropy patches (F2), observer time-shell meridians (F3), 3000K->microwave redshift (F4)
+        let shell_r = 0.42;
+        let ls_shell = exp(-abs(r - shell_r) * 38.0) * (0.30 + 1.34 * f0);
+        let clear_ring = exp(-abs(r - 0.32) * 44.0) * (0.16 + 1.42 * f1);
+        let aniso_n = snoise3(normalize(p + vec3<f32>(1e-4)) * 5.2);
+        let planck_patches = exp(-abs(r - shell_r) * 30.0) * smoothstep(0.05, 0.65, abs(aniso_n)) * (0.20 + 1.48 * f2);
+        let mer = exp(-abs(sin(p.y * 14.0)) * 22.0) + exp(-abs(sin(atan2(p.z, p.x) * 6.0)) * 18.0);
+        let mer_shell = exp(-abs(r - shell_r) * 44.0) * clamp(mer, 0.0, 1.2) * (0.16 + 1.44 * f3);
+        let shift_rays = pow(max(0.0, cos(atan2(p.z, p.x) * 5.0)), 6.0) * exp(-abs(p.y) * 20.0) * smoothstep(0.14, 0.40, r) * (1.0 - smoothstep(0.42, 0.50, r)) * (0.14 + 1.44 * f4);
+        dens = (ls_shell + clear_ring + planck_patches + mer_shell + shift_rays) * env_outer;
+        let cmb_hot = mix(vec3<f32>(0.24, 0.62, 1.48), vec3<f32>(1.52, 0.68, 0.24), smoothstep(-0.35, 0.35, aniso_n));
+        neb_col = cmb_hot * (ls_shell + planck_patches * (0.6 + g2))
+            + vec3<f32>(0.34, 1.28, 1.36) * (clear_ring * g1 + mer_shell * g3)
+            + vec3<f32>(1.48, 0.44, 0.22) * shift_rays * (0.55 + g4);
+    } else if (z_idx == 9u) {
+        // Z09 Cosmological Horizon (1909): causal particle horizon sphere (F0), external continuation beyond r=0.42 (F1), expanding comoving grid (F2), porous open wireframe (F3), pre-CMB GW-pierced plasma (F4)
+        let h_r = 0.42;
+        let causal_shell = exp(-abs(r - h_r) * 42.0) * (0.30 + 1.34 * f0);
+        let beyond = (fil_base * 0.92 + node_base * 0.72) * smoothstep(h_r - 0.02, h_r + 0.05, r) * (0.20 + 1.46 * f1);
+        let comov_grid = (exp(-abs(sin(p.x * 16.0)) * 20.0) + exp(-abs(sin(p.y * 16.0)) * 20.0)) * exp(-abs(r - 0.32) * 14.0) * (0.16 + 1.42 * f2);
+        let porous_wire = exp(-abs(r - h_r) * 44.0) * (exp(-abs(sin(atan2(p.z, p.x) * 6.0)) * 18.0) + exp(-abs(sin(p.y * 16.0)) * 18.0)) * (0.18 + 1.44 * f3);
+        let pre_cmb = exp(-abs(r - 0.41) * 32.0) * 0.75 + exp(-abs(p.y) * 28.0) * pow(max(0.0, cos(r * 38.0 - time * 1.6)), 6.0) * smoothstep(0.32, 0.56, r);
+        let gw_layer = pre_cmb * (0.16 + 1.46 * f4);
+        dens = (causal_shell + beyond + comov_grid + porous_wire + gw_layer + fil_base * 0.36 * smoothstep(0.42, 0.14, r)) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.84, 1.48), vec3<f32>(1.46, 0.92, 0.38), clamp(causal_shell + gw_layer * 0.6, 0.0, 1.0))
+            + vec3<f32>(0.88, 0.54, 1.48) * beyond * (0.65 + g1)
+            + vec3<f32>(0.24, 1.36, 1.24) * gw_layer * (0.55 + g4);
+    } else {
+        // Z10 Observable Limit (1910): nested complete observable sphere (F0), seamless exterior grid (F1), 13.8 Gyr clock dial (F2), opaque EM plasma wall (F3), piercing GW/BBN probes (F4)
+        let inner_obs = (fil_base * 0.72 + node_base * 0.65) * smoothstep(0.40, 0.12, r) * (0.30 + 1.30 * f0);
+        let cont_grid = (exp(-abs(sin(p.x * 14.0)) * 18.0) + exp(-abs(sin(p.z * 14.0)) * 18.0)) * smoothstep(0.36, 0.52, r) * (0.18 + 1.44 * f1);
+        let clock_arc = exp(-abs(r - 0.34) * 44.0) * (0.45 + 0.55 * pow(max(0.0, cos(atan2(p.y, p.x) * 12.0)), 8.0)) * (0.18 + 1.44 * f2);
+        let em_wall = exp(-abs(r - 0.46) * 34.0) * (0.65 + 0.35 * snoise3(p * 6.0)) * (0.22 + 1.42 * f3);
+        let gw_probes = exp(-length(p.yz) * 28.0) * pow(max(0.0, cos(abs(p.x) * 38.0 - time * 1.8)), 4.0) * smoothstep(0.28, 0.56, abs(p.x)) * (0.16 + 1.48 * f4);
+        dens = (inner_obs + cont_grid + clock_arc + em_wall + gw_probes) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.78, 1.48), vec3<f32>(1.52, 0.78, 0.32), clamp(em_wall * 1.15, 0.0, 1.0))
+            + vec3<f32>(1.44, 1.12, 0.38) * clock_arc * (0.65 + g2)
+            + vec3<f32>(0.24, 1.42, 1.34) * gw_probes * (0.65 + g4);
+    }
+
+    return doc_cosmo_finish(neb_col, dens);
+}
+
+fn shade_doc_early_universe_stage(
+    vid: u32,
+    p: vec3<f32>,
+    r: f32,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec4<f32> {
+    if (r > 0.76) {
+        return vec4<f32>(0.0);
+    }
+    let is_overview = vid == 10u;
+    let z_idx = select(
+        select(clamp(doc_zone(inst), 0u, 8u), 7u, doc_zone(inst) > 8u),
+        vid - 2000u,
+        vid >= 2000u && vid <= 2008u
+    );
+    let f0 = doc_feat_focus(inst, 0u);
+    let f1 = doc_feat_focus(inst, 1u);
+    let f2 = doc_feat_focus(inst, 2u);
+    let f3 = doc_feat_focus(inst, 3u);
+    let f4 = doc_feat_focus(inst, 4u);
+    let f5 = doc_feat_focus(inst, 5u);
+    let g0 = doc_solar_feat_gate(inst, 0u);
+    let g1 = doc_solar_feat_gate(inst, 1u);
+    let g2 = doc_solar_feat_gate(inst, 2u);
+    let g3 = doc_solar_feat_gate(inst, 3u);
+    let g4 = doc_solar_feat_gate(inst, 4u);
+    let g5 = doc_solar_feat_gate(inst, 5u);
+
+    let env_outer = (1.0 - smoothstep(0.48, 0.72, r)) * 0.76;
+    // Distributed centerless metric cell coordinates (zero Big-Bang central explosion core in Z01..=Z08!)
+    let cell_p = fract(p * 3.2 + vec3<f32>(0.5)) - vec3<f32>(0.5);
+    let cell_d = length(cell_p);
+    let qgp_rot = doc_rot_y(p, time * 0.4 + r * 2.5);
+    var dens: f32 = 0.0;
+    var neb_col = mix(vec3<f32>(0.38, 0.72, 1.48), vec3<f32>(1.52, 0.76, 0.34), clamp(r * 1.3, 0.0, 1.0));
+
+    if (is_overview) {
+        // Overview fallback (vid == 10u): centerless exponentially stretched inflation lattice + tensor shear waves
+        let grid_x = exp(-abs(sin(p.x * 16.0 - time * 0.5)) * 18.0);
+        let grid_y = exp(-abs(sin(p.y * 16.0)) * 18.0);
+        let grid_z = exp(-abs(sin(p.z * 16.0)) * 18.0);
+        let lattice = (grid_x * grid_y + grid_y * grid_z + grid_x * grid_z) * 0.55;
+        let q_fluc = pow(smoothstep(0.08, 0.0, abs(snoise3(qgp_rot * 5.2))), 2.2) * 0.85;
+        let gw_wave = exp(-abs(sin((p.x * p.x - p.y * p.y) * 18.0 - time * 1.4)) * 14.0) * 0.42;
+        dens = (lattice + q_fluc + gw_wave) * smoothstep(0.62, 0.14, r) * env_outer;
+        neb_col = mix(vec3<f32>(0.54, 0.36, 1.52), vec3<f32>(1.52, 0.88, 0.34), clamp(q_fluc * 1.1, 0.0, 1.0));
+        return doc_cosmo_finish(neb_col, dens);
+    }
+
+    if (z_idx == 0u) {
+        // Z00 Cosmic Microwave Background (2000): fossil microwave shell (F0), Planck hotspots (F1), E/B-mode polarization ticks (F2), photon escape rays (F3), inward time-reversal ruler (F4)
+        let shell = exp(-abs(r - 0.46) * 36.0) * (0.30 + 1.32 * f0);
+        let aniso = snoise3(normalize(p + vec3<f32>(1e-4)) * 5.8);
+        let hotspots = exp(-abs(r - 0.46) * 28.0) * smoothstep(0.08, 0.65, abs(aniso)) * (0.20 + 1.46 * f1);
+        let pol_ticks = exp(-abs(r - 0.46) * 44.0) * pow(max(0.0, cos(atan2(p.z, p.x) * 12.0 + p.y * 18.0)), 6.0) * (0.18 + 1.46 * f2);
+        let esc_rays = pow(max(0.0, cos(atan2(p.y, p.x) * 7.0)), 8.0) * exp(-abs(p.z) * 18.0) * smoothstep(0.14, 0.44, r) * (0.16 + 1.44 * f3);
+        let time_ruler = exp(-length(p.yz - vec2<f32>(-0.22, 0.0)) * 38.0) * smoothstep(0.02, 0.44, abs(p.x)) * (0.45 + 0.55 * pow(max(0.0, cos(p.x * 38.0)), 8.0)) * (0.14 + 1.46 * f4);
+        dens = (shell + hotspots + pol_ticks + esc_rays + time_ruler) * env_outer;
+        neb_col = mix(vec3<f32>(0.26, 0.66, 1.52), vec3<f32>(1.52, 0.72, 0.24), smoothstep(-0.32, 0.32, aniso)) * (shell + hotspots * (0.6 + g1))
+            + vec3<f32>(0.28, 1.38, 1.24) * (pol_ticks * (0.55 + g2) + esc_rays * g3)
+            + vec3<f32>(1.48, 1.06, 0.34) * time_ruler * (0.55 + g4);
+    } else if (z_idx == 1u) {
+        // Z01 Recombination (2001): centerless lattice of neutral atoms with orbitals (F0), 75% H vs 25% He nuclei (F1), decoupling photon tracks (F2), clearing plasma fog (F3), omnidirectional slice (F4)
+        let orbitals = (exp(-cell_d * 18.0) + exp(-abs(cell_d - 0.16) * 42.0)) * smoothstep(0.54, 0.16, r) * (0.28 + 1.34 * f0);
+        let he_sites = exp(-length(fract(p * 1.9 + vec3<f32>(0.3)) - vec3<f32>(0.5)) * 15.0) * smoothstep(0.54, 0.16, r) * (0.20 + 1.44 * f1);
+        let rays = pow(max(0.0, sin(p.y * 16.0 + 0.6 * cos(p.z * 12.0))), 8.0) * smoothstep(0.52, 0.12, r) * (0.18 + 1.46 * f2);
+        let fog_clear = (1.0 - smoothstep(0.18, 0.44, abs(p.x))) * 0.48 * (0.45 + 0.55 * snoise3(p * 5.0)) * (0.18 + 1.42 * f3);
+        let slice_ret = (exp(-abs(r - 0.38) * 42.0) + exp(-abs(r - 0.50) * 42.0)) * (0.16 + 1.44 * f4);
+        dens = (orbitals + he_sites + rays + fog_clear + slice_ret) * env_outer;
+        neb_col = mix(vec3<f32>(0.24, 1.18, 1.52), vec3<f32>(1.48, 0.94, 0.34), clamp(he_sites * 1.2 + fog_clear, 0.0, 1.0))
+            + vec3<f32>(1.52, 1.18, 0.42) * rays * (0.55 + g2)
+            + vec3<f32>(0.42, 1.38, 1.34) * slice_ret * g4;
+    } else if (z_idx == 2u) {
+        // Z02 Primordial Plasma (2002): free e-/p+ sea (F0), centerless metric grid (F1), Brownian photon random-walk (F2), concentric BAO sound rings (F3), opaque thermal haze (F4)
+        let sea = (exp(-cell_d * 20.0) * 0.72 + pow(max(0.0, snoise3(p * 12.0)), 4.0) * 0.55) * smoothstep(0.56, 0.14, r) * (0.28 + 1.32 * f0);
+        let grid = (exp(-abs(sin(p.x * 16.0)) * 22.0) * exp(-abs(sin(p.y * 16.0)) * 22.0) + exp(-abs(sin(p.z * 16.0)) * 22.0) * exp(-abs(sin(p.x * 16.0)) * 22.0)) * smoothstep(0.52, 0.14, r) * (0.18 + 1.44 * f1);
+        let walk = pow(smoothstep(0.09, 0.0, abs(snoise3(p * 11.0 + vec3<f32>(time * 0.25, -time * 0.18, 0.0)))), 2.4) * smoothstep(0.54, 0.14, r) * (0.20 + 1.44 * f2);
+        let bao = exp(-abs(cos(r * 26.0 - time * 1.5)) * 18.0) * smoothstep(0.54, 0.14, r) * (0.18 + 1.46 * f3);
+        let haze = smoothstep(0.52, 0.16, r) * (0.32 + 0.35 * snoise3(p * 4.5)) * (0.18 + 1.38 * f4);
+        dens = (sea + grid + walk + bao + haze) * env_outer;
+        neb_col = mix(vec3<f32>(1.48, 0.78, 0.28), vec3<f32>(0.34, 1.08, 1.54), clamp(sea * 0.8 + grid * 0.9, 0.0, 1.0))
+            + vec3<f32>(1.54, 1.18, 0.44) * (walk * (0.55 + g2) + haze * g4)
+            + vec3<f32>(0.38, 1.38, 1.32) * bao * (0.55 + g3);
+    } else if (z_idx == 3u) {
+        // Z03 Nucleosynthesis BBN (2003): distributed p+ spheres (F0), slate-blue neutrons (F1), p+n->D+gamma flashes (F2), tetrahedral He-4 clusters (F3), rare Li-7 + tension ring (F4)
+        let protons = exp(-cell_d * 20.0) * smoothstep(0.54, 0.16, r) * (0.28 + 1.32 * f0);
+        let n_cell = length(fract(p * 2.4 + vec3<f32>(0.22, -0.18, 0.14)) - vec3<f32>(0.5));
+        let neutrons = exp(-n_cell * 22.0) * smoothstep(0.54, 0.16, r) * (0.20 + 1.44 * f1);
+        let d_pair = exp(-abs(cell_d - 0.12) * 38.0) * exp(-abs(p.y - 0.05 * sin(p.x * 10.0)) * 22.0) * smoothstep(0.52, 0.14, r) * (0.18 + 1.46 * f2);
+        let he_p = p - vec3<f32>(-0.18, 0.08, 0.04);
+        let he4 = (exp(-length(he_p - vec3<f32>(0.03, 0.03, 0.03)) * 28.0) + exp(-length(he_p - vec3<f32>(-0.03, -0.03, 0.03)) * 28.0)
+            + exp(-length(he_p - vec3<f32>(-0.03, 0.03, -0.03)) * 28.0) + exp(-length(he_p - vec3<f32>(0.03, -0.03, -0.03)) * 28.0)) * (0.20 + 1.48 * f3);
+        let li_p = p - vec3<f32>(0.22, -0.12, -0.02);
+        let li7 = (exp(-length(li_p) * 20.0) + exp(-abs(length(li_p) - 0.11) * 46.0)) * (0.16 + 1.50 * f4);
+        dens = (protons + neutrons + d_pair + he4 + li7) * env_outer;
+        neb_col = vec3<f32>(1.48, 0.72, 0.28) * protons * (0.65 + g0)
+            + vec3<f32>(0.38, 0.72, 1.48) * neutrons * (0.65 + g1)
+            + vec3<f32>(1.54, 1.24, 0.42) * (d_pair * (0.6 + g2) + he4 * (0.6 + g3))
+            + vec3<f32>(1.44, 0.36, 1.18) * li7 * (0.65 + g4);
+    } else if (z_idx == 4u) {
+        // Z04 Lepton Era (2004): spiralling e- tracks (F0), e+ annihilation vertices (F1), straight neutrino streaks (F2), excess matter survival (F3), CvB decoupling shell (F4)
+        let spir_a = exp(-abs(length(p.xy) - (0.18 + 0.06 * sin(atan2(p.y, p.x) * 3.0 + p.z * 14.0))) * 34.0) * smoothstep(0.48, 0.08, abs(p.z)) * (0.28 + 1.34 * f0);
+        let spir_b = exp(-abs(length(p.xy) - (0.24 - 0.06 * sin(atan2(p.y, p.x) * 3.0 - p.z * 14.0))) * 34.0) * smoothstep(0.48, 0.08, abs(p.z)) * (0.20 + 1.46 * f1);
+        let annih = exp(-length(p - vec3<f32>(0.18, 0.0, 0.0)) * 22.0) + exp(-length(p - vec3<f32>(-0.18, 0.0, 0.0)) * 22.0);
+        let neut = exp(-abs(p.y - 0.45 * p.x) * 36.0) * exp(-abs(p.z) * 24.0) * smoothstep(0.54, 0.04, abs(p.x)) * (0.18 + 1.46 * f2);
+        let excess = exp(-length(p - vec3<f32>(0.0, 0.24, 0.06)) * 18.0) * (0.18 + 1.44 * f3);
+        let cvb_shell = exp(-abs(r - 0.44) * 38.0) * (0.18 + 1.46 * f4);
+        dens = (spir_a + spir_b + annih * (0.35 + f1) + neut + excess + cvb_shell) * env_outer;
+        neb_col = vec3<f32>(0.24, 1.18, 1.54) * spir_a * (0.6 + g0)
+            + vec3<f32>(1.48, 0.36, 0.96) * spir_b * (0.6 + g1)
+            + vec3<f32>(1.56, 1.24, 0.42) * annih * (0.5 + g1)
+            + vec3<f32>(0.76, 0.42, 1.54) * (neut * (0.65 + g2) + cvb_shell * g4);
+    } else if (z_idx == 5u) {
+        // Z05 Quark Era QGP (2005): RGB unconfined quarks (F0), gluon flux springs (F1), swirling QGP perfect liquid (F2), hadronization R+G+B white bags (F3), collider/lattice slice (F4)
+        let q_r = exp(-length(p - vec3<f32>(-0.18, 0.12, 0.04)) * 22.0);
+        let q_g = exp(-length(p - vec3<f32>(0.20, 0.08, -0.06)) * 22.0);
+        let q_b = exp(-length(p - vec3<f32>(0.02, -0.20, 0.05)) * 22.0);
+        let quarks = (q_r + q_g + q_b) * (0.30 + 1.36 * f0);
+        let gluon = pow(smoothstep(0.08, 0.0, abs(snoise3(qgp_rot * 6.5))), 2.2) * smoothstep(0.52, 0.14, r) * (0.22 + 1.42 * f1);
+        let swirl = exp(-abs(length(qgp_rot.xz) - 0.28) * 26.0) * exp(-abs(qgp_rot.y) * 16.0) * (0.55 + 0.45 * sin(atan2(qgp_rot.z, qgp_rot.x) * 4.0 + time)) * (0.18 + 1.44 * f2);
+        let bag = (exp(-abs(length(p - vec3<f32>(-0.22, -0.14, 0.04)) - 0.08) * 44.0) + exp(-length(p - vec3<f32>(-0.22, -0.14, 0.04)) * 22.0)) * (0.18 + 1.46 * f3);
+        let lat_grid = (exp(-abs(sin(p.x * 20.0)) * 22.0) + exp(-abs(sin(p.y * 20.0)) * 22.0)) * exp(-abs(p.z) * 28.0) * smoothstep(0.52, 0.12, r) * (0.14 + 1.46 * f4);
+        dens = (quarks + gluon + swirl + bag + lat_grid) * env_outer;
+        neb_col = vec3<f32>(1.54, 0.34, 0.28) * q_r
+            + vec3<f32>(0.32, 1.52, 0.46) * q_g
+            + vec3<f32>(0.28, 0.72, 1.56) * q_b
+            + vec3<f32>(1.28, 0.56, 1.48) * (gluon * (0.55 + g1) + swirl * g2)
+            + vec3<f32>(1.42, 1.38, 1.28) * (bag * (0.65 + g3) + lat_grid * g4);
+    } else if (z_idx == 6u) {
+        // Z06 Electroweak (2006): 3D Higgs Mexican-hat potential V(phi) (F0), SU(2)xU(1)->U(1)_EM bifurcation (F1), heavy W/Z bosons (F2), massless photons (F3), TeV frontier bar (F4)
+        let hr = length(p.xz);
+        let v_hat = 1.8 * hr * hr * hr * hr - 0.56 * hr * hr + 0.04;
+        let hat_surf = exp(-abs(p.y + 0.06 - clamp(v_hat, -0.16, 0.32)) * 38.0) * smoothstep(0.48, 0.12, hr) * (0.28 + 1.36 * f0);
+        let sym_top = exp(-abs(length(p.xz) - 0.12) * 38.0) * exp(-abs(p.y - 0.22) * 32.0);
+        let forks = (exp(-length(vec2<f32>(p.x - 0.12, p.z)) * 28.0) + exp(-length(vec2<f32>(p.x + 0.12, p.z)) * 28.0)) * smoothstep(-0.22, 0.22, p.y);
+        let sym_split = (sym_top + forks * 0.75) * (0.20 + 1.46 * f1);
+        let wz = (exp(-length(p - vec3<f32>(-0.26, -0.08, 0.10)) * 22.0) + exp(-length(p - vec3<f32>(0.26, -0.08, -0.10)) * 22.0)) * (0.20 + 1.48 * f2);
+        let gamma_rays = exp(-length(p.yz - vec2<f32>(0.16, 0.0)) * 34.0) * smoothstep(0.50, 0.04, abs(p.x)) * (0.18 + 1.46 * f3);
+        let tev_bar = exp(-length(p.yz - vec2<f32>(-0.26, 0.0)) * 38.0) * smoothstep(0.50, 0.04, abs(p.x)) * (0.14 + 1.48 * f4);
+        dens = (hat_surf + sym_split + wz + gamma_rays + tev_bar) * env_outer;
+        neb_col = mix(vec3<f32>(0.78, 0.38, 1.52), vec3<f32>(1.52, 1.14, 0.34), clamp(hat_surf * 1.15 + g0 * 0.3, 0.0, 1.0))
+            + vec3<f32>(1.48, 0.68, 0.28) * wz * (0.65 + g2)
+            + vec3<f32>(0.28, 1.38, 1.56) * (gamma_rays * g3 + tev_bar * g4 + sym_split * g1 * 0.5);
+    } else if (z_idx == 7u) {
+        // Z07 Inflation (2007, 6 features F0..=F5): exponential lattice (F0), quantum->macro fluctuations (F1), separated horizon patches (F2), flattened geometry (F3), indirect slow-roll curve (F4), tensor GW shear (F5)
+        let gx = exp(-abs(sin(p.x * 15.0 - time * 0.45)) * 22.0);
+        let gy = exp(-abs(sin(p.y * 15.0)) * 22.0);
+        let gz = exp(-abs(sin(p.z * 15.0)) * 22.0);
+        let exp_lat = (gx * gy + gy * gz + gx * gz) * smoothstep(0.58, 0.14, r) * 0.55 * (0.28 + 1.34 * f0);
+        let q_seeds = pow(smoothstep(0.09, 0.0, abs(snoise3(p * 4.8))), 2.1) * smoothstep(0.56, 0.12, r) * (0.22 + 1.44 * f1);
+        let patches = (exp(-length(p - vec3<f32>(-0.28, 0.12, 0.0)) * 16.0) + exp(-length(p - vec3<f32>(0.28, -0.10, 0.04)) * 16.0) + exp(-length(p - vec3<f32>(0.0, 0.24, -0.12)) * 16.0)) * (0.20 + 1.46 * f2);
+        let flat_plane = exp(-abs(p.y) * 38.0) * smoothstep(0.54, 0.14, length(p.xz)) * (0.45 + 0.55 * max(gx, gz)) * (0.18 + 1.44 * f3);
+        let slow_roll = exp(-abs(p.y - (0.18 - 0.55 * smoothstep(-0.30, 0.30, p.x))) * 40.0) * exp(-abs(p.z) * 24.0) * pow(0.5 + 0.5 * cos(p.x * 26.0), 3.0) * smoothstep(0.46, 0.04, abs(p.x)) * (0.14 + 1.48 * f4);
+        let gw_shear = exp(-abs(sin((p.x * p.x - p.y * p.y) * 20.0 - time * 1.4)) * 18.0) * smoothstep(0.56, 0.14, r) * (0.16 + 1.50 * f5);
+        dens = (exp_lat + q_seeds + patches + flat_plane + slow_roll + gw_shear) * env_outer;
+        neb_col = mix(vec3<f32>(0.44, 0.56, 1.52), vec3<f32>(1.52, 0.96, 0.34), clamp(q_seeds * 1.2 + patches * 0.7, 0.0, 1.0))
+            + vec3<f32>(0.34, 1.28, 1.48) * (exp_lat * g0 + flat_plane * g3)
+            + vec3<f32>(1.38, 0.44, 1.48) * (slow_roll * g4 + gw_shear * (0.65 + g5));
+    } else {
+        // Z08 Known-Physics Limit (2008): grid->spin-foam dissolution (F0), Planck resolution blur (F1), 3 hypothetical branches (F2), open centerless horizon without singularity (F3), open epistemic wisps (F4)
+        let foam_n = abs(snoise3(p * 14.0 + vec3<f32>(0.0, time * 0.25, 0.0)));
+        let spin_foam = pow(smoothstep(0.14, 0.0, foam_n), 2.0) * smoothstep(0.56, 0.14, r) * (0.28 + 1.34 * f0);
+        let p_blur = smoothstep(0.48, 0.14, r) * (0.26 + 0.36 * snoise3(p * 9.0)) * (0.18 + 1.42 * f1);
+        let br_a = exp(-abs(p.y - 0.55 * max(p.x, 0.0)) * 32.0) * smoothstep(-0.04, 0.42, p.x);
+        let br_b = exp(-abs(p.y + 0.55 * max(p.x, 0.0)) * 32.0) * smoothstep(-0.04, 0.42, p.x);
+        let br_c = exp(-abs(p.z - 0.50 * max(p.x, 0.0)) * 32.0) * smoothstep(-0.04, 0.42, p.x);
+        let branches = (br_a + br_b + br_c) * (0.18 + 1.46 * f2);
+        let no_sing = exp(-abs(r - 0.32) * 38.0) * (0.20 + 1.44 * f3);
+        let q_wisps = exp(-abs(length(p - vec3<f32>(0.0, 0.14, 0.0)) - 0.22) * 36.0) * smoothstep(-0.08, 0.30, p.y) * (0.16 + 1.46 * f4);
+        dens = (spin_foam + p_blur + branches + no_sing + q_wisps) * env_outer;
+        neb_col = mix(vec3<f32>(0.42, 0.46, 1.48), vec3<f32>(0.28, 1.28, 1.46), clamp(spin_foam + p_blur, 0.0, 1.0))
+            + vec3<f32>(1.48, 0.88, 0.34) * branches * (0.65 + g2)
+            + vec3<f32>(1.28, 0.48, 1.52) * (no_sing * g3 + q_wisps * (0.65 + g4));
+    }
+
+    return doc_cosmo_finish(neb_col, dens);
+}
+
 fn raymarch_doc_cosmos_macro(
     kind: u32,
     vid: u32,
@@ -2015,8 +2646,8 @@ fn raymarch_doc_cosmos_macro(
         return vec4<f32>(accum_rgb, accum_a);
     }
 
-    // Kind 3u: Cosmological Macro + Landmarks (vid 4, 6..10, 20..23, 1500..1709, 3660..3709)
-    let max_steps = select(30.0, 26.0, vid >= 1500u);
+    // Kind 3u: Cosmological Macro + Landmarks (vid 4, 6..10, 20..23, 1500..2008, 3660..3709)
+    let max_steps = select(30.0, 26.0, vid >= 1500u || (vid >= 8u && vid <= 10u));
     let steps: i32 = i32(mix(16.0, max_steps, fovea_k));
     let dt = (t1 - t0) / f32(steps);
     for (var i: i32 = 0; i < 30; i = i + 1) {
@@ -2078,36 +2709,22 @@ fn raymarch_doc_cosmos_macro(
                 let lan_res = shade_doc_laniakea_stage(vid, p, r, inst, time);
                 neb_col = lan_res.rgb;
                 dens = lan_res.a;
-            } else if (vid == 8u) {
-                // Cosmic Web 1D Voronoi Filaments & Supernodes
-                let w_warp = curl_noise3(p * 2.6);
-                let f1 = fbm3(p * 3.4 + w_warp * 0.25, 3);
-                let f2 = fbm3(p * 3.4 - w_warp * 0.25 + vec3<f32>(7.3, -4.1, 5.9), 3);
-                let ridge = pow(smoothstep(0.038, 0.0, length(vec2<f32>(f1, f2))), 2.6);
-                let supernode = pow(smoothstep(0.66, 0.95, snoise3(p * 6.5)), 2.8);
-                dens = (ridge * 0.95 + supernode * 1.25) * (1.0 - smoothstep(0.62, 0.88, r));
-                neb_col = mix(vec3<f32>(0.28, 0.42, 1.25), vec3<f32>(1.15, 0.72, 1.45), clamp(supernode * 1.6, 0.0, 1.0));
-            } else if (vid == 9u) {
-                // Observable Universe: Particle-Horizon Geodesic Shell + Quasar Era Bipolar Jets + HII Ionization Bubbles
-                let shell = exp(-abs(r - 0.76) * 52.0);
-                let meridians = exp(-abs(sin(p.y * 12.0)) * 18.0) + exp(-abs(sin(p.x * 10.0) * sin(p.z * 10.0)) * 20.0) * 0.65;
-                let quasar = exp(-length(p.xy) * 28.0) * exp(-abs(p.z) * 4.5) * select(0.5, 1.4, z_idx == 4u || z_idx == 6u);
-                let deep_knots = pow(smoothstep(0.68, 0.96, snoise3(p * 14.0)), 3.2) * (1.0 - smoothstep(0.58, 0.78, r));
-                dens = shell * (0.04 + 0.82 * clamp(meridians, 0.0, 1.4)) + deep_knots + quasar;
-                neb_col = mix(vec3<f32>(0.28, 0.80, 1.45), vec3<f32>(1.65, 0.75, 0.35), clamp(quasar + deep_knots * 1.4, 0.0, 1.0));
+            } else if (vid == 8u || (vid >= 1800u && vid <= 1810u)) {
+                let web_res = shade_doc_cosmic_web_stage(vid, p, r, inst, time);
+                neb_col = web_res.rgb;
+                dens = web_res.a;
+            } else if (vid == 9u || (vid >= 1900u && vid <= 1910u)) {
+                let obs_res = shade_doc_observable_universe_stage(vid, p, r, inst, time);
+                neb_col = obs_res.rgb;
+                dens = obs_res.a;
             } else if (vid == 20u || vid == 21u || vid == 22u || (vid >= 1500u && vid <= 1512u) || (vid >= 3660u && vid <= 3671u)) {
                 let mw_res = shade_doc_milky_way_stage(vid, p, r, inst, time);
                 neb_col = mw_res.rgb;
                 dens = mw_res.a;
             } else {
-                // 10 Early Universe (switches cleanly by zone: Plasma / Quark-Gluon / Electroweak / Inflation)
-                let shell_ring = exp(-abs(r - 0.56) * 48.0);
-                let qgp_rot = doc_rot_y(p, time * 0.5 + r * 3.0);
-                let fil = pow(smoothstep(0.06, 0.0, abs(snoise3(qgp_rot * 5.8))), 2.4);
-                let core = exp(-r * 15.0);
-                let sym = select(0.0, exp(-abs(r - 0.36) * 36.0) * 0.85, z_idx >= 5u);
-                dens = (shell_ring * (0.16 + 0.85 * fil) + fil * smoothstep(0.75, 0.1, r) * 0.45 + core + sym) * (1.0 - smoothstep(0.68, 0.92, r));
-                neb_col = mix(inst.color_b.rgb, vec3<f32>(1.75, 0.88, 0.34), clamp(core * 1.6, 0.0, 1.0));
+                let early_res = shade_doc_early_universe_stage(vid, p, r, inst, time);
+                neb_col = early_res.rgb;
+                dens = early_res.a;
             }
             let step_a = dens * dt * inst.color_b.a * (0.72 + voice * 0.24);
             accum_rgb += (1.0 - accum_a) * neb_col * min(inst.color_a.a, 1.2) * step_a;

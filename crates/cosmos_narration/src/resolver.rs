@@ -1221,7 +1221,13 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "colision", "mareas", "tidal", "fugitiva", "runaway", "virgo", "atractor", "attractor",
     "cuenca", "basin", "flujo", "vacio", "void", "lamina", "sheet", "shapley", "m87",
     "divisoria", "divide", "peculiar", "norma", "hidra", "hydra", "centauro", "centaurus",
-    "evitacion", "avoidance",
+    "evitacion", "avoidance", "filamento", "filament", "nodo", "node", "muralla", "pared",
+    "wall", "cumulo", "cluster", "oscura", "homogeneidad", "homogeneity", "isotropia",
+    "isotropy", "retrospeccion", "lookback", "corrimiento", "redshift", "oscuras", "hidrogeno",
+    "hydrogen", "expansion", "luz", "recombinacion", "recombination", "plasma", "nucleosintesis",
+    "nucleosynthesis", "deuterio", "deuterium", "helio", "helium", "litio", "lithium", "lepton",
+    "positron", "neutrino", "antimateria", "antimatter", "gluon", "electrodebil", "electroweak",
+    "boson", "cuantica", "quantum", "singularidad", "singularity",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

@@ -87,7 +87,14 @@ pub const fn canonical_companion_vid(experience_id: u8, slot: u8) -> u32 {
 pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool {
     matches!(
         (experience_id, zone_index),
-        (3, 0..=13) | (4, 0..=11) | (5, 0..=12) | (6, 0..=8) | (7, 0..=9)
+        (3, 0..=13)
+            | (4, 0..=11)
+            | (5, 0..=12)
+            | (6, 0..=8)
+            | (7, 0..=9)
+            | (8, 0..=10)
+            | (9, 0..=10)
+            | (10, 0..=8)
     )
 }
 
