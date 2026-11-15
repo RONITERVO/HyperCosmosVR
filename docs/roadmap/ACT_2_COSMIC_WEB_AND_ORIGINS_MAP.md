@@ -2,7 +2,7 @@
 
 [Master Visual Roadmap](../CONTRIBUTOR_VISUAL_ROADMAP.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md) · [Shader Contracts](../../shaders/SHADER_CONTRACTS.md) · [Act I Map](ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) · [Act III Map](ACT_3_MATTER_AND_SPACETIME_MAP.md) · [Act IV Map](ACT_4_LIFE_MIND_AND_SENSES_MAP.md) · [Act V Map](ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md)
 
-> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`20 / 26` Act II packages = `100%` of `05_milky_way`, `21_cosmic_life`, `06_local_group`, `07_laniakea`, `08_cosmic_web`, `09_observable_universe`, and `10_early_universe` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
+> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`26 / 26` Act II packages = `100%` of Odyssey Act II (`05_milky_way`, `21_cosmic_life`, `22_cosmic_contact`, `06_local_group`, `07_laniakea`, `08_cosmic_web`, `09_observable_universe`, and `10_early_universe`) now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
 
 > [!IMPORTANT]
 > **Odyssey Act II Travel Order (`&[5, 21, 22, 6, 7, 8, 9, 10]`):** [`odyssey.rs#L29-L32`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) embeds **Exp 21 (`21_cosmic_life`)** and **Exp 22 (`22_cosmic_contact`)** inside the Orion Spur between **Exp 05 (`05_milky_way`)** and **Exp 06 (`06_local_group`)**, while [`topology.rs#L419-L426`](../../crates/cosmos_spatial/src/topology.rs#L419-L426) links both `5 -> 21 -> 22` (`EmbeddedStellarArm`) and the outward cosmological ladder `5 -> 6 -> 7 -> 8 -> 9 -> 10` (`ScaleRiseOutward`). Chapters and Pick-Up Cards below follow exact **Odyssey Act II progression (`05 -> 21 -> 22 -> 06 -> 07 -> 08 -> 09 -> 10`)**.
@@ -13,15 +13,15 @@
 |---:|---:|---|---|---:|:---:|---:|:---:|---:|---|---|---:|
 | 1 / 8 | `05` | `05_milky_way` | Espectro de la Vía Láctea · Del sistema solar al borde galáctico | **13** | `13 / 0 / 0 / 0` | **65** | `65 / 0 / 0 / 0` | 13 (`12` baked + `Z12`) | **`[TIER-A]` Complete:** canonical `1500..=1512` stages + `3660..=3671` companions + `Z12` landmark + `65/65` `doc_feat` | `1500..=1512` (3660..=3671) | `3` *(3 done)* |
 | 2 / 8 | `21` | `21_cosmic_life` | Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre | **25** | `25 / 0 / 0 / 0` | **200** | `200 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `3100..=3124` stages (`shade_doc_cosmic_life_stage`) + `3820` companion on `Z04/Z13/Z14/Z15` + `200/200` `doc_feat` | `3100..=3124` (3820) | `5` *(5 done)* |
-| 3 / 8 | `22` | `22_cosmic_contact` | Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones | **28** | `0 / 5 / 15 / 8` | **168** | `0 / 11 / 88 / 69` | 0 | `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs) | `3200..=3227` (3830..=3839) | `6` |
+| 3 / 8 | `22` | `22_cosmic_contact` | Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones | **28** | `28 / 0 / 0 / 0` | **168** | `168 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `3200..=3227` stages (`shade_doc_cosmic_contact_stage`) + companions `3830..=3835` (`Z04/Z05/Z19/Z21..Z22/Z25..Z27`) + `scene=0/8/13/14/15` splits + `Z17 F0` silent + `168/168` `doc_feat` | `3200..=3227` (3830..=3835) | `6` *(6 done)* |
 | 4 / 8 | `06` | `06_local_group` | Espectro del Grupo Local: de la Vía Láctea a Andrómeda | **9** | `9 / 0 / 0 / 0` | **45** | `45 / 0 / 0 / 0` | 9 | **`[TIER-A]` Complete:** canonical `1600..=1608` stages + `3680..=3688` companions + `45/45` `doc_feat` | `1600..=1608` (3680..=3688) | `2` *(2 done)* |
 | 5 / 8 | `07` | `07_laniakea` | Espectro de Laniakea: del Grupo Local al Gran Atractor | **10** | `10 / 0 / 0 / 0` | **50** | `50 / 0 / 0 / 0` | 10 | **`[TIER-A]` Complete:** canonical `1700..=1709` stages + `3700..=3709` companions + `50/50` `doc_feat` | `1700..=1709` (3700..=3709) | `2` *(2 done)* |
 | 6 / 8 | `08` | `08_cosmic_web` | Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo | **11** | `11 / 0 / 0 / 0` | **55** | `55 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `1800..=1810` stages (`shade_doc_cosmic_web_stage`) + Mode 2 & `cs_field_grid` cues + `55/55` `doc_feat` | `1800..=1810` (Mode 2 + `cs_field_grid` cues) | `3` *(3 done)* |
 | 7 / 8 | `09` | `09_observable_universe` | Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico | **11** | `11 / 0 / 0 / 0` | **55** | `55 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `1900..=1910` stages (`shade_doc_observable_universe_stage`) + Mode `2/13/5` & `cmb_alpha`/star isolation + `55/55` `doc_feat` | `1900..=1910` (Epoch-gated `compute_mode`) | `3` *(3 done)* |
 | 8 / 8 | `10` | `10_early_universe` | Espectro del Universo Temprano: del Fondo Cósmico a la Inflación | **9** | `9 / 0 / 0 / 0` | **46** | `46 / 0 / 0 / 0` | 0 | **`[TIER-A]` Complete:** canonical `2000..=2008` stages (`shade_doc_early_universe_stage`) + Mode `13/3/5` & pre-stellar isolation + `46/46` `doc_feat` | `2000..=2008` (Zone-gated compute) | `2` *(2 done)* |
-| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`88 / 5 / 15 / 8`** | **`684`** | **`516 / 11 / 88 / 69`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **75.9% Tier-A · 4.3% B · 12.9% C · 6.9% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`20` done)* |
+| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`116 / 0 / 0 / 0`** | **`684`** | **`684 / 0 / 0 / 0`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **100.0% Tier-A · 0% B · 0% C · 0% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`26` done)* |
 
-*Feature distribution across Act II (`684` features): `75.4%` Tier-A (`516`), `1.6%` Tier-B (`11`), `12.9%` Tier-C (`88`), `10.1%` Tier-D (`69`).*
+*Feature distribution across Act II (`684` features): `100.0%` Tier-A (`684`), `0.0%` Tier-B (`0`), `0.0%` Tier-C (`0`), `0.0%` Tier-D (`0`).*
 
 ## 2. P0 Core Pipeline Prerequisites & Act II Architectural Findings
 
@@ -54,12 +54,12 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 | [`PKG-ACT2-EXP21-Z10-14`](#pkg-act2-exp21-z10-14) | `21` | `Z10..Z14` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3110..=3114` + `3820`):** Extremophiles, Mars Stratigraphy, Ocean Worlds, Exoplanet Transits & Biosignatures + `40/40` `doc_feat` |
 | [`PKG-ACT2-EXP21-Z15-19`](#pkg-act2-exp21-z15-19) | `21` | `Z15..Z19` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3115..=3119` + `3820`/Mode 1):** False Positives, Cognitive Bush, Xenocognition, Technosignatures & Fermi Paradox + `40/40` `doc_feat` |
 | [`PKG-ACT2-EXP21-Z20-24`](#pkg-act2-exp21-z20-24) | `21` | `Z20..Z24` (5) | `40` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `40/0/0/0` | **Completed (`3120..=3124`, Mode 15 lotus relays):** Great Filter Funnel, Alien Archetypes, Light-Cone Relays, Verification Globe & Exotic Life + `40/40` `doc_feat` |
-| [`PKG-ACT2-EXP22-Z00-04`](#pkg-act2-exp22-z00-04) | `22` | `Z00..Z04` (5) | `30` | Phase 1 · **Critical** | `0/3/0/2` | `0/5/5/20` | SETI Anomaly Triage, Noise Verification & Signal Confirmation (`z=00..04`, `scene=0` split) |
-| [`PKG-ACT2-EXP22-Z05-09`](#pkg-act2-exp22-z05-09) | `22` | `Z05..Z09` (5) | `30` | Phase 1 · **Critical** | `0/0/3/2` | `0/1/17/12` | Passive vs Active Searches & Global Coordination Forums (`z=05..09`, `scene=8` part 1) |
-| [`PKG-ACT2-EXP22-Z10-14`](#pkg-act2-exp22-z10-14) | `22` | `Z10..Z14` (5) | `30` | Phase 1 · **Critical** | `0/1/2/2` | `0/2/16/12` | Social Reaction, Prime Math Signatures & Cryptographic Decoding (`z=10..14`, `scene=8` part 2) |
-| [`PKG-ACT2-EXP22-Z15-19`](#pkg-act2-exp22-z15-19) | `22` | `Z15..Z19` (5) | `30` | Phase 1 · **Critical** | `0/1/3/1` | `0/3/15/12` | Xenocognition, Reply Dilemmas & Relativistic Light-Cones (`z=15..19`, `scene=13/14/15` split) |
-| [`PKG-ACT2-EXP22-Z20-23`](#pkg-act2-exp22-z20-23) | `22` | `Z20..Z23` (4) | `24` | Phase 1 · **Critical** | `0/0/3/1` | `0/0/13/11` | Past-Ghost Senders, Multigenerational Relays & Epistemic Limits (`z=20..23`) |
-| [`PKG-ACT2-EXP22-Z24-27`](#pkg-act2-exp22-z24-27) | `22` | `Z24..Z27` (4) | `24` | Phase 1 · **Critical** | `0/0/4/0` | `0/0/22/2` | Diplomatic Protocols, Cultural Transformation & Cosmic Mirror (`z=24..27`) |
+| [`PKG-ACT2-EXP22-Z00-04`](#pkg-act2-exp22-z00-04) | `22` | `Z00..Z04` (5) | `30` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `30/0/0/0` | **Completed (`3200..=3204` + `3830`):** SETI Anomaly Triage, Waterfall Residual, DSP Chain, RFI Rejection & Earth Verification (`scene=0` split) + `30/30` `doc_feat` |
+| [`PKG-ACT2-EXP22-Z05-09`](#pkg-act2-exp22-z05-09) | `22` | `Z05..Z09` (5) | `30` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `30/0/0/0` | **Completed (`3205..=3209` + `3831`):** Distant Origin, Artificial Patterns, Rio-Scale Pyramid, Disclosure Prism & Polycentric Coordination (`scene=8` part 1) + `30/30` `doc_feat` |
+| [`PKG-ACT2-EXP22-Z10-14`](#pkg-act2-exp22-z10-14) | `22` | `Z10..Z14` (5) | `30` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `30/0/0/0` | **Completed (`3210..=3214`, Mode 14):** Planetary Reaction, Bitstream Unfolder, Prime Cipher Beacon, Lincos Sandbox & 4D Hypercube (`scene=8` part 2) + `30/30` `doc_feat` |
+| [`PKG-ACT2-EXP22-Z15-19`](#pkg-act2-exp22-z15-19) | `22` | `Z15..Z19` (5) | `30` | Phase 1 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `30/0/0/0` | **Completed (`3215..=3219` + `3832`, `Z17 F0` silent):** Cultural Context, Received Dossier, Reply Decision, METI Risks & Light-Speed Limit (`scene=13/14/15` split) + `30/30` `doc_feat` |
+| [`PKG-ACT2-EXP22-Z20-23`](#pkg-act2-exp22-z20-23) | `22` | `Z20..Z23` (4) | `24` | Phase 1 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `24/0/0/0` | **Completed (`3220..=3223` + `3833`):** Interstellar Wait, First Reply, Discontinuous Dialogue & Knowledge Exchange (`scene=15` part 2) + `24/24` `doc_feat` |
+| [`PKG-ACT2-EXP22-Z24-27`](#pkg-act2-exp22-z24-27) | `22` | `Z24..Z27` (4) | `24` | Phase 1 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `24/0/0/0` | **Completed (`3224..=3227` + `3834..=3835`):** Cosmic Misunderstandings, Trust Lattice, Interstellar Diplomacy & Uncertain Coexistence + `24/24` `doc_feat` |
 | [`PKG-ACT2-EXP06-Z00-04`](#pkg-act2-exp06-z00-04) | `06` | `Z00..Z04` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1600..=1604` + `3680..=3684`):** Galactic Edge, Outer Halo, Dwarfs, Intergalactic WHIM & Magellanic Clouds + `25/25` `doc_feat` transitions |
 | [`PKG-ACT2-EXP06-Z05-08`](#pkg-act2-exp06-z05-08) | `06` | `Z05..Z08` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1605..=1608` + `3685..=3688`):** Triangulum M33/NGC 604, Andromeda M31/M32/M110, Barycenter & Zero-Velocity Rim + `20/20` `doc_feat` transitions |
 | [`PKG-ACT2-EXP07-Z00-04`](#pkg-act2-exp07-z00-04) | `07` | `Z00..Z04` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1700..=1704` + `3700..=3704`):** LG Turnaround, Local Volume, Local Sheet / Council of Giants, Virgo Cluster / M87 & Supercluster + `25/25` `doc_feat` transitions |
@@ -1231,20 +1231,20 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 22: `22_cosmic_contact` — Contacto Cósmico / Cosmic Contact (`28` Zones, `168` Features, `0` Landmarks)
+### Exp 22: `22_cosmic_contact` — Contacto Cósmico / Cosmic Contact (`28` Zones, `168` Features, `0` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones* — Spectrum of Cosmic Contact: from the First Signal to Interstellar Dialogue
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **3 / 8** (Chapter `act2_exp22`)
 - **Spatial & Scale Band:** `SectorId::ORION_SPUR` (`anchor_local=(0.40, 0.05, -0.30)`) · `u ∈ [16.0, 20.8]` · `focus_scale_exp = 18.6` (`topology.rs:353`)
-- **Compute & Far Shell:** `mode = 13` (radial cosmological redshift stream, `compute_universe.wgsl:319-330`) · `galaxy_plane = 1.0`, `star_density = 1.0` Orion Spur background (`universe_scene.rs:350-370`)
-- **Current Render Dispatch:** `doc_stage_variant_id(22)` (`doc_stages.rs:79-82`) routes `z=12 -> vid=221` (5 Prime rings + pulsar cross rays) and ALL 27 other zones -> `vid=220` (`mode=0`: Parabolic SETI Dish + permanent upward laser beacon, varying ONLY yaw `f32(zone)*0.25` and `odd_zone` tint/phase); **5 baked `scene` collisions** (`0`, `8`, `13`, `14`, `15`); **false header claim**: `hero_doc_civilization_horizon.wgsl:6` claims `doc_feat` support, yet `feat` is NEVER read in `exp_id == 22u` (`L389-429`).
-- **Granular Audit Tally:** Zones `0A / 5B / 15C / 8D` (`28`) · Features `0A / 11B / 88C / 69D` (`168`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `seti` & `rosetta` & `primo` (exist), plus `radar`, `laser`, `radio`, `descifrado`, `silencio`, `meti`, `tratado`, `relativista`, `espejo`, `archivo`
+- **Compute & Far Shell (`[COMPLETED — TIER-A]`):** Zone-gated `select_compute_mode(22)` -> `13` (SETI dish / interference / prime beacon), `14` (DSP / disclosure / interpretation / Lincos / hypercube / diplomatic lattice rings), `15` (relativistic light-cone / century wait / first-reply / dialogue capsules / trust / coexistence); `build_far_shell_uniforms` attenuates `galaxy_plane *= 0.35` and `star_density *= 0.65` on `Z19 | Z20 | Z27`.
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a((22, 0..=27))` -> `3200..=3227`) + canonical companions `3830..=3835` gated to `Z04/Z05/Z19/Z21..Z22/Z25..Z27` (`hero_doc_cosmos.wgsl`) + all `5` baked `scene` collisions split by `active_zone_index` + `Z17 F0` completely silent (`0` sky laser) + `shade_doc_cosmic_contact_stage` across all `168/168` features (`render_tests.rs` Section 14 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `28A / 0B / 0C / 0D` (`28`) · Features `168A / 0B / 0C / 0D` (`168`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added `32` bilingual `Exp 22` tokens (`radar`, `laser`, `descifrado`, `decipher`, `silencio`, `silence`, `meti`, `tratado`, `treaty`, `relativista`, `relativistic`, `espejo`, `mirror`, `archivo`, `archive`, `modulacion`, `modulation`, `polarizacion`, `polarization`, `interferencia`, `interference`, `paralaje`, `parallax`, `entropia`, `entropy`, `diplomacia`, `diplomacy`, `reciprocidad`, `reciprocity`, `semiotica`, `semiotic`).
 
-#### Baked `scene` Collision Pairs in Exp `22` (`doc_stages.rs` MUST key on `zone_index` or split `scene` in P0)
+#### Baked `scene` Collision Pairs in Exp `22` (`doc_stages.rs` Keys on `active_zone_index` -> `3200..=3227` — Resolved `[TIER-A]`)
 
-| Colliding `scene` | First Zone (`Z..`) | Second Zone (`Z..`) | Shared `footer` | Required Visual Split |
+| Colliding `scene` | First Zone (`Z..`) | Second Zone (`Z..`) | Shared `footer` | Resolved `[TIER-A]` Split |
 |---:|---|---|---|---|
 | `0` | `Z00` `unexplained-signal` | `Z01` `first-anomaly` | `ANOMALÍA ≠ CONCLUSIÓN` | `vid=3200` vs `vid=3201` distinct stages |
 | `8` | `Z09` `international-coordination` | `Z10` `planetary-reaction` | `NINGUNA VOZ ÚNICA HABLA POR TODO EL PLANETA` | `vid=3209` vs `vid=3210` distinct stages |
@@ -1253,9 +1253,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 | `15` | `Z19` `light-speed-limit` | `Z20` `interstellar-wait` | `EL MENSAJE DESCRIBE EL PASADO DEL EMISOR` | `vid=3219` vs `vid=3220` distinct stages |
 
 <a id="pkg-act2-exp22-z00-04"></a>
-### PKG-ACT2-EXP22-Z00-04: SETI Anomaly Triage, Noise Verification & Signal Confirmation (`z=00..04`, `scene=0` split) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP22-Z00-04: SETI Anomaly Triage, Noise Verification & Signal Confirmation (`z=00..04`, `scene=0` split) `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z00..Z04` (`5` zones, `30` features) | Zone Tiers `0A / 3B / 0C / 2D` | Feature Tiers `0A / 5B / 5C / 20D` | Render path: [`doc_stages.rs#L79-L82`](../../crates/cosmos_render/src/doc_stages.rs#L79-L82) -> [`shaders/hero_doc_civilization_horizon.wgsl#L389-L429`](../../shaders/hero_doc_civilization_horizon.wgsl#L389-L429) — `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `30` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z04` (`5` zones, `30` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 3B / 0C / 2D`)* | Live Feature Tiers `30A / 0B / 0C / 0D` *(up from `0A / 5B / 5C / 20D`)* | Render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3200..=3204`, companion `3830` on `Z04`) -> `shade_doc_cosmic_contact_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 14.
 
 **Reserved Target IDs:**
 
@@ -1392,9 +1392,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp22-z05-09"></a>
-### PKG-ACT2-EXP22-Z05-09: Passive vs Active Searches & Global Coordination Forums (`z=05..09`, `scene=8` part 1) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP22-Z05-09: Passive vs Active Searches & Global Coordination Forums (`z=05..09`, `scene=8` part 1) `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z05..Z09` (`5` zones, `30` features) | Zone Tiers `0A / 0B / 3C / 2D` | Feature Tiers `0A / 1B / 17C / 12D` | Render path: [`doc_stages.rs#L79-L82`](../../crates/cosmos_render/src/doc_stages.rs#L79-L82) -> [`shaders/hero_doc_civilization_horizon.wgsl#L389-L429`](../../shaders/hero_doc_civilization_horizon.wgsl#L389-L429) — `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `30` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z05..Z09` (`5` zones, `30` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 0B / 3C / 2D`)* | Live Feature Tiers `30A / 0B / 0C / 0D` *(up from `0A / 1B / 17C / 12D`)* | Render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3205..=3209`, companion `3831` on `Z05`, compute `14` on `Z08..Z09`) -> `shade_doc_cosmic_contact_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 14.
 
 **Reserved Target IDs:**
 
@@ -1531,9 +1531,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp22-z10-14"></a>
-### PKG-ACT2-EXP22-Z10-14: Social Reaction, Prime Math Signatures & Cryptographic Decoding (`z=10..14`, `scene=8` part 2) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP22-Z10-14: Social Reaction, Prime Math Signatures & Cryptographic Decoding (`z=10..14`, `scene=8` part 2) `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z10..Z14` (`5` zones, `30` features) | Zone Tiers `0A / 1B / 2C / 2D` | Feature Tiers `0A / 2B / 16C / 12D` | Render path: [`doc_stages.rs#L79-L82`](../../crates/cosmos_render/src/doc_stages.rs#L79-L82) -> [`shaders/hero_doc_civilization_horizon.wgsl#L389-L429`](../../shaders/hero_doc_civilization_horizon.wgsl#L389-L429) — `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `30` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z10..Z14` (`5` zones, `30` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 1B / 2C / 2D`)* | Live Feature Tiers `30A / 0B / 0C / 0D` *(up from `0A / 2B / 16C / 12D`)* | Render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3210..=3214`, compute `14` on `Z10..Z11`, `Z13..Z14`) -> `shade_doc_cosmic_contact_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 14.
 
 **Reserved Target IDs:**
 
@@ -1670,9 +1670,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp22-z15-19"></a>
-### PKG-ACT2-EXP22-Z15-19: Xenocognition, Reply Dilemmas & Relativistic Light-Cones (`z=15..19`, `scene=13/14/15` split) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP22-Z15-19: Xenocognition, Reply Dilemmas & Relativistic Light-Cones (`z=15..19`, `scene=13/14/15` split) `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z15..Z19` (`5` zones, `30` features) | Zone Tiers `0A / 1B / 3C / 1D` | Feature Tiers `0A / 3B / 15C / 12D` | Render path: [`doc_stages.rs#L79-L82`](../../crates/cosmos_render/src/doc_stages.rs#L79-L82) -> [`shaders/hero_doc_civilization_horizon.wgsl#L389-L429`](../../shaders/hero_doc_civilization_horizon.wgsl#L389-L429) — `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `30` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z15..Z19` (`5` zones, `30` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 1B / 3C / 1D`)* | Live Feature Tiers `30A / 0B / 0C / 0D` *(up from `0A / 3B / 15C / 12D`)* | Render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3215..=3219`, companion `3832` on `Z19`, `Z17 F0` completely silent, `far_shell` attenuated & compute `15` on `Z19`) -> `shade_doc_cosmic_contact_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 14.
 
 **Reserved Target IDs:**
 
@@ -1809,9 +1809,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp22-z20-23"></a>
-### PKG-ACT2-EXP22-Z20-23: Past-Ghost Senders, Multigenerational Relays & Epistemic Limits (`z=20..23`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP22-Z20-23: Past-Ghost Senders, Multigenerational Relays & Epistemic Limits (`z=20..23`) `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z20..Z23` (`4` zones, `24` features) | Zone Tiers `0A / 0B / 3C / 1D` | Feature Tiers `0A / 0B / 13C / 11D` | Render path: [`doc_stages.rs#L79-L82`](../../crates/cosmos_render/src/doc_stages.rs#L79-L82) -> [`shaders/hero_doc_civilization_horizon.wgsl#L389-L429`](../../shaders/hero_doc_civilization_horizon.wgsl#L389-L429) — `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `24` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z20..Z23` (`4` zones, `24` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 0B / 3C / 1D`)* | Live Feature Tiers `24A / 0B / 0C / 0D` *(up from `0A / 0B / 13C / 11D`)* | Render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3220..=3223`, companion `3833` on `Z21..Z22`, compute `15` on `Z20..Z22`, `far_shell` attenuated on `Z20`) -> `shade_doc_cosmic_contact_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 14.
 
 **Reserved Target IDs:**
 
@@ -1929,9 +1929,9 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp22-z24-27"></a>
-### PKG-ACT2-EXP22-Z24-27: Diplomatic Protocols, Cultural Transformation & Cosmic Mirror (`z=24..27`) — `Phase 1` · Priority: **Critical**
+### PKG-ACT2-EXP22-Z24-27: Diplomatic Protocols, Cultural Transformation & Cosmic Mirror (`z=24..27`) `[COMPLETED — TIER-A]`
 
-**Current State:** Zones `Z24..Z27` (`4` zones, `24` features) | Zone Tiers `0A / 0B / 4C / 0D` | Feature Tiers `0A / 0B / 22C / 2D` | Render path: [`doc_stages.rs#L79-L82`](../../crates/cosmos_render/src/doc_stages.rs#L79-L82) -> [`shaders/hero_doc_civilization_horizon.wgsl#L389-L429`](../../shaders/hero_doc_civilization_horizon.wgsl#L389-L429) — `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `24` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z24..Z27` (`4` zones, `24` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 0B / 4C / 0D`)* | Live Feature Tiers `24A / 0B / 0C / 0D` *(up from `0A / 0B / 22C / 2D`)* | Render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`3224..=3227`, companions `3834` on `Z25..Z26` and `3835` on `Z27`, compute `15` on `Z25 | Z27` and `14` on `Z26`, `far_shell` attenuated on `Z27`) -> `shade_doc_cosmic_contact_stage` in [`shaders/hero_doc_civilization_horizon.wgsl`](../../shaders/hero_doc_civilization_horizon.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 14.
 
 **Reserved Target IDs:**
 

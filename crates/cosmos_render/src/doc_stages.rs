@@ -96,6 +96,7 @@ pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool
             | (9, 0..=10)
             | (10, 0..=8)
             | (21, 0..=24)
+            | (22, 0..=27)
     )
 }
 
@@ -1344,6 +1345,36 @@ pub fn emit_doc_stage_hero(
                         kind_tags: pack_doc_tags(1, canonical_companion_vid(21, 0), 0, comp_sub, doc),
                     });
                 }
+            } else if experience_id == 22
+                && matches!(doc.active_zone_index, 4 | 5 | 19 | 21 | 22 | 25 | 26 | 27)
+            {
+                let comp_slot: u8 = match doc.active_zone_index {
+                    4 => 0,
+                    5 => 1,
+                    19 => 2,
+                    21 | 22 => 3,
+                    25 | 26 => 4,
+                    _ => 5,
+                };
+                let comp_vid = canonical_companion_vid(22, comp_slot);
+                let comp_p = pos + stage_right * (r_g * 0.62);
+                let (col_a, col_b, temp) = match comp_slot {
+                    0 => ([0.18, 0.72, 0.92, 1.12], [0.28, 1.18, 1.48, 1.0], 5600.0),
+                    1 => ([0.96, 0.76, 0.28, 1.15], [0.26, 1.12, 1.44, 1.0], 5800.0),
+                    2 => ([0.62, 0.84, 1.12, 1.12], [1.22, 0.88, 0.34, 1.0], 6200.0),
+                    3 => ([0.22, 0.82, 0.98, 1.15], [0.46, 0.92, 1.46, 1.0], 5400.0),
+                    4 => ([0.88, 0.74, 0.24, 1.15], [0.22, 1.18, 0.86, 1.0], 5500.0),
+                    _ => ([0.92, 0.72, 0.32, 1.15], [0.24, 1.14, 1.46, 1.0], 5700.0),
+                };
+                heroes_surface.push(HeroVolumeInstance {
+                    pos_radius: [comp_p.x, comp_p.y, comp_p.z, (r_g * 0.12).clamp(0.03, 1.7)],
+                    rot_quat: face_quat,
+                    color_a: col_a,
+                    color_b: col_b,
+                    phys_a: [input.time_sec * 0.05, 0.0, 0.0, dwell],
+                    phys_b: [sun[0], sun[1], sun[2], temp],
+                    kind_tags: pack_doc_tags(1, comp_vid, 0, comp_slot as u32, doc),
+                });
             }
         }
     }
