@@ -233,7 +233,7 @@ cargo test -p cosmos_xr -- --skip openxr_static_entry_and_graceful_headset_probe
 cargo test -p cosmos_spatial topology
 cargo test -p cosmos_manifest --test manifest_tests -- --skip real_mmap_catalog_and_audio_pack_verify_all_18898_assets
 
-# Full local verification suite (104 tests across all 11 crates; requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
+# Full local verification suite (105 tests across all 11 crates; requires Discrete DX12 GPU, OpenXR runtime, staged fonts, and universe_audio.hcvp)
 # Parallel correctness tests; isolated cache timings and frame benchmarks.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/test_local.ps1
 ```

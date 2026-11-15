@@ -480,9 +480,7 @@ impl UniverseRuntime {
         }
         self.wrist_ring.journey_active = director.is_active();
         self.journey_director = Some(director);
-        self.audio.stop_narration();
-        self.active_session = None;
-        self.memory.invalidate_pending();
+        self.clear_tour_narration();
         Ok(())
     }
 
@@ -570,7 +568,11 @@ impl UniverseRuntime {
 
     fn clear_tour_narration(&mut self) {
         self.audio.stop_narration();
-        self.active_session = None;
+        if let Some(session) = self.active_session.take()
+            && let Some(note_id) = session.active_music_note_id
+        {
+            self.audio.music_note_off(note_id);
+        }
         self.memory.invalidate_pending();
     }
 
@@ -589,9 +591,7 @@ impl UniverseRuntime {
             self.flight.pose = detached;
             self.wrist_ring.journey_active = false;
             self.active_peripheral_prompt = None;
-            self.audio.stop_narration();
-            self.active_session = None;
-            self.memory.invalidate_pending();
+            self.clear_tour_narration();
             self.flight.linear_vel_cam = DVec3::ZERO;
             self.flight.angular_vel_rad = DVec3::ZERO;
             self.flight.scale_vel = 0.0;
@@ -3307,6 +3307,60 @@ mod tests {
         );
         assert!(!rt.narration_paused);
         assert_eq!(rt.guide_page, GuidePage::Hidden);
+    }
+
+    #[test]
+    fn tour_navigation_releases_music_notes() {
+        let mut rt = test_runtime();
+        let mut pcm = vec![0.0; 4096];
+        for transition in 0..6 {
+            rt.activate_journey("cosmic_highlights_tour", true).unwrap();
+            rt.start_narration_from_focus(
+                TargetIdentity {
+                    entity_id: 0x1234,
+                    experience_id: 2,
+                    zone_index: u16::MAX,
+                    feature_index: 69,
+                },
+                TargetFocus::MusicFilament {
+                    midi: 69,
+                    timbre_idx: 2,
+                },
+                Vec3::NEG_Z * 2.0,
+                None,
+            );
+            assert!(
+                rt.active_session
+                    .as_ref()
+                    .unwrap()
+                    .active_music_note_id
+                    .is_some()
+            );
+            for _ in 0..8 {
+                rt.audio.render_headless_frames(&mut pcm);
+            }
+            let sustained_energy = rt.audio.reactive_uniforms().synth_b[2];
+            assert!(
+                sustained_energy > 0.01,
+                "music stop must sustain a real synth note"
+            );
+            match transition {
+                0 => rt.journey_next_beat(),
+                1 => rt.journey_prev_beat(),
+                2 => rt.journey_next_chapter(),
+                3 => rt.journey_prev_chapter(),
+                4 => rt.activate_journey("grand_cosmic_odyssey", true).unwrap(),
+                _ => rt.journey_confirm_exit(),
+            }
+            assert!(rt.active_session.is_none());
+            for _ in 0..40 {
+                rt.audio.render_headless_frames(&mut pcm);
+            }
+            assert!(
+                rt.audio.reactive_uniforms().synth_b[2] < sustained_energy * 0.01,
+                "transition {transition} must release the old music note"
+            );
+        }
     }
 
     #[test]
