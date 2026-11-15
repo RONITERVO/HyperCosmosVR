@@ -249,6 +249,29 @@ fn populate_catalog_entities(spatial: &mut CosmosSpatialIndex, catalog: &Univers
             }
         }
     }
+    // Ensure Exp 05 Z12 (`galactic-edge`) is indexed as a first-class GalacticLandmark (13th milestone)
+    if !anchored_zones.contains_key(&(5, 12))
+        && catalog.zones(5).len() > 12
+        && let Some(placement) = placements.iter().find(|p| p.id.0 == 5)
+    {
+        let (local_pos, scale_exp, radius_m) =
+            landmark_local_pose(0.96, 0.08, 175.0, placement.focus_scale_exp);
+        let _ = spatial.insert_entity(SpatialEntity {
+            id: next_id,
+            experience_id: 5,
+            zone_index: 12,
+            feature_index: 0,
+            sector_id: SectorId::MILKY_WAY,
+            local_pos,
+            orient: DQuat::IDENTITY,
+            radius_m,
+            scale_exp,
+            kind: EntityKind::GalacticLandmark,
+            salience_weight: 1.5,
+        });
+        next_id += 1;
+        anchored_zones.insert((5, 12), (local_pos, scale_exp));
+    }
 
     // Stratified zones + ALL interactive catalog features across experiences (`03..=25`).
     const GOLDEN_ANGLE_RAD: f64 = 2.399963229728653;
@@ -566,15 +589,16 @@ mod tests {
         assert_eq!(actual_features, expected_features);
 
         // Verify all 376 zones, 12 Solar System bodies (0..=11), 14 Earth layers (0..=13),
-        // and 31 Landmarks are uniquely indexed and navigable via CosmosSpatialIndex.
+        // and 32 Landmarks (31 baked + Exp 05 Z12 galactic-edge) are uniquely indexed via CosmosSpatialIndex.
         assert_eq!(assets.spatial.zone_entities_for_experience(4).len(), 12);
         assert_eq!(assets.spatial.zone_entities_for_experience(3).len(), 14);
+        assert_eq!(assets.spatial.zone_entities_for_experience(5).len(), 13);
         let landmark_count = assets
             .spatial
             .iter_entities()
             .filter(|e| e.kind == EntityKind::GalacticLandmark)
             .count();
-        assert_eq!(landmark_count, assets.catalog.all_landmarks().len());
+        assert_eq!(landmark_count, assets.catalog.all_landmarks().len() + 1);
 
         let expected_zones: usize = (3_u8..=25)
             .map(|exp_id| assets.catalog.zones(exp_id).len())

@@ -1,6 +1,13 @@
 // HyperCosmosVR — Documentary Cosmos Domain Shaders (Apps 03 Deep Earth, 04 Solar System, 05..10 Cosmology)
 // Concatenated after common_oled.wgsl + doc_common.wgsl.
 
+fn doc_solar_feat_gate(inst: HeroVolumeInstance, target_feat: u32) -> f32 {
+    if (doc_feat(inst) == 255u) {
+        return 0.0;
+    }
+    return smoothstep(0.02, 0.45, doc_feat_focus(inst, target_feat) - 1.0);
+}
+
 fn shade_doc_earth_surface(
     p_surf: vec3<f32>,
     n_surf: vec3<f32>,
@@ -197,13 +204,11 @@ fn shade_doc_earth_surface(
 
     var exp04_fx = vec3<f32>(0.0);
     if (is_exp04_earth) {
-        let e4_f = doc_feat(inst);
-        let gate4 = select(0.0, 1.0, e4_f != 255u);
-        let f4_atmo = smoothstep(0.20, 1.0, doc_feat_focus(inst, 0u) - 1.0) * gate4;
-        let f4_ocean = smoothstep(0.20, 1.0, doc_feat_focus(inst, 1u) - 1.0) * gate4;
-        let f4_cont = smoothstep(0.20, 1.0, doc_feat_focus(inst, 2u) - 1.0) * gate4;
-        let f4_moon = smoothstep(0.20, 1.0, doc_feat_focus(inst, 3u) - 1.0) * gate4;
-        let f4_mag = smoothstep(0.20, 1.0, doc_feat_focus(inst, 4u) - 1.0) * gate4;
+        let f4_atmo = doc_solar_feat_gate(inst, 0u);
+        let f4_ocean = doc_solar_feat_gate(inst, 1u);
+        let f4_cont = doc_solar_feat_gate(inst, 2u);
+        let f4_moon = doc_solar_feat_gate(inst, 3u);
+        let f4_mag = doc_solar_feat_gate(inst, 4u);
 
         let gyre = sin(spin_p.y * 12.0 + cos(atan2(spin_p.z, spin_p.x) * 3.0) * 1.4);
         let gyre_line = exp(-pow(gyre * 4.5, 2.0)) * (1.0 - coast) * (0.3 + 0.7 * ndotl);
@@ -423,13 +428,6 @@ fn shade_doc_earth_inner_core(
          + vec3<f32>(0.36, 0.88, 1.35) * isobar_360
          + vec3<f32>(1.38, 1.05, 0.42) * dendrite
          + vec3<f32>(0.35, 1.35, 1.55) * center_cross;
-}
-
-fn doc_solar_feat_gate(inst: HeroVolumeInstance, target_feat: u32) -> f32 {
-    if (doc_feat(inst) == 255u) {
-        return 0.0;
-    }
-    return smoothstep(0.20, 1.0, doc_feat_focus(inst, target_feat) - 1.0);
 }
 
 fn shade_doc_europa_ice(
@@ -681,7 +679,7 @@ fn shade_doc_solar_planet_surface(
     }
 
     if (vid == 1410u || (vid == 10u && doc_submode(inst) == 10u)) {
-        // Z10 Kuiper Belt KBO: dark crimson Cthulhu tholin patches & frosty white-cyan N2/CH4 volatiles under distant pinpoint Sun
+        // Z10 Kuiper Belt KBO: dark crimson Cthulhu tholin patches & frosty white-cyan N2/CH4 volatiles + F1..F4 distinct cues
         let f0 = doc_solar_feat_gate(inst, 0u);
         let f1 = doc_solar_feat_gate(inst, 1u);
         let f2 = doc_solar_feat_gate(inst, 2u);
@@ -689,12 +687,22 @@ fn shade_doc_solar_planet_surface(
         let f4 = doc_solar_feat_gate(inst, 4u);
         let th = fbm3(p_surf * 5.2 + vec3<f32>(0.8, -1.4, 2.2), 4);
         let frost = smoothstep(0.06, 0.34, th);
+        let az = atan2(p_surf.z, p_surf.x);
         var kbo = mix(vec3<f32>(0.28, 0.12, 0.10), vec3<f32>(0.84, 0.90, 0.96), frost);
+        // F1 Haumea crystalline ice band; F2 Makemake reddish-amber methane-tholin sheen; F3 2:3 resonance 3-lobe nodes; F4 comet coma rim
+        kbo = mix(kbo, vec3<f32>(0.90, 0.96, 1.05), f1 * 0.48 * smoothstep(0.35, 0.0, abs(p_surf.y)));
+        kbo = mix(kbo, vec3<f32>(0.86, 0.38, 0.20), f2 * 0.52 * (1.0 - frost * 0.45));
         let ice_glint = pow(ndotl, 12.0) * frost * (0.35 + 0.85 * f0);
-        let res_belt = exp(-abs(p_surf.y) * 28.0) * (f1 + f2 + f3 + f4);
+        let haumea_band = exp(-abs(p_surf.y) * 26.0) * f1;
+        let makemake_cap = smoothstep(0.45, 0.85, abs(p_surf.y)) * f2;
+        let res_3lobe = exp(-abs(p_surf.y) * 24.0) * pow(0.5 + 0.5 * cos(az * 3.0), 4.0) * f3;
+        let coma_rim = fresnel * f4 * 0.88;
         return (kbo * (ndotl * 1.18 + 0.015)
              + vec3<f32>(0.75, 0.98, 1.25) * ice_glint
-             + vec3<f32>(0.36, 0.95, 1.48) * res_belt * 0.72) * inst.color_a.a;
+             + vec3<f32>(0.85, 0.94, 1.10) * haumea_band * 0.72
+             + vec3<f32>(1.15, 0.62, 0.34) * makemake_cap * 0.68
+             + vec3<f32>(0.36, 1.15, 1.55) * res_3lobe * 0.88
+             + vec3<f32>(0.42, 0.98, 1.48) * coma_rim) * inst.color_a.a;
     }
 
     if (vid == 9u || vid == 1411u) {
@@ -796,9 +804,24 @@ fn shade_doc_solar_planet_surface(
             let corona_v = exp(-abs(abs(p_surf.x) - abs(p_surf.y) * 0.8) * 18.0);
             m_col = mix(m_col, vec3<f32>(0.88, 0.94, 0.98), corona_v * 0.75);
         } else if (vid == 3650u) {
-            // Kuiper dwarf / comet outgassing
-            let jet = pow(max(0.0, snoise3(p_surf * 12.0 + vec3<f32>(time * 0.5))), 6.0) * select(0.0, 1.0, sub == 4u);
-            m_col += vec3<f32>(0.36, 1.15, 1.65) * jet;
+            // Kuiper dwarf / orbital resonance / comet companion (`sub`: 1=Haumea, 2=Makemake, 3=2:3 resonance, 4=comet)
+            if (sub == 1u) {
+                let spot_r = exp(-length(p_surf.xy - vec2<f32>(0.16, 0.08)) * 18.0) * select(0.0, 1.0, p_surf.z > 0.0);
+                m_col = mix(vec3<f32>(0.86, 0.90, 0.96), vec3<f32>(0.58, 0.22, 0.16), spot_r * 0.72);
+                m_col += vec3<f32>(0.72, 0.88, 1.05) * exp(-abs(p_surf.y) * 24.0) * 0.55;
+            } else if (sub == 2u) {
+                let ch4_cap = smoothstep(0.45, 0.88, abs(p_surf.y) + n_m * 0.10);
+                m_col = mix(vec3<f32>(0.82, 0.36, 0.18), vec3<f32>(0.96, 0.76, 0.52), ch4_cap);
+            } else if (sub == 3u) {
+                let az_res = atan2(p_surf.z, p_surf.x);
+                let l_arc = exp(-abs(sin(az_res * 3.0)) * 9.0) * exp(-abs(p_surf.y) * 6.0);
+                let eq_line = exp(-abs(p_surf.y) * 26.0);
+                m_col = mix(m_col, vec3<f32>(0.24, 0.76, 1.18), 0.55);
+                m_col += vec3<f32>(0.42, 1.25, 1.65) * l_arc * 0.85 + vec3<f32>(1.28, 0.96, 0.42) * eq_line * 0.65;
+            } else if (sub == 4u) {
+                let jet = pow(max(0.0, snoise3(p_surf * 12.0 + vec3<f32>(time * 0.5))), 6.0);
+                m_col = mix(m_col, vec3<f32>(0.22, 0.24, 0.28), 0.55) + vec3<f32>(0.36, 1.15, 1.65) * jet;
+            }
         }
         return (m_col * (ndotl * 1.12 + 0.025) + inst.color_b.rgb * fresnel * 0.35) * inst.color_a.a;
     }
@@ -1089,6 +1112,248 @@ fn raymarch_doc_earth_shell(
     return vec4<f32>(accum_rgb, accum_a);
 }
 
+fn shade_doc_milky_way_stage(
+    vid: u32,
+    p_in: vec3<f32>,
+    r_in: f32,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec4<f32> {
+    let is_comp = vid >= 3660u && vid <= 3671u;
+    var mw_z: u32 = 0u;
+    if (vid >= 1500u && vid <= 1512u) {
+        mw_z = vid - 1500u;
+    } else if (is_comp) {
+        mw_z = vid - 3660u;
+    } else if (vid == 20u) {
+        mw_z = 1u;
+    } else if (vid == 21u) {
+        mw_z = 8u;
+    } else {
+        mw_z = 6u;
+    }
+
+    let p = select(p_in, doc_rot_y(p_in, 0.42 + f32(doc_submode(inst)) * 0.14), is_comp);
+    let r = r_in;
+    let f0 = doc_solar_feat_gate(inst, 0u);
+    let f1 = doc_solar_feat_gate(inst, 1u);
+    let f2 = doc_solar_feat_gate(inst, 2u);
+    let f3 = doc_solar_feat_gate(inst, 3u);
+    let f4 = doc_solar_feat_gate(inst, 4u);
+
+    var neb_col = mix(inst.color_a.rgb, inst.color_b.rgb, 0.5);
+    var dens: f32 = 0.0;
+
+    if (mw_z == 0u) {
+        // Z00 Frontier (~40 AU): Pluto-Charon node (F0), Kuiper torus (F1), pinpoint Sun flare (F2), 17-deg orbit (F3), outer fade (F4)
+        let r_xz = length(p.xz);
+        let p_inc = doc_rot_x(p, 0.30);
+        let sun_pin = exp(-r * 22.0) + pow(max(0.0, exp(-min(abs(p.x), abs(p.y)) * 42.0) * exp(-r * 6.0)), 1.5) * (0.25 + 1.15 * f2);
+        let pluto = exp(-length(p - vec3<f32>(0.34, 0.11, 0.0)) * 18.0) * (0.35 + 1.25 * f0);
+        let k_ice = pow(max(0.0, snoise3(p * 13.0)), 4.0) * smoothstep(0.28, 0.46, r_xz) * (1.0 - smoothstep(0.68, 0.86, r_xz)) * exp(-abs(p.y) * 16.0);
+        let kuiper_band = (exp(-abs(p.y) * 18.0) * smoothstep(0.32, 0.48, r_xz) * (1.0 - smoothstep(0.64, 0.82, r_xz)) * 0.35 + k_ice * 1.45) * (0.45 + 1.15 * f1);
+        let orb_arc = exp(-abs(length(p_inc.xz) - 0.56) * 34.0) * exp(-abs(p_inc.y) * 26.0) * (0.25 + 1.25 * f3);
+        let outer_void = exp(-abs(r - 0.82) * 14.0) * (0.12 + 0.85 * f4);
+        dens = (sun_pin + pluto + kuiper_band + orb_arc + outer_void) * (1.0 - smoothstep(0.76, 0.93, r));
+        neb_col = mix(vec3<f32>(0.42, 0.78, 1.38), vec3<f32>(1.65, 1.22, 0.56), clamp(sun_pin + pluto * 0.65, 0.0, 1.0))
+            + vec3<f32>(0.24, 0.48, 1.12) * outer_void * f4;
+    } else if (mw_z == 1u) {
+        // Z01 Heliosphere: solar wind (F0), termination shock (F1), turbulent heliosheath (F2), bow heliopause (F3), Voyager arcs (F4)
+        let sun_pos = vec3<f32>(0.20, 0.0, 0.0);
+        let ps = p - sun_pos;
+        let rs = length(ps);
+        let az_yz = atan2(ps.z, ps.y);
+        let wind_rays = pow(max(0.0, sin(az_yz * 8.0 + time * 1.4)), 6.0) * exp(-abs(ps.y) * 4.0 + 0.4) * smoothstep(0.04, 0.14, rs) * (1.0 - smoothstep(0.24, 0.36, rs));
+        let term_shock = exp(-abs(rs - 0.25) * 36.0) * (0.35 + 1.25 * f1);
+        let bow_r = sqrt(max(0.0, (0.48 - p.x) * 0.55));
+        let bow = exp(-abs(length(vec2<f32>(p.y, p.z)) - bow_r) * 26.0) * smoothstep(0.50, -0.75, p.x);
+        let sheath_turb = pow(0.5 + 0.5 * fbm3(p * 7.5 + curl_noise3(p * 3.0) * 0.4, 3), 2.2)
+            * smoothstep(0.23, 0.30, rs) * smoothstep(0.02, 0.12, bow_r - length(vec2<f32>(p.y, p.z)));
+        let v1_arc = exp(-abs(p.y - (0.14 + max(0.32 - p.x, 0.0) * 0.42)) * 42.0) * exp(-abs(p.z) * 24.0) * smoothstep(0.30, -0.58, p.x);
+        let v2_arc = exp(-abs(p.y + (0.12 + max(0.30 - p.x, 0.0) * 0.48)) * 42.0) * exp(-abs(p.z - 0.06) * 24.0) * smoothstep(0.28, -0.56, p.x);
+        let voyager = (v1_arc + v2_arc) * (0.15 + 1.45 * f4);
+        let sun_spark = exp(-rs * 18.0) * (1.0 + 0.65 * f0);
+        dens = bow * (0.75 + 0.95 * f3) + term_shock + sun_spark + wind_rays * (0.25 + 1.15 * f0) + sheath_turb * (0.20 + 0.95 * f2) + voyager;
+        neb_col = mix(vec3<f32>(0.22, 0.92, 1.58), vec3<f32>(1.68, 1.12, 0.38), clamp(sun_spark * 0.9 + voyager * 1.15 + sheath_turb * f2 * 0.4, 0.0, 1.0));
+    } else if (mw_z == 2u) {
+        // Z02 Oort Cloud: comet (F0), ancient ice glints (F1), far orbit ellipse (F2), isotropic spherical shell (F3), passing star (F4)
+        let sun_core = exp(-r * 22.0);
+        let ice_glint = pow(max(0.0, snoise3(p * 17.5)), 6.5) * smoothstep(0.36, 0.56, r) * (1.0 - smoothstep(0.76, 0.92, r));
+        let sph_shell = exp(-abs(r - 0.68) * 18.0) * (0.28 + 0.95 * f3);
+        let orb_rot = doc_rot_z(p - vec3<f32>(0.14, 0.0, 0.0), 0.42);
+        let far_orb = exp(-abs(length(vec2<f32>(orb_rot.x * 0.72, orb_rot.y * 1.45)) - 0.48) * 38.0) * exp(-abs(orb_rot.z) * 24.0) * (0.25 + 1.35 * f2);
+        let com_head = exp(-length(p - vec3<f32>(-0.24, 0.14, 0.0)) * 20.0);
+        let tail_t = clamp((-p.x - 0.24) * 2.2, 0.0, 1.0);
+        let com_tail = exp(-length(p.yz - vec2<f32>(0.14 + tail_t * 0.18, 0.0)) * 24.0) * smoothstep(-0.20, -0.78, p.x);
+        let comet = (com_head + com_tail * 0.85) * (0.25 + 1.35 * f0);
+        let pass_star = exp(-length(p - vec3<f32>(0.54, 0.36, 0.10)) * 16.0) * (0.15 + 1.45 * f4);
+        let warp_wake = exp(-abs(r - 0.74) * 24.0) * smoothstep(0.2, 0.7, p.x) * f4;
+        dens = (sun_core * 0.9 + ice_glint * (1.25 + 1.45 * f1) + sph_shell + far_orb + comet + pass_star + warp_wake) * (1.0 - smoothstep(0.84, 0.94, r));
+        neb_col = mix(vec3<f32>(0.36, 0.82, 1.38), vec3<f32>(1.55, 0.86, 0.38), clamp(pass_star * 1.2 + sun_core * 0.8 + far_orb * f2 * 0.5, 0.0, 1.0));
+    } else if (mw_z == 3u) {
+        // Z03 Interstellar Space: HI/HII gas (F0), dark cosmic dust extinction (F1), cosmic rays (F2), B-field (F3), LIC cloud (F4)
+        let gas_n = fbm3(p * 3.8 + vec3<f32>(0.4, -0.2, 0.6), 4);
+        let ism_gas = pow(max(0.0, 0.5 + 0.5 * gas_n), 2.2) * (0.35 + 1.15 * f0);
+        let dust_trough = exp(-abs(gas_n + 0.12) * 14.0);
+        let dark_cut = 1.0 - dust_trough * (0.45 + 0.48 * f1);
+        let ir_rim = dust_trough * (0.20 + 1.25 * f1) * 0.65;
+        let ray_line = exp(-abs(p.y - 0.55 * p.x) * 42.0) * exp(-abs(p.z) * 22.0)
+            + exp(-abs(p.y + 0.38 * p.x - 0.16) * 44.0) * exp(-abs(p.z + 0.08) * 22.0);
+        let cosmic_ray = ray_line * (0.20 + 1.35 * f2);
+        let b_curl = sin(p.x * 9.0 + curl_noise3(p * 2.5).y * 4.5);
+        let b_field = exp(-abs(b_curl) * 8.0) * exp(-abs(p.z) * 5.0) * (0.18 + 1.25 * f3);
+        let lic_puff = exp(-length(p - vec3<f32>(-0.10, 0.05, 0.0)) * 6.8) * (0.25 + 1.15 * f4);
+        dens = (ism_gas * dark_cut + ir_rim + cosmic_ray + b_field + lic_puff) * (1.0 - smoothstep(0.66, 0.92, r));
+        neb_col = mix(vec3<f32>(0.24, 0.78, 1.38), vec3<f32>(1.42, 0.52, 0.88), clamp(ism_gas * 0.6 + cosmic_ray * 0.5, 0.0, 1.0))
+            + vec3<f32>(1.25, 0.64, 0.22) * ir_rim + vec3<f32>(0.28, 1.15, 1.35) * lic_puff * 0.55;
+    } else if (mw_z == 4u) {
+        // Z04 Alpha Centauri: Proxima flaring M-dwarf (F0), Alpha Cen A (F1), Alpha Cen B + orbit (F2), Proxima b (F3), 4.24 ly rings (F4)
+        let d_a = length(p - vec3<f32>(-0.20, 0.06, 0.0));
+        let d_b = length(p - vec3<f32>(0.16, -0.04, 0.0));
+        let p_prox = p - vec3<f32>(0.46, -0.26, 0.08);
+        let d_p = length(p_prox);
+        let star_a = exp(-d_a * 15.0) * (0.75 + 0.95 * f1);
+        let star_b = exp(-d_b * 17.5) * (0.70 + 0.95 * f2);
+        let bin_ring = exp(-abs(length(vec2<f32>(p.x * 1.1, p.y * 1.8)) - 0.22) * 34.0) * exp(-abs(p.z) * 20.0) * (0.25 + 0.95 * f2);
+        let prox = exp(-d_p * 20.0) * (0.65 + 1.15 * f0);
+        let flare = exp(-abs(d_p - 0.10) * 32.0) * max(0.0, snoise3(p * 14.0 + vec3<f32>(time * 0.6))) * f0;
+        let exo_orb = exp(-abs(length(p_prox.xz) - 0.14) * 42.0) * exp(-abs(p_prox.y) * 28.0) * (0.15 + 1.35 * f3);
+        let exo_dot = exp(-length(p_prox - vec3<f32>(0.14, 0.0, 0.0)) * 34.0) * (0.20 + 1.45 * f3);
+        let ly_wave = (exp(-abs(length(p - vec3<f32>(-0.46, 0.34, 0.0)) - 0.36) * 34.0)
+            + exp(-abs(length(p - vec3<f32>(-0.46, 0.34, 0.0)) - 0.62) * 30.0)) * (0.12 + 1.35 * f4);
+        dens = (star_a + star_b + bin_ring + prox + flare + exo_orb + exo_dot + ly_wave) * (1.0 - smoothstep(0.80, 0.94, r));
+        let col_ab = mix(vec3<f32>(1.55, 0.96, 0.42), vec3<f32>(1.72, 1.62, 1.32), clamp(star_a / max(star_a + star_b, 1e-4), 0.0, 1.0));
+        let col_prox = vec3<f32>(1.48, 0.32, 0.16);
+        neb_col = mix(col_ab, col_prox, clamp((prox + flare) * 1.2, 0.0, 1.0))
+            + vec3<f32>(0.24, 1.18, 1.58) * (exo_orb + exo_dot + ly_wave * 0.8);
+    } else if (mw_z == 5u) {
+        // Z05 Stellar Neighborhood: Sirius A (F0), Barnard's proper-motion streak (F1), Sirius B WD (F2), brown dwarf (F3), binary tethers (F4)
+        let ps_a = p - vec3<f32>(-0.26, 0.18, 0.0);
+        let sirius_a = exp(-length(ps_a) * 14.0) + exp(-min(abs(ps_a.x), abs(ps_a.y)) * 42.0) * exp(-length(ps_a) * 5.0) * 0.8;
+        let barn_p = p - vec3<f32>(0.32, -0.14, 0.04);
+        let barn = exp(-length(barn_p) * 20.0);
+        let motion_wake = exp(-abs(barn_p.y + 0.0) * 34.0) * exp(-abs(barn_p.z) * 26.0) * smoothstep(-0.28, 0.0, barn_p.x) * step(barn_p.x, 0.04);
+        let wd = exp(-length(p - vec3<f32>(-0.10, 0.10, 0.02)) * 28.0);
+        let brown_d = exp(-length(p - vec3<f32>(-0.08, -0.28, 0.06)) * 16.0);
+        let tether_ab = exp(-abs(p.y + 0.45 * p.x - 0.06) * 44.0) * exp(-abs(p.z) * 26.0) * smoothstep(-0.30, -0.05, p.x) * step(p.x, 0.24);
+        dens = (sirius_a * (0.70 + 1.05 * f0) + (barn + motion_wake * 1.2) * (0.60 + 1.25 * f1)
+            + wd * (0.55 + 1.45 * f2) + brown_d * (0.45 + 1.35 * f3) + tether_ab * (0.15 + 1.25 * f4)) * (1.0 - smoothstep(0.78, 0.93, r));
+        neb_col = vec3<f32>(0.95, 1.32, 1.85) * (sirius_a + wd * 1.4)
+            + vec3<f32>(1.45, 0.42, 0.20) * (barn + motion_wake * 0.7)
+            + vec3<f32>(0.98, 0.24, 0.78) * brown_d
+            + vec3<f32>(1.38, 1.06, 0.42) * tether_ab;
+    } else if (mw_z == 6u) {
+        // Z06 Local Bubble: ancient SN rings (F0), hot plasma cavity (F1), dense cold rim wall (F2), 3D hourglass map (F3), Sun path (F4)
+        let cav_w = snoise3(p * 3.8) * 0.14;
+        let shell = exp(-abs(r - 0.68 - cav_w) * 32.0);
+        let rim = exp(-abs(sin(atan2(p.z, p.x) * 6.0)) * 8.0);
+        let sn_ring = (exp(-abs(r - 0.34) * 36.0) + exp(-abs(r - 0.50) * 34.0)) * (0.18 + 1.35 * f0);
+        let plasma = smoothstep(0.62, 0.10, r) * 0.26 * (0.35 + 1.25 * f1);
+        let wall = shell * (0.28 + 0.65 * rim) * (0.65 + 1.15 * f2);
+        let hourglass = exp(-abs(length(p.xz) - (0.28 + abs(p.y) * 0.58)) * 34.0) * exp(-abs(sin(atan2(p.z, p.x) * 4.0)) * 6.0) * (0.15 + 1.25 * f3);
+        let sun_track = exp(-abs(p.y - 0.18 * sin(p.x * 5.0)) * 42.0) * exp(-abs(p.z) * 24.0) * smoothstep(0.45, 0.0, abs(p.x)) * (0.20 + 1.35 * f4)
+            + exp(-length(p - vec3<f32>(0.08, 0.06, 0.0)) * 22.0) * (0.45 + 1.05 * f4);
+        dens = (wall + sn_ring + plasma + hourglass + sun_track) * (1.0 - smoothstep(0.84, 0.94, r));
+        neb_col = mix(vec3<f32>(0.18, 1.15, 1.45), vec3<f32>(0.85, 0.55, 1.65), clamp(rim * 0.6 + plasma * 1.4, 0.0, 1.0))
+            + vec3<f32>(1.55, 1.02, 0.36) * (sn_ring * 0.5 + sun_track * 0.9);
+    } else if (mw_z == 7u) {
+        // Z07 Orion Spur: spiral arm bridge (F0), golden Sun beacon (F1), molecular clouds (F2), open star clusters (F3), 230 Myr rotation (F4)
+        let r_xz = length(p.xz);
+        let az = atan2(p.z, p.x);
+        let sag_arm = exp(-abs(r_xz - 0.42 - 0.12 * sin(az * 2.0)) * 24.0);
+        let spur_arc = exp(-abs(p.y) * 14.0) * exp(-abs(r_xz - 0.60 - 0.08 * az) * 28.0) * (0.55 + 1.15 * f0);
+        let per_arm = exp(-abs(r_xz - 0.80 - 0.10 * sin(az * 2.0 + 1.0)) * 22.0);
+        let sun_spot = exp(-length(p - vec3<f32>(0.06, 0.02, 0.02)) * 20.0) * (0.55 + 1.35 * f1);
+        let gmc = pow(max(0.0, fbm3(p * 7.0, 3)), 1.6) * spur_arc * 2.2 * (0.40 + 1.25 * f2);
+        let open_cl = pow(max(0.0, snoise3(p * 16.0)), 6.0) * exp(-abs(p.y) * 10.0) * smoothstep(0.25, 0.78, r_xz) * (0.55 + 1.45 * f3);
+        let rot_arcs = exp(-abs(r_xz - 0.60) * 32.0) * pow(0.5 + 0.5 * cos(az * 4.0 - time * 1.2), 4.0) * exp(-abs(p.y) * 18.0) * (0.15 + 1.35 * f4);
+        dens = (sag_arm * 0.35 + spur_arc * 0.75 + per_arm * 0.35 + sun_spot + gmc + open_cl + rot_arcs) * exp(-abs(p.y) * 4.5) * (1.0 - smoothstep(0.76, 0.93, r));
+        neb_col = mix(vec3<f32>(0.28, 0.78, 1.55), vec3<f32>(1.65, 1.18, 0.42), clamp(sun_spot + gmc * 0.45, 0.0, 1.0))
+            + vec3<f32>(0.36, 1.05, 1.75) * open_cl * 0.85;
+    } else if (mw_z == 8u) {
+        // Z08 Stellar Nursery: Orion M42 pillars (F0), protostar HH jets (F1), protoplanetary disk (F2), Pleiades sapphire (F3), dark nebula (F4)
+        let p_tilt = doc_rot_z(p, 0.25);
+        let c1 = exp(-length(p_tilt.xz - vec2<f32>(-0.22, 0.0)) * 16.0) * smoothstep(0.55, -0.45, p_tilt.y);
+        let c2 = exp(-length(p_tilt.xz - vec2<f32>(0.06, 0.12)) * 19.0) * smoothstep(0.42, -0.45, p_tilt.y);
+        let c3 = exp(-length(p_tilt.xz - vec2<f32>(0.28, -0.08)) * 22.0) * smoothstep(0.28, -0.45, p_tilt.y);
+        let edge_fbm = 0.4 + 0.6 * abs(fbm3(p * 6.5, 3));
+        let stars = pow(max(0.0, snoise3(p * 16.0)), 8.0) * 1.6;
+        let proto_p = p - vec3<f32>(-0.18, 0.30, 0.0);
+        let hh_jets = (exp(-length(proto_p.xz) * 34.0) * exp(-abs(proto_p.y) * 3.8) + exp(-length(proto_p) * 20.0)) * (0.20 + 1.45 * f1);
+        let d_pp = doc_rot_x(p - vec3<f32>(0.24, 0.22, 0.0), 0.55);
+        let pp_r = length(d_pp.xz);
+        let pp_disk = exp(-abs(d_pp.y) * 38.0) * exp(-abs(pp_r - 0.22) * 18.0) * smoothstep(0.02, 0.06, abs(pp_r - 0.18)) * (0.15 + 1.45 * f2);
+        let pleiades = pow(max(0.0, snoise3(p * 15.0 + vec3<f32>(2.1))), 6.0) * exp(-length(p - vec3<f32>(0.0, -0.12, 0.0)) * 2.5) * (0.20 + 1.45 * f3);
+        let dark_mask = 1.0 - smoothstep(0.18, 0.65, c2) * (0.20 + 0.72 * f4);
+        dens = (((c1 + c2 + c3) * edge_fbm * (0.85 + 0.55 * f0) * dark_mask + stars) + hh_jets + pp_disk + pleiades) * (1.0 - smoothstep(0.70, 0.94, r));
+        neb_col = mix(vec3<f32>(1.45, 0.42, 0.85), vec3<f32>(0.28, 1.25, 1.65), clamp(p_tilt.y + 0.5, 0.0, 1.0))
+            + vec3<f32>(1.65, 0.82, 0.28) * (hh_jets * 0.7 + pp_disk * 0.8) + vec3<f32>(0.36, 0.95, 1.78) * pleiades * 0.8;
+    } else if (mw_z == 9u) {
+        // Z09 Milky Way Disk: edge-on skyband (F0), central golden bar (F1), dark dust lanes (F2), NFW violet dark matter (F3), O-M stars (F4)
+        let gal_r = length(p.xz);
+        let gal_ang = atan2(p.z, p.x);
+        let bar = exp(-pow(abs(sin(gal_ang - 0.36)) * gal_r * 6.2, 2.0)) * smoothstep(0.56, 0.12, gal_r) * (0.85 + 1.15 * f1);
+        let sp = pow(max(0.0, cos(2.0 * gal_ang - 5.2 * log(gal_r + 0.14))), 3.0)
+            + 0.45 * pow(max(0.0, cos(4.0 * gal_ang - 6.8 * log(gal_r + 0.14) + 1.1)), 4.0);
+        let dust_n = fbm3(vec3<f32>(p.x * 8.0, p.z * 8.0, p.y * 14.0), 3);
+        let dust_cut = mix(smoothstep(-0.22, 0.32, dust_n), smoothstep(0.04, 0.42, dust_n), f2);
+        let edge_band = exp(-abs(p.y * 0.92 - p.z * 0.38) * 32.0) * smoothstep(0.88, 0.15, r) * 0.55 * (0.12 + 1.35 * f0);
+        let dm_halo = (exp(-abs(r - 0.78) * 22.0) + exp(-abs(r - 0.58) * 18.0) * 0.45) * (0.10 + 1.15 * f3);
+        let pop_stars = pow(max(0.0, snoise3(p * 19.0)), 7.0) * exp(-abs(p.y) * 16.0) * smoothstep(0.86, 0.10, gal_r) * (0.35 + 1.45 * f4);
+        let disk_d = (sp * smoothstep(0.14, 0.36, gal_r) * (1.0 - smoothstep(0.72, 0.90, gal_r)) * 0.72 + bar * 0.65) * dust_cut * exp(-abs(p.y) * 20.0);
+        dens = (disk_d + edge_band + dm_halo + pop_stars) * (1.0 - smoothstep(0.82, 0.94, r));
+        neb_col = mix(vec3<f32>(0.32, 0.66, 1.55), vec3<f32>(1.65, 1.12, 0.44), clamp(bar * 1.4 + (0.45 - gal_r) * 0.9, 0.0, 1.0))
+            + vec3<f32>(0.55, 0.28, 1.38) * dm_halo;
+    } else if (mw_z == 10u) {
+        // Z10 Galactic Center (Sgr A*): EHT photon ring (F0), nuclear cluster (F1), S2 orbits (F2), mini-spiral hot dust (F3), radio arc (F4)
+        let photon_ring = exp(-abs(r - 0.16) * 44.0) * smoothstep(0.07, 0.13, r) * (0.85 + 1.15 * f0);
+        let bh_hole = smoothstep(0.08, 0.14, r);
+        let nuc_cluster = pow(max(0.0, snoise3(p * 20.0)), 5.0) * exp(-r * 3.8) * bh_hole * (0.45 + 1.45 * f1);
+        let s2_a = doc_rot_z(p, 0.62);
+        let s2_orb = (exp(-abs(length(vec2<f32>(s2_a.x * 0.85 + 0.08, s2_a.y * 1.55)) - 0.32) * 38.0) * exp(-abs(s2_a.z) * 24.0)
+            + exp(-abs(length(vec2<f32>(p.x * 1.35 - 0.06, p.z * 0.88)) - 0.42) * 36.0) * exp(-abs(p.y) * 24.0)) * (0.18 + 1.35 * f2);
+        let az = atan2(p.z, p.x);
+        let mini_sp = pow(max(0.0, cos(az * 2.0 - r * 14.0)), 3.0) * smoothstep(0.16, 0.30, r) * (1.0 - smoothstep(0.60, 0.84, r)) * exp(-abs(p.y) * 16.0) * (0.45 + 1.15 * f3);
+        let radio_fil = exp(-abs(p.x - 0.26 - 0.05 * sin(p.y * 12.0)) * 38.0) * exp(-abs(p.z) * 22.0) * (1.0 - smoothstep(0.55, 0.84, abs(p.y))) * (0.15 + 1.45 * f4);
+        dens = (photon_ring + nuc_cluster + s2_orb + mini_sp + radio_fil) * bh_hole * (1.0 - smoothstep(0.76, 0.93, r));
+        neb_col = mix(vec3<f32>(1.65, 0.92, 0.32), vec3<f32>(0.38, 1.18, 1.68), clamp((s2_orb + radio_fil) * 0.85, 0.0, 1.0));
+    } else if (mw_z == 11u) {
+        // Z11 Galactic Halo: globular clusters (F0), Pop II ancient stars (F1), tidal stellar streams (F2), NFW DM halo (F3), satellite galaxies (F4)
+        let disk_ref = exp(-abs(p.y) * 26.0) * smoothstep(0.42, 0.14, length(p.xz)) * 0.45;
+        let gc1 = exp(-length(p - vec3<f32>(0.36, 0.38, 0.12)) * 22.0);
+        let gc2 = exp(-length(p - vec3<f32>(-0.42, -0.32, 0.18)) * 22.0);
+        let gc3 = exp(-length(p - vec3<f32>(0.12, -0.48, -0.22)) * 22.0);
+        let globs = (gc1 + gc2 + gc3) * (0.55 + 1.25 * f0);
+        let pop2 = pow(max(0.0, snoise3(p * 18.0 + vec3<f32>(4.2))), 7.0) * smoothstep(0.24, 0.42, r) * (0.45 + 1.45 * f1);
+        let st_rot = doc_rot_x(p, 0.78);
+        let stream = exp(-abs(length(st_rot.xz) - 0.64) * 34.0) * exp(-abs(st_rot.y) * 24.0) * (0.25 + 1.35 * f2);
+        let dm_shell = exp(-abs(r - 0.82) * 18.0) * (0.18 + 1.15 * f3);
+        let lmc = exp(-length((p - vec3<f32>(-0.56, 0.36, 0.16)) * vec3<f32>(1.0, 1.6, 1.2)) * 12.0);
+        let smc = exp(-length((p - vec3<f32>(0.54, -0.26, -0.18)) * vec3<f32>(1.4, 1.0, 1.2)) * 14.0);
+        let sats = (lmc + smc) * (0.25 + 1.35 * f4);
+        dens = (disk_ref + globs + pop2 + stream + dm_shell + sats) * (1.0 - smoothstep(0.84, 0.94, r));
+        neb_col = mix(vec3<f32>(1.55, 1.08, 0.44), vec3<f32>(0.52, 0.36, 1.48), clamp(dm_shell * 0.9 + sats * 0.6, 0.0, 1.0))
+            + vec3<f32>(0.36, 0.92, 1.48) * stream * 0.75;
+    } else {
+        // Z12 Galactic Edge (1512): diffuse halo fade (F0), WHIM void wisps (F1), Local Group dwarfs (F2), tilted M31 (F3), Exp 06 bridge (F4)
+        let mw_local = p - vec3<f32>(-0.24, -0.06, 0.04);
+        let mw_r = length(mw_local.xz);
+        let diff_fade = exp(-mw_r * 3.8) * exp(-abs(mw_local.y) * 18.0) * (0.65 + 0.95 * f0);
+        let whim = pow(max(0.0, fbm3(p * 4.5, 3)), 2.8) * smoothstep(0.28, 0.56, r) * (0.18 + 0.95 * f1);
+        let lg_dwarfs = (exp(-length(p - vec3<f32>(0.08, 0.38, 0.08)) * 22.0)
+            + exp(-length(p - vec3<f32>(0.24, -0.34, 0.14)) * 22.0)
+            + exp(-length(p - vec3<f32>(-0.46, 0.30, -0.08)) * 22.0)) * (0.25 + 1.35 * f2);
+        let m31_p = doc_rot_z(p - vec3<f32>(0.46, 0.22, -0.06), 0.58);
+        let m31_r = length(m31_p.xz);
+        let m31 = (exp(-length(m31_p) * 16.0) + exp(-abs(m31_p.y) * 32.0) * exp(-m31_r * 8.0) * 0.75) * (0.35 + 1.45 * f3);
+        let bridge = exp(-abs(p.y - 0.45 * p.x) * 32.0) * exp(-abs(p.z) * 20.0) * smoothstep(0.10, 0.72, r) * (0.12 + 1.25 * f4);
+        dens = (diff_fade + whim + lg_dwarfs + m31 + bridge) * (1.0 - smoothstep(0.80, 0.94, r));
+        neb_col = mix(vec3<f32>(0.34, 0.78, 1.45), vec3<f32>(1.55, 1.08, 0.48), clamp(diff_fade * 0.8 + m31 * 1.15, 0.0, 1.0));
+    }
+
+    return vec4<f32>(neb_col, dens);
+}
+
 fn raymarch_doc_cosmos_macro(
     kind: u32,
     vid: u32,
@@ -1202,22 +1467,25 @@ fn raymarch_doc_cosmos_macro(
                             + vec3<f32>(0.42, 0.36, 0.28) * ceres_track;
                         return vec4<f32>(belt_col * alpha * inst.color_a.a, clamp(alpha * 0.72, 0.0, 0.82));
                     } else if (is_kuiper) {
-                        // Kuiper Belt (1410): Cold 3:2 Plutino Resonance & Scattered Icy Planetesimals
-                        let r32 = 0.45 + 0.85 * exp(-abs(r - 0.59) * 28.0) * doc_feat_focus(inst, 1u);
+                        // Kuiper Belt (1410): Cold 3:2 Plutino Resonance (F3) & Scattered Icy Planetesimals (F0)
+                        let r32 = 0.45 + 0.95 * exp(-abs(r - 0.59) * 28.0) * doc_feat_focus(inst, 3u)
+                            * select(1.0, 0.55 + 0.95 * pow(0.5 + 0.5 * cos(az * 3.0), 3.0), doc_feat(inst) == 3u);
                         let edge21 = 1.0 - 0.55 * exp(-abs(r - 0.84) * 32.0);
                         let frost_specks = 0.42 + 0.58 * pow(max(0.0, ring_n + 0.25), 1.4);
+                        let kbo_gate = max(doc_feat_focus(inst, 0u), doc_feat_focus(inst, 3u) * 0.92);
                         let alpha = smoothstep(r_min, r_min + 0.04, r) * (1.0 - smoothstep(0.91, 0.97, r))
-                            * r32 * edge21 * frost_specks * doc_feat_focus(inst, 0u);
-                        let kbo_col = mix(vec3<f32>(0.46, 0.70, 1.08), vec3<f32>(0.84, 0.96, 1.24), frost_specks);
+                            * r32 * edge21 * frost_specks * kbo_gate;
+                        let kbo_col = mix(vec3<f32>(0.46, 0.70, 1.08), vec3<f32>(0.84, 0.96, 1.24), frost_specks)
+                            + vec3<f32>(0.24, 0.68, 0.98) * select(0.0, exp(-abs(r - 0.59) * 32.0), doc_feat(inst) == 3u);
                         return vec4<f32>(kbo_col * alpha * inst.color_a.a, clamp(alpha * 0.68, 0.0, 0.78));
                     } else if (is_uranus) {
-                        // Uranus (1408): Dark Charcoal Epsilon & Inner Shepherd Ringlets
+                        // Uranus (1408): Dark Charcoal Epsilon & Inner Shepherd Ringlets (catalog feature F2)
                         let r_inner = exp(-abs(r - 0.62) * 110.0) + exp(-abs(r - 0.71) * 120.0);
                         let r_eps = exp(-abs(r - 0.85) * 85.0) * (1.15 + 0.35 * sin(az * 2.0 + time * 0.3));
                         let ring_band = min(r_inner * 0.65 + r_eps * 1.15, 1.35);
-                        let f_ring = select(1.0, 1.35, doc_feat(inst) == 4u || doc_feat(inst) == 255u);
+                        let f_ring = select(1.0, 1.35, doc_feat(inst) == 2u || doc_feat(inst) == 255u);
                         let alpha = smoothstep(r_min, r_min + 0.02, r) * (1.0 - smoothstep(0.92, 0.97, r))
-                            * ring_band * 0.38 * f_ring * doc_feat_focus(inst, 4u);
+                            * ring_band * 0.38 * f_ring * doc_feat_focus(inst, 2u);
                         let ring_col = mix(vec3<f32>(0.34, 0.40, 0.48), vec3<f32>(0.58, 0.66, 0.76), clamp(r_eps, 0.0, 1.0)) * shadow_term;
                         return vec4<f32>(ring_col * alpha * inst.color_a.a, clamp(alpha * 0.78, 0.0, 0.85));
                     } else {
@@ -1250,7 +1518,8 @@ fn raymarch_doc_cosmos_macro(
         var min_r: f32 = length(pos);
         var captured: bool = false;
         let is_degenerate = (vid == 12u);
-        let is_mw = (vid == 5u);
+        let is_mw = (vid == 5u) || (vid >= 1500u && vid <= 1512u);
+        let mw_stage_z = select(99u, vid - 1500u, vid >= 1500u && vid <= 1512u);
 
         for (var i: i32 = 0; i < 50; i = i + 1) {
             if (i >= steps || accum_a > 0.96) {
@@ -1290,16 +1559,23 @@ fn raymarch_doc_cosmos_macro(
                 accum_a += (1.0 - accum_a) * clamp(disk_alpha * 0.85, 0.0, 0.90);
             }
 
-            if (is_mw && r > 0.34 && r < 0.94 && abs(pos.y) < 0.16) {
+            if (is_mw && r > 0.34 && r < 0.94 && (abs(pos.y) < 0.16 || mw_stage_z == 11u || mw_stage_z == 12u)) {
                 let gal_r = length(pos.xz);
-                if (gal_r > 0.28) {
+                let inner_lim = select(0.28, 0.18, mw_stage_z == 10u);
+                if (gal_r > inner_lim || mw_stage_z == 11u) {
                     let gal_ang = atan2(pos.z, pos.x);
-                    let bar = exp(-pow(abs(sin(gal_ang - 0.36)) * gal_r * 6.2, 2.0)) * smoothstep(0.58, 0.28, gal_r);
+                    let f_bar = select(1.0, doc_feat_focus(inst, 1u), mw_stage_z == 9u);
+                    let f_dust = select(1.0, 1.0 + 0.45 * doc_solar_feat_gate(inst, 2u), mw_stage_z == 9u);
+                    let f_halo = select(0.0, doc_feat_focus(inst, 3u), mw_stage_z == 11u || mw_stage_z == 9u);
+                    let bar = exp(-pow(abs(sin(gal_ang - 0.36)) * gal_r * 6.2, 2.0)) * smoothstep(0.58, 0.24, gal_r) * f_bar;
                     let sp_a = pow(max(0.0, cos(2.0 * gal_ang - 5.2 * log(gal_r + 0.14))), 3.4);
                     let sp_b = pow(max(0.0, cos(4.0 * gal_ang - 6.8 * log(gal_r + 0.14) + 1.1)), 4.0) * 0.45;
-                    let dust = smoothstep(-0.18, 0.34, fbm3(vec3<f32>(pos.x * 7.5, pos.z * 7.5, pos.y * 14.0), 3));
-                    let mw_d = ((sp_a + sp_b) * smoothstep(0.32, 0.46, gal_r) * (1.0 - smoothstep(0.76, 0.94, gal_r)) * 0.65 + bar * 0.42) * dust * exp(-abs(pos.y) * 28.0) * step_len * 2.2;
-                    let mw_c = mix(vec3<f32>(0.32, 0.66, 1.55), vec3<f32>(1.55, 1.02, 0.44), clamp(bar * 1.6 + (0.55 - gal_r) * 0.8, 0.0, 1.0));
+                    let dust = smoothstep(-0.18, 0.34 * f_dust, fbm3(vec3<f32>(pos.x * 7.5, pos.z * 7.5, pos.y * 14.0), 3));
+                    let edge_fade = select(1.0, exp(-gal_r * 1.4), mw_stage_z == 12u);
+                    let halo_env = select(0.0, exp(-abs(r - 0.82) * 20.0) * 0.28 * f_halo, mw_stage_z == 11u || mw_stage_z == 9u);
+                    let mw_d = (((sp_a + sp_b) * smoothstep(0.28, 0.46, gal_r) * (1.0 - smoothstep(0.76, 0.94, gal_r)) * 0.65 + bar * 0.42) * dust * exp(-abs(pos.y) * 28.0) * edge_fade + halo_env) * step_len * 2.2;
+                    let mw_c = mix(vec3<f32>(0.32, 0.66, 1.55), vec3<f32>(1.55, 1.02, 0.44), clamp(bar * 1.6 + (0.55 - gal_r) * 0.8, 0.0, 1.0))
+                        + vec3<f32>(0.48, 0.30, 1.38) * halo_env * 1.6;
                     accum_rgb += (1.0 - accum_a) * mw_c * mw_d;
                     accum_a += (1.0 - accum_a) * min(mw_d * 0.55, 0.22);
                 }
@@ -1435,32 +1711,10 @@ fn raymarch_doc_cosmos_macro(
                 let deep_knots = pow(smoothstep(0.68, 0.96, snoise3(p * 14.0)), 3.2) * (1.0 - smoothstep(0.58, 0.78, r));
                 dens = shell * (0.04 + 0.82 * clamp(meridians, 0.0, 1.4)) + deep_knots + quasar;
                 neb_col = mix(vec3<f32>(0.28, 0.80, 1.45), vec3<f32>(1.65, 0.75, 0.35), clamp(quasar + deep_knots * 1.4, 0.0, 1.0));
-            } else if (vid == 20u || vid == 21u || vid == 22u || (vid >= 3660u && vid <= 3671u)) {
-                let mw_slot = select(vid - 20u, doc_submode(inst) % 3u, vid >= 3660u);
-                if (mw_slot == 0u) {
-                    // Landmark: Heliopause Bow Shock & Magnetotail
-                    let bow = exp(-abs(length(vec2<f32>(p.y, p.z)) - sqrt(max(0.0, (0.48 - p.x) * 0.55))) * 26.0) * smoothstep(0.50, -0.75, p.x);
-                    let sun_spark = exp(-length(p - vec3<f32>(0.22, 0.0, 0.0)) * 18.0);
-                    dens = bow * 1.1 + sun_spark * 1.2;
-                    neb_col = mix(vec3<f32>(0.25, 0.95, 1.65), vec3<f32>(1.75, 1.15, 0.42), sun_spark);
-                } else if (mw_slot == 1u) {
-                    // Landmark: Orion / Eagle Stellar Nursery Creation Pillars
-                    let p_tilt = doc_rot_z(p, 0.25);
-                    let c1 = exp(-length(p_tilt.xz - vec2<f32>(-0.22, 0.0)) * 16.0) * smoothstep(0.55, -0.45, p_tilt.y);
-                    let c2 = exp(-length(p_tilt.xz - vec2<f32>(0.06, 0.12)) * 19.0) * smoothstep(0.42, -0.45, p_tilt.y);
-                    let c3 = exp(-length(p_tilt.xz - vec2<f32>(0.28, -0.08)) * 22.0) * smoothstep(0.28, -0.45, p_tilt.y);
-                    let edge_fbm = 0.4 + 0.6 * abs(fbm3(p * 6.5, 3));
-                    let stars = pow(max(0.0, snoise3(p * 16.0)), 8.0) * 1.6;
-                    dens = ((c1 + c2 + c3) * edge_fbm * 0.9 + stars) * (1.0 - smoothstep(0.70, 0.94, r));
-                    neb_col = mix(vec3<f32>(1.45, 0.42, 0.85), vec3<f32>(0.28, 1.25, 1.65), clamp(p_tilt.y + 0.5, 0.0, 1.0));
-                } else {
-                    // Landmark: Local Bubble Carved Supernova Shock Cavity Shell
-                    let cav_w = snoise3(p * 3.8) * 0.14;
-                    let shell = exp(-abs(r - 0.68 - cav_w) * 32.0);
-                    let rim = exp(-abs(sin(atan2(p.z, p.x) * 6.0)) * 8.0);
-                    dens = shell * (0.28 + 0.65 * rim);
-                    neb_col = mix(vec3<f32>(0.18, 1.15, 1.45), vec3<f32>(0.85, 0.55, 1.65), rim);
-                }
+            } else if (vid == 20u || vid == 21u || vid == 22u || (vid >= 1500u && vid <= 1512u) || (vid >= 3660u && vid <= 3671u)) {
+                let mw_res = shade_doc_milky_way_stage(vid, p, r, inst, time);
+                neb_col = mw_res.rgb;
+                dens = mw_res.a;
             } else {
                 // 10 Early Universe (switches cleanly by zone: Plasma / Quark-Gluon / Electroweak / Inflation)
                 let shell_ring = exp(-abs(r - 0.56) * 48.0);

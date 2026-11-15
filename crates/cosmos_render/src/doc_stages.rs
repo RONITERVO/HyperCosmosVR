@@ -85,7 +85,10 @@ pub const fn canonical_companion_vid(experience_id: u8, slot: u8) -> u32 {
 /// canonical shader ID (`1100..=3599`) and `doc_feat(inst)` sub-staging.
 #[inline]
 pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool {
-    matches!((experience_id, zone_index), (3, 0..=13) | (4, 0..=11))
+    matches!(
+        (experience_id, zone_index),
+        (3, 0..=13) | (4, 0..=11) | (5, 0..=12)
+    )
 }
 
 /// Dispatches canonical `vid` (`1100..=3599`) for `[TIER-A]` migrated zones while preserving
@@ -390,13 +393,30 @@ pub fn emit_celestial_or_landmark(
                         kind_tags: pack_doc_tags(2, ring_vid, 0, body_idx, &body_doc),
                     });
                     if is_active_body {
-                        let comp_r = (body_r * 0.38).clamp(0.014, max_comp_r);
-                        let comp_pos = pos - stage_right * (body_r * 1.48) + stage_up * (body_r * 0.46);
-                        let (comp_ca, comp_cb) = if is_kuiper {
-                            ([0.86, 0.88, 0.92, 1.10], [0.42, 0.78, 1.15, 1.0])
+                        let feat_u = body_doc.active_feature_index.min(4) as u32;
+                        let (comp_mul, comp_ca, comp_cb) = if is_kuiper {
+                            let c = match feat_u {
+                                1 => ([0.92, 0.94, 0.98, 1.12], [0.76, 0.88, 0.98, 1.0]), // Haumea ellipsoid frost
+                                2 => ([0.88, 0.44, 0.24, 1.14], [0.96, 0.72, 0.48, 1.0]), // Makemake warm methane-tholin
+                                3 => ([0.36, 0.96, 1.38, 1.16], [1.18, 0.88, 0.42, 1.0]), // 2:3 orbital resonance node
+                                4 => ([0.42, 0.56, 0.72, 1.10], [0.36, 1.15, 1.65, 1.0]), // active comet nucleus
+                                _ => ([0.86, 0.88, 0.92, 1.10], [0.42, 0.78, 1.15, 1.0]), // Pluto/Eris bright dwarf
+                            };
+                            let mul = match feat_u {
+                                1 => 0.42,
+                                2 => 0.36,
+                                _ => 0.38,
+                            };
+                            (mul, c.0, c.1)
                         } else {
-                            ([0.62, 0.58, 0.54, 1.08], [0.85, 0.88, 0.94, 1.0])
+                            (
+                                0.38,
+                                [0.62, 0.58, 0.54, 1.08],
+                                [0.85, 0.88, 0.94, 1.0],
+                            )
                         };
+                        let comp_r = (body_r * comp_mul).clamp(0.014, max_comp_r);
+                        let comp_pos = pos - stage_right * (body_r * 1.48) + stage_up * (body_r * 0.46);
                         push_solar_companion(
                             heroes_surface,
                             comp_pos,
@@ -407,7 +427,7 @@ pub fn emit_celestial_or_landmark(
                             [input.time_sec * 0.08, 0.25, 0.0, dwell],
                             sun,
                             comp_vid,
-                            body_doc.active_feature_index.min(4) as u32,
+                            feat_u,
                             &body_doc,
                         );
                         if is_kuiper && body_doc.active_feature_index == 4 {
@@ -728,25 +748,66 @@ pub fn emit_celestial_or_landmark(
         {
             return;
         }
-        if vis.lod == LodTier::Hero
-            && (vis.experience_id == input.active_experience_id
-                || matches!(input.active_experience_id, 5..=9))
+        let is_active_exp05 = vis.experience_id == 5
+            && input.active_experience_id == 5
+            && input.documentary.active_zone_index == vis.zone_index;
+        if (vis.lod == LodTier::Hero && (vis.experience_id == input.active_experience_id || matches!(input.active_experience_id, 5..=9)))
+            || (is_active_exp05 && matches!(vis.lod, LodTier::Hero | LodTier::Impostor | LodTier::MacroCloud))
         {
-            // Promote iconic landmarks via canonical companion IDs (Exp 05 = 3660..=3671, exact zone in submode)
-            let landmark_submode = if vis.experience_id == 5 {
-                vis.zone_index as u32
+            let max_r = (dist * 0.40).clamp(0.05, 16.0);
+            let floor_r = if is_active_exp05 {
+                (dist * 0.24).clamp(0.08, max_r)
             } else {
-                0u32
+                0.05
             };
+            let r_l = vis.pose.rel_scale.max(floor_r).clamp(0.05, max_r);
+            if vis.experience_id == 5 {
+                let z_idx = vis.zone_index.min(12);
+                let lm_doc = if is_active_exp05 {
+                    input.documentary
+                } else {
+                    DocumentaryFocusState::default()
+                };
+                let canon_vid = canonical_zone_vid(5, z_idx);
+                let comp_vid = canonical_companion_vid(5, (z_idx as u8).min(11));
+                let base_sub = if z_idx == 12 { 32 } else { z_idx as u32 };
+                let primary_vid = if is_active_exp05 || z_idx == 12 {
+                    canon_vid
+                } else {
+                    comp_vid
+                };
+                heroes_volume.push(HeroVolumeInstance {
+                    pos_radius: [pos.x, pos.y, pos.z, r_l],
+                    rot_quat: rot_arr,
+                    color_a: [accent.x, accent.y, accent.z, 1.08],
+                    color_b: [0.35, 0.95, 1.55, 0.92],
+                    phys_a: [input.time_sec * 0.15, 0.0, 0.8, dwell],
+                    phys_b: sun,
+                    kind_tags: pack_doc_tags(3, primary_vid, 0, base_sub, &lm_doc),
+                });
+                if is_active_exp05 && z_idx <= 11 {
+                    let comp_r = (r_l * 0.42).clamp(0.04, (dist * 0.16).clamp(0.04, 4.0));
+                    let comp_pos = pos + stage_right * (r_l * 1.15) + stage_up * (r_l * 0.22);
+                    let comp_sub = lm_doc.active_feature_index.min(4) as u32;
+                    heroes_volume.push(HeroVolumeInstance {
+                        pos_radius: [comp_pos.x, comp_pos.y, comp_pos.z, comp_r],
+                        rot_quat: rot_arr,
+                        color_a: [accent.x * 1.06, accent.y * 1.06, accent.z * 1.06, 1.12],
+                        color_b: [0.42, 1.05, 1.62, 0.95],
+                        phys_a: [input.time_sec * 0.15, 0.0, 0.8, dwell],
+                        phys_b: sun,
+                        kind_tags: pack_doc_tags(3, comp_vid, 0, comp_sub, &lm_doc),
+                    });
+                }
+                return;
+            }
+
             let vid = match vis.experience_id {
-                5 => canonical_companion_vid(5, (vis.zone_index as u8).min(11)),
                 6 => 6,
                 7 => 7,
                 8 => 8,
                 _ => vis.experience_id as u32,
             };
-            let max_r = (dist * 0.40).clamp(0.05, 16.0);
-            let r_l = vis.pose.rel_scale.clamp(0.05, max_r);
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_l],
                 rot_quat: rot_arr,
@@ -754,7 +815,7 @@ pub fn emit_celestial_or_landmark(
                 color_b: [0.35, 0.95, 1.55, 0.92],
                 phys_a: [input.time_sec * 0.15, 0.0, 0.8, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(3, vid, 0, landmark_submode, &input.documentary),
+                kind_tags: pack_doc_tags(3, vid, 0, 0, &input.documentary),
             });
             return;
         }
@@ -1050,11 +1111,23 @@ pub fn emit_doc_stage_hero(
         }
 
         // --------------------------------------------------------------------
-        // EXP 05: MILKY WAY / SGR A* KERR BLACK HOLE
+        // EXP 05: MILKY WAY / SGR A* KERR BLACK HOLE (`1500..=1512`)
         // --------------------------------------------------------------------
         5 => {
             let max_r = (pos.length() * 0.46).clamp(0.04, 24.0);
             let r_bh = rel_scale.clamp(0.04, max_r);
+            let stage_vid = if input.active_experience_id == 5 {
+                resolve_zone_shader_vid(5, doc)
+            } else {
+                5
+            };
+            let stage_sub = if doc.active_zone_index == 12 {
+                32u32
+            } else if doc.active_zone_index <= 12 {
+                doc.active_zone_index as u32
+            } else {
+                0u32
+            };
             heroes_surface.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_bh],
                 rot_quat,
@@ -1062,7 +1135,7 @@ pub fn emit_doc_stage_hero(
                 color_b: [0.0, 0.0, 0.0, 1.0],
                 phys_a: [0.95, 0.0, 0.95, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(4, experience_id as u32, 2, 0, doc),
+                kind_tags: pack_doc_tags(4, stage_vid, 2, stage_sub, doc),
             });
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_bh],
@@ -1071,7 +1144,7 @@ pub fn emit_doc_stage_hero(
                 color_b: [zone_c.x, zone_c.y, zone_c.z, 1.0],
                 phys_a: [0.95, 0.25, 0.95, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(4, experience_id as u32, 2, 0, doc),
+                kind_tags: pack_doc_tags(4, stage_vid, 2, stage_sub, doc),
             });
         }
 
