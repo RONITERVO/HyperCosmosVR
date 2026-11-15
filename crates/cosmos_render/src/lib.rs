@@ -25,8 +25,8 @@ pub use types::{
     RenderSceneFrame, SimDispatchUniforms, SimParticle, SpriteBatchUniforms, SpriteInstance,
 };
 pub use universe_scene::{
-    DocumentaryFocusState, SceneBuildInput, UniverseSceneBuilder, experience_accent_linear,
-    initial_particles_for_mode,
+    DocumentaryFocusState, SceneBuildInput, UniverseSceneBuilder, build_far_shell_uniforms,
+    experience_accent_linear, initial_particles_for_mode, select_compute_mode,
 };
 
 use thiserror::Error;
