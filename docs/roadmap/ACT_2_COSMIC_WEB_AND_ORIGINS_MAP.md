@@ -2,7 +2,7 @@
 
 [Master Visual Roadmap](../CONTRIBUTOR_VISUAL_ROADMAP.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md) · [Shader Contracts](../../shaders/SHADER_CONTRACTS.md) · [Act I Map](ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) · [Act III Map](ACT_3_MATTER_AND_SPACETIME_MAP.md) · [Act IV Map](ACT_4_LIFE_MIND_AND_SENSES_MAP.md) · [Act V Map](ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md)
 
-> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32` live entities)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`3 / 26` Act II packages = `100%` of Ch 1 `05_milky_way` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
+> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32 / 32` live landmarks now `100% [TIER-A]`)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`7 / 26` Act II packages = `100%` of Ch 1 `05_milky_way`, Ch 4 `06_local_group`, and Ch 5 `07_laniakea` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
 
 > [!IMPORTANT]
 > **Odyssey Act II Travel Order (`&[5, 21, 22, 6, 7, 8, 9, 10]`):** [`odyssey.rs#L29-L32`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) embeds **Exp 21 (`21_cosmic_life`)** and **Exp 22 (`22_cosmic_contact`)** inside the Orion Spur between **Exp 05 (`05_milky_way`)** and **Exp 06 (`06_local_group`)**, while [`topology.rs#L419-L426`](../../crates/cosmos_spatial/src/topology.rs#L419-L426) links both `5 -> 21 -> 22` (`EmbeddedStellarArm`) and the outward cosmological ladder `5 -> 6 -> 7 -> 8 -> 9 -> 10` (`ScaleRiseOutward`). Chapters and Pick-Up Cards below follow exact **Odyssey Act II progression (`05 -> 21 -> 22 -> 06 -> 07 -> 08 -> 09 -> 10`)**.
@@ -14,14 +14,14 @@
 | 1 / 8 | `05` | `05_milky_way` | Espectro de la Vía Láctea · Del sistema solar al borde galáctico | **13** | `13 / 0 / 0 / 0` | **65** | `65 / 0 / 0 / 0` | 13 (`12` baked + `Z12`) | **`[TIER-A]` Complete:** canonical `1500..=1512` stages + `3660..=3671` companions + `Z12` landmark + `65/65` `doc_feat` | `1500..=1512` (3660..=3671) | `3` *(3 done)* |
 | 2 / 8 | `21` | `21_cosmic_life` | Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre | **25** | `0 / 4 / 4 / 17` | **200** | `0 / 10 / 32 / 158` | 0 | `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored) | `3100..=3124` (3820..=3829) | `5` |
 | 3 / 8 | `22` | `22_cosmic_contact` | Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones | **28** | `0 / 5 / 15 / 8` | **168** | `0 / 11 / 88 / 69` | 0 | `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs) | `3200..=3227` (3830..=3839) | `6` |
-| 4 / 8 | `06` | `06_local_group` | Espectro del Grupo Local: de la Vía Láctea a Andrómeda | **9** | `0 / 3 / 0 / 6` | **45** | `0 / 9 / 0 / 36` | 9 | Anchor & all `9` landmarks emit identical `kind=3, vid=6` static spiral diorama | `1600..=1608` (3680..=3688) | `2` |
-| 5 / 8 | `07` | `07_laniakea` | Espectro de Laniakea: del Grupo Local al Gran Atractor | **10** | `0 / 5 / 0 / 5` | **50** | `0 / 10 / 0 / 40` | 10 | Anchor & all `10` landmarks emit identical `kind=3, vid=7` watershed diorama (Mode 1) | `1700..=1709` (3700..=3709) | `2` |
+| 4 / 8 | `06` | `06_local_group` | Espectro del Grupo Local: de la Vía Láctea a Andrómeda | **9** | `9 / 0 / 0 / 0` | **45** | `45 / 0 / 0 / 0` | 9 | **`[TIER-A]` Complete:** canonical `1600..=1608` stages + `3680..=3688` companions + `45/45` `doc_feat` | `1600..=1608` (3680..=3688) | `2` *(2 done)* |
+| 5 / 8 | `07` | `07_laniakea` | Espectro de Laniakea: del Grupo Local al Gran Atractor | **10** | `10 / 0 / 0 / 0` | **50** | `50 / 0 / 0 / 0` | 10 | **`[TIER-A]` Complete:** canonical `1700..=1709` stages + `3700..=3709` companions + `50/50` `doc_feat` | `1700..=1709` (3700..=3709) | `2` *(2 done)* |
 | 6 / 8 | `08` | `08_cosmic_web` | Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo | **11** | `0 / 6 / 3 / 2` | **55** | `0 / 19 / 6 / 30` | 0 | Single static `kind=3, vid=8` uniform Voronoi diorama (Mode 2) | `1800..=1810` (Zone-parameterized `submode` + `cs_field_grid` dark-matter scaffold) | `3` |
 | 7 / 8 | `09` | `09_observable_universe` | Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico | **11** | `0 / 5 / 4 / 2` | **55** | `0 / 12 / 6 / 37` | 0 | Single static `kind=3, vid=9` CMB + quasar jet (Mode 2 lock + `cmb_alpha=1.0` leak) | `1900..=1910` (Epoch-gated `compute_mode`) | `3` |
 | 8 / 8 | `10` | `10_early_universe` | Espectro del Universo Temprano: del Fondo Cósmico a la Inflación | **9** | `0 / 2 / 4 / 3` | **46** | `0 / 6 / 8 / 32` | 0 | Single static `kind=3, vid=10` expansion ring (Mode 2 lock; Modes 3/5 unused) | `2000..=2008` (Zone-gated compute) | `2` |
-| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`13 / 30 / 30 / 43`** | **`684`** | **`65 / 77 / 140 / 402`** | **`32`** *(`31` baked + `Z12`)* | **11.2% Tier-A · 25.9% B · 25.9% C · 37.1% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`3` done)* |
+| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`32 / 22 / 30 / 32`** | **`684`** | **`160 / 58 / 140 / 326`** | **`32`** *(`31` baked + `Z12`, `32/32` Tier-A)* | **27.6% Tier-A · 19.0% B · 25.9% C · 27.6% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`7` done)* |
 
-*Feature distribution across Act II (`684` features): `9.5%` Tier-A (`65`), `11.3%` Tier-B (`77`), `20.5%` Tier-C (`140`), `58.8%` Tier-D (`402`).*
+*Feature distribution across Act II (`684` features): `23.4%` Tier-A (`160`), `8.5%` Tier-B (`58`), `20.5%` Tier-C (`140`), `47.7%` Tier-D (`326`).*
 
 ## 2. P0 Core Pipeline Prerequisites & Act II Architectural Findings
 
@@ -60,10 +60,10 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 | [`PKG-ACT2-EXP22-Z15-19`](#pkg-act2-exp22-z15-19) | `22` | `Z15..Z19` (5) | `30` | Phase 1 · **Critical** | `0/1/3/1` | `0/3/15/12` | Xenocognition, Reply Dilemmas & Relativistic Light-Cones (`z=15..19`, `scene=13/14/15` split) |
 | [`PKG-ACT2-EXP22-Z20-23`](#pkg-act2-exp22-z20-23) | `22` | `Z20..Z23` (4) | `24` | Phase 1 · **Critical** | `0/0/3/1` | `0/0/13/11` | Past-Ghost Senders, Multigenerational Relays & Epistemic Limits (`z=20..23`) |
 | [`PKG-ACT2-EXP22-Z24-27`](#pkg-act2-exp22-z24-27) | `22` | `Z24..Z27` (4) | `24` | Phase 1 · **Critical** | `0/0/4/0` | `0/0/22/2` | Diplomatic Protocols, Cultural Transformation & Cosmic Mirror (`z=24..27`) |
-| [`PKG-ACT2-EXP06-Z00-04`](#pkg-act2-exp06-z00-04) | `06` | `Z00..Z04` (5) | `25` | Phase 3 · **High** | `0/1/0/4` | `0/3/0/22` | Galactic Edge, Outer Halo, Dwarfs & Magellanic Clouds (`z=00..04`) |
-| [`PKG-ACT2-EXP06-Z05-08`](#pkg-act2-exp06-z05-08) | `06` | `Z05..Z08` (4) | `20` | Phase 3 · **High** | `0/2/0/2` | `0/6/0/14` | Triangulum, Andromeda Approach, Barycenter & Local Group Rim (`z=05..08`) |
-| [`PKG-ACT2-EXP07-Z00-04`](#pkg-act2-exp07-z00-04) | `07` | `Z00..Z04` (5) | `25` | Phase 3 · **High** | `0/2/0/3` | `0/4/0/21` | Local Volume, Local Sheet, Virgo Cluster & Supercluster (`z=00..04`) |
-| [`PKG-ACT2-EXP07-Z05-09`](#pkg-act2-exp07-z05-09) | `07` | `Z05..Z09` (5) | `25` | Phase 3 · **High** | `0/3/0/2` | `0/6/0/19` | Cosmic Flows, Local Void, Great Attractor & Laniakea Rim (`z=05..09`) |
+| [`PKG-ACT2-EXP06-Z00-04`](#pkg-act2-exp06-z00-04) | `06` | `Z00..Z04` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1600..=1604` + `3680..=3684`):** Galactic Edge, Outer Halo, Dwarfs, Intergalactic WHIM & Magellanic Clouds + `25/25` `doc_feat` transitions |
+| [`PKG-ACT2-EXP06-Z05-08`](#pkg-act2-exp06-z05-08) | `06` | `Z05..Z08` (4) | `20` | Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1605..=1608` + `3685..=3688`):** Triangulum M33/NGC 604, Andromeda M31/M32/M110, Barycenter & Zero-Velocity Rim + `20/20` `doc_feat` transitions |
+| [`PKG-ACT2-EXP07-Z00-04`](#pkg-act2-exp07-z00-04) | `07` | `Z00..Z04` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1700..=1704` + `3700..=3704`):** LG Turnaround, Local Volume, Local Sheet / Council of Giants, Virgo Cluster / M87 & Supercluster + `25/25` `doc_feat` transitions |
+| [`PKG-ACT2-EXP07-Z05-09`](#pkg-act2-exp07-z05-09) | `07` | `Z05..Z09` (5) | `25` | Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1705..=1709` + `3705..=3709`):** Peculiar Flows, Local Void Cavity, Great Attractor / Norma / ZoA, Laniakea Basin & Watershed Divide + `25/25` `doc_feat` transitions |
 | [`PKG-ACT2-EXP08-Z00-03`](#pkg-act2-exp08-z00-03) | `08` | `Z00..Z03` (4) | `20` | Phase 3 · **Medium-High** | `0/2/2/0` | `0/6/4/10` | Laniakea Divide, Inter-Supercluster Space, Filaments & Nodes (`z=00..03`) |
 | [`PKG-ACT2-EXP08-Z04-07`](#pkg-act2-exp08-z04-07) | `08` | `Z04..Z07` (4) | `20` | Phase 3 · **High** | `0/2/1/1` | `0/8/2/10` | Cosmic Voids, Galactic Walls, Junctions & Supercluster Complexes (`z=04..07`) |
 | [`PKG-ACT2-EXP08-Z08-10`](#pkg-act2-exp08-z08-10) | `08` | `Z08..Z10` (3) | `15` | Phase 3 · **Medium-High** | `0/2/0/1` | `0/5/0/10` | Deep Cosmic Web, Homogeneity Scale & Large-Scale Architecture (`z=08..10`) |
@@ -2050,16 +2050,16 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 06: `06_local_group` — Grupo Local / Local Group (`9` Zones, `45` Features, `9` Landmarks)
+### Exp 06: `06_local_group` — Grupo Local / Local Group (`9` Zones, `45` Features, `9` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro del Grupo Local: de la Vía Láctea a Andrómeda* — Spectrum of the Local Group: from the Milky Way to Andromeda
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **4 / 8** (Chapter `act2_exp06`)
 - **Spatial & Scale Band:** `SectorId::LOCAL_GROUP` · `u ∈ [21.1, 22.6]` · `focus_scale_exp = 22.0` (`topology.rs:141`)
-- **Compute & Far Shell:** `mode = 0` (spins ONLY single Milky Way spiral — does not include Andromeda/Triangulum co-orbit!, `universe_scene.rs:307`) · `mw_alpha` retains galactic band glow (~0.72) at `u=22.0` (`far_shell.wgsl:82-103`)
-- **Current Render Dispatch:** Both `ExperienceAnchor` (`doc_stages.rs:696-708`) and all `9` `GalacticLandmark` entities (`doc_stages.rs:363`) emit identical `kind=3, vid=6` (`hero_doc_cosmos.wgsl:527-542`: 3 static spirals — MW, M31, M33 — with unimplemented `+ Magellanic satellite smudges` comment at `L528` and ZERO `doc_zone`/`doc_feat` reads).
-- **Granular Audit Tally:** Zones `0A / 3B / 0C / 6D` (`9`) · Features `0A / 9B / 0C / 36D` (`45`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `andromeda` (exists), plus `magallanes`, `triangulo`, `enana`, `satelite`, `halo`, `intergalactico`, `colision`, `mareas`
+- **Compute & Far Shell:** `mode = 0` (`compute_universe.wgsl:91-111`, `universe_scene.rs:307`) · `mw_alpha` retains galactic band glow (~0.72) at `u=22.0` (`far_shell.wgsl:82-103`)
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a((6, 0..=8))` -> `1600..=1608`) + canonical `9` `GalacticLandmark` entities (`3680..=3688` for `Z00..=Z08`) with active landmark LOD promotion/floor clamping and `shade_doc_local_group_stage` in `hero_doc_cosmos.wgsl` across all `45/45` features (`render_tests.rs` Section 8 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `9A / 0B / 0C / 0D` (`9`) · Features `45A / 0B / 0C / 0D` (`45`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added bilingual `Exp 06` tokens (`andromeda`, `magallanes`, `magellanic`, `triangulo`, `triangulum`, `m33`, `m31`, `m32`, `m110`, `ngc 604`, `fornax`, `tarantula`, `baricentro`, `barycenter`, `colision`, `mareas`, `tidal`, `fugitiva`, `runaway`).
 
 #### Baked Landmarks Cross-Reference (`universe_catalog.v1.json` -> Companion IDs `3680..=3688`)
 
@@ -2076,9 +2076,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 | `LM08` | `boundary` (`local-group-limit`) | `8` | `p=0.965`, `lane=0`, `size=150` | `6` (static Exp 06 clone) | `3688` (`vid=1608` synced) |
 
 <a id="pkg-act2-exp06-z00-04"></a>
-### PKG-ACT2-EXP06-Z00-04: Galactic Edge, Outer Halo, Dwarfs & Magellanic Clouds (`z=00..04`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP06-Z00-04: Galactic Edge, Outer Halo, Dwarfs & Magellanic Clouds (`z=00..04`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1600..=1604` + `3680..=3684`, Galactic Edge exit, NFW dark-matter & globular halo, Sagittarius/Fornax/ultra-faint dwarfs, WHIM & 2.54-Mly photon transit, LMC/SMC/Magellanic Stream & Tarantula starburst, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z00..Z04` (`5` zones, `25` features) | Zone Tiers `0A / 1B / 0C / 4D` | Feature Tiers `0A / 3B / 0C / 22D` | Render path: [`doc_stages.rs#L363`](../../crates/cosmos_render/src/doc_stages.rs#L363) -> [`shaders/hero_doc_cosmos.wgsl#L527-L542`](../../shaders/hero_doc_cosmos.wgsl#L527-L542) — Anchor & all `9` landmarks emit identical `kind=3, vid=6` static spiral diorama. `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `25` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z04` (`5` zones, `25` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 1B / 0C / 4D`)* | Live Feature Tiers `25A / 0B / 0C / 0D` *(up from `0A / 3B / 0C / 22D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1600..=1604`, companions `3680..=3684`) -> `shade_doc_local_group_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 8.
 
 **Reserved Target IDs:**
 
@@ -2210,9 +2211,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp06-z05-08"></a>
-### PKG-ACT2-EXP06-Z05-08: Triangulum, Andromeda Approach, Barycenter & Local Group Rim (`z=05..08`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP06-Z05-08: Triangulum, Andromeda Approach, Barycenter & Local Group Rim (`z=05..08`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1605..=1608` + `3685..=3688`, Triangulum M33 & NGC 604, Andromeda M31 bulge/dust/M32/M110/future merger, Local Group dynamical barycenter & subgroup hulls, zero-velocity turnaround boundary, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z05..Z08` (`4` zones, `20` features) | Zone Tiers `0A / 2B / 0C / 2D` | Feature Tiers `0A / 6B / 0C / 14D` | Render path: [`doc_stages.rs#L363`](../../crates/cosmos_render/src/doc_stages.rs#L363) -> [`shaders/hero_doc_cosmos.wgsl#L527-L542`](../../shaders/hero_doc_cosmos.wgsl#L527-L542) — Anchor & all `9` landmarks emit identical `kind=3, vid=6` static spiral diorama. `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z05..Z08` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 2B / 0C / 2D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 6B / 0C / 14D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1605..=1608`, companions `3685..=3688`) -> `shade_doc_local_group_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 8.
 
 **Reserved Target IDs:**
 
@@ -2327,16 +2329,16 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 
 ---
 
-### Exp 07: `07_laniakea` — Laniakea / Laniakea (`10` Zones, `50` Features, `10` Landmarks)
+### Exp 07: `07_laniakea` — Laniakea / Laniakea (`10` Zones, `50` Features, `10` Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro de Laniakea: del Grupo Local al Gran Atractor* — Spectrum of Laniakea: from the Local Group to the Great Attractor
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **5 / 8** (Chapter `act2_exp07`)
 - **Spatial & Scale Band:** `SectorId::LANIAKEA` · `u ∈ [22.6, 24.5]` · `focus_scale_exp = 23.8` (`topology.rs:154`)
 - **Compute & Far Shell:** `mode = 1` (Laniakea dual-attractor gravitational watershed streamlines into Great Attractor & Shapley, `compute_universe.wgsl:112-139`, `universe_scene.rs:308`) · Fade between `mw_alpha` -> `web_alpha` (`far_shell.wgsl:82-112`)
-- **Current Render Dispatch:** Both `ExperienceAnchor` (`doc_stages.rs:696-708`) and all `10` `GalacticLandmark` entities (`doc_stages.rs:364`) emit identical `kind=3, vid=7` (`hero_doc_cosmos.wgsl:543-555`: Great Attractor knot + watershed threads + Virgo/M87 jet, ignoring `doc_zone`/`doc_feat` completely).
-- **Granular Audit Tally:** Zones `0A / 5B / 0C / 5D` (`10`) · Features `0A / 10B / 0C / 40D` (`50`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `laniakea` (exists), plus `virgo`, `atractor`, `cuenca`, `flujo`, `vacio`, `lamina`, `shapley`, `m87`, `divisoria`
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a((7, 0..=9))` -> `1700..=1709`) + canonical `10` `GalacticLandmark` entities (`3700..=3709` for `Z00..=Z09`) with active landmark LOD promotion/floor clamping and `shade_doc_laniakea_stage` in `hero_doc_cosmos.wgsl` across all `50/50` features (`render_tests.rs` Section 9 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `10A / 0B / 0C / 0D` (`10`) · Features `50A / 0B / 0C / 0D` (`50`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added bilingual `Exp 07` tokens (`laniakea`, `virgo`, `atractor`, `attractor`, `cuenca`, `basin`, `flujo`, `vacio`, `void`, `lamina`, `sheet`, `shapley`, `m87`, `divisoria`, `divide`, `peculiar`, `norma`, `hidra`, `hydra`, `centauro`, `centaurus`, `evitacion`, `avoidance`).
 
 #### Baked Landmarks Cross-Reference (`universe_catalog.v1.json` -> Companion IDs `3700..=3709`)
 
@@ -2354,9 +2356,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 | `LM09` | `boundary` (`laniakea-limit`) | `9` | `p=0.982`, `lane=0`, `size=180` | `7` (static Exp 07 clone) | `3709` (`vid=1709` synced) |
 
 <a id="pkg-act2-exp07-z00-04"></a>
-### PKG-ACT2-EXP07-Z00-04: Local Volume, Local Sheet, Virgo Cluster & Supercluster (`z=00..04`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP07-Z00-04: Local Volume, Local Sheet, Virgo Cluster & Supercluster (`z=00..04`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1700..=1704` + `3700..=3704`, Local Group turnaround spur, Local Volume groups & peculiar velocities, Local Sheet & Council of Giants ring, Virgo Cluster 2000-galaxy swarm + M87 jet + X-ray ICM + ram-pressure tails, Virgo Supercluster branch & cluster chain, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z00..Z04` (`5` zones, `25` features) | Zone Tiers `0A / 2B / 0C / 3D` | Feature Tiers `0A / 4B / 0C / 21D` | Render path: [`doc_stages.rs#L364`](../../crates/cosmos_render/src/doc_stages.rs#L364) -> [`shaders/hero_doc_cosmos.wgsl#L543-L555`](../../shaders/hero_doc_cosmos.wgsl#L543-L555) — Anchor & all `10` landmarks emit identical `kind=3, vid=7` watershed diorama (Mode 1). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `25` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z04` (`5` zones, `25` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 2B / 0C / 3D`)* | Live Feature Tiers `25A / 0B / 0C / 0D` *(up from `0A / 4B / 0C / 21D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1700..=1704`, companions `3700..=3704`) -> `shade_doc_laniakea_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 9.
 
 **Reserved Target IDs:**
 
@@ -2488,9 +2491,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp07-z05-09"></a>
-### PKG-ACT2-EXP07-Z05-09: Cosmic Flows, Local Void, Great Attractor & Laniakea Rim (`z=05..09`) — `Phase 3` · Priority: **High**
+### PKG-ACT2-EXP07-Z05-09: Cosmic Flows, Local Void, Great Attractor & Laniakea Rim (`z=05..09`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 3 (`1705..=1709` + `3705..=3709`, peculiar-velocity streamlines & gravitational valleys, carved Local Void cavity & outward repulsion vectors, multi-node Great Attractor `Norma/Hydra/Centaurus` + Zone of Avoidance + Shapley shift, Laniakea 520-Mly watershed feather & separatrix hull, watershed divide saddle & Cosmic Web Voronoi bridge, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z05..Z09` (`5` zones, `25` features) | Zone Tiers `0A / 3B / 0C / 2D` | Feature Tiers `0A / 6B / 0C / 19D` | Render path: [`doc_stages.rs#L364`](../../crates/cosmos_render/src/doc_stages.rs#L364) -> [`shaders/hero_doc_cosmos.wgsl#L543-L555`](../../shaders/hero_doc_cosmos.wgsl#L543-L555) — Anchor & all `10` landmarks emit identical `kind=3, vid=7` watershed diorama (Mode 1). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `25` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z05..Z09` (`5` zones, `25` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 3B / 0C / 2D`)* | Live Feature Tiers `25A / 0B / 0C / 0D` *(up from `0A / 6B / 0C / 19D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1705..=1709`, companions `3705..=3709`) -> `shade_doc_laniakea_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 9.
 
 **Reserved Target IDs:**
 

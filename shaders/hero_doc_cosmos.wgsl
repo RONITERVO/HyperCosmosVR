@@ -1354,6 +1354,404 @@ fn shade_doc_milky_way_stage(
     return vec4<f32>(neb_col, dens);
 }
 
+fn shade_doc_local_group_stage(
+    vid: u32,
+    p: vec3<f32>,
+    r: f32,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec4<f32> {
+    if (r > 0.76) {
+        return vec4<f32>(0.0);
+    }
+    let is_comp = vid >= 3680u && vid <= 3688u;
+    let z_idx = select(
+        select(clamp(doc_zone(inst), 0u, 8u), vid - 1600u, vid >= 1600u && vid <= 1608u),
+        vid - 3680u,
+        is_comp
+    );
+    let f0 = doc_feat_focus(inst, 0u);
+    let f1 = doc_feat_focus(inst, 1u);
+    let f2 = doc_feat_focus(inst, 2u);
+    let f3 = doc_feat_focus(inst, 3u);
+    let f4 = doc_feat_focus(inst, 4u);
+    let g0 = doc_solar_feat_gate(inst, 0u);
+    let g1 = doc_solar_feat_gate(inst, 1u);
+    let g2 = doc_solar_feat_gate(inst, 2u);
+    let g3 = doc_solar_feat_gate(inst, 3u);
+    let g4 = doc_solar_feat_gate(inst, 4u);
+
+    var dens: f32 = 0.0;
+    var neb_col = mix(inst.color_a.rgb, inst.color_b.rgb, 0.5);
+    let env_outer = (1.0 - smoothstep(0.48, 0.72, r)) * 0.76;
+
+    if (is_comp) {
+        let az = atan2(p.z, p.x);
+        let core = exp(-r * 13.0) * (0.65 + 0.55 * g0);
+        let shell_a = exp(-abs(r - (0.34 + 0.05 * f32(z_idx % 3u))) * 34.0) * (0.35 + 0.95 * (g1 + g3));
+        let spiral_w = exp(-abs(p.y) * 24.0) * pow(max(0.0, cos(az * 2.0 - 4.2 * log(length(p.xz) + 0.08) + f32(z_idx))), 3.5) * exp(-length(p.xz) * 4.5) * (0.45 + 0.85 * (g0 + g2));
+        let stream_arc = exp(-abs(length(p.xy) - 0.46) * 32.0) * exp(-abs(p.z) * 18.0) * (0.28 + 1.05 * g4);
+        dens = (core + shell_a + spiral_w + stream_arc) * env_outer;
+        neb_col = mix(vec3<f32>(0.36, 0.76, 1.42), vec3<f32>(1.42, 1.02, 0.46), clamp(core + g1 * 0.55, 0.0, 1.0))
+            + vec3<f32>(0.92, 0.36, 1.25) * (g2 + g3) * 0.35;
+        return vec4<f32>(min(neb_col, vec3<f32>(1.28)), min(dens, 1.35));
+    }
+
+    // Shared Local Group reference galaxies (MW q1, M31 q2, M33 q3, LMC q4, SMC q5)
+    let q1 = p - vec3<f32>(-0.34, -0.09, 0.06);
+    let r1 = length(q1.xz);
+    let mw_bulge = exp(-length(q1) * 18.0);
+    let mw_arms = exp(-abs(q1.y) * 30.0) * pow(max(0.0, cos(2.0 * atan2(q1.z, q1.x) - 3.6 * log(r1 + 0.05))), 4.0) * exp(-r1 * 5.0);
+    let q2 = doc_rot_z(p - vec3<f32>(0.35, 0.12, -0.05), 0.58);
+    let r2 = length(q2.xz);
+    let m31_bulge = exp(-length(q2) * 19.0);
+    let m31_arms = exp(-abs(q2.y) * 32.0) * pow(max(0.0, cos(2.0 * atan2(q2.z, q2.x) + 3.8 * log(r2 + 0.05))), 4.0) * exp(-r2 * 5.2);
+    let q3 = p - vec3<f32>(0.22, -0.26, 0.16);
+    let m33_base = exp(-length(q3) * 22.0) * 0.80 + exp(-abs(q3.y) * 34.0) * exp(-length(q3.xz) * 11.0) * 0.45;
+
+    if (z_idx == 0u) {
+        // Z00 Galactic Edge (1600): MW barred spiral (F0), diffuse boundary fade (F1), galactic exit track (F2), Local Group sister frame (F3), Mly scale ticks (F4)
+        let mw_c = p - vec3<f32>(-0.18, -0.04, 0.02);
+        let rc = length(mw_c.xz);
+        let az = atan2(mw_c.z, mw_c.x);
+        let bar = exp(-pow(abs(sin(az - 0.35)) * rc * 7.5, 2.0)) * exp(-rc * 4.8) * exp(-abs(mw_c.y) * 28.0);
+        let sp = exp(-abs(mw_c.y) * 28.0) * (0.45 + 0.55 * pow(max(0.0, cos(2.0 * az - 4.4 * log(rc + 0.06))), 3.4)) * exp(-rc * 4.4);
+        let mw_focus = (bar * 1.15 + sp * 0.85) * (0.45 + 1.05 * f0);
+        let diff_halo = exp(-abs(length(mw_c) - 0.28) * 18.0) * (0.18 + 1.15 * f1);
+        let exit_cone = exp(-length(p.yz - vec2<f32>(0.12 * p.x, -0.04 * p.x)) * 24.0) * smoothstep(-0.18, 0.46, p.x) * (0.15 + 1.25 * f2);
+        let sisters = ((m31_bulge + m31_arms * 0.8) + m33_base * 0.9) * (0.28 + 1.25 * f3);
+        let scale_ticks = exp(-abs(p.y + 0.24) * 36.0) * exp(-abs(p.z) * 28.0) * pow(max(0.0, cos(p.x * 28.0)), 8.0) * smoothstep(0.56, 0.05, abs(p.x)) * (0.14 + 1.35 * f4);
+        dens = (mw_focus + diff_halo + exit_cone + sisters + scale_ticks) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.72, 1.42), vec3<f32>(1.45, 1.04, 0.46), clamp(bar * 1.3 + sisters * 0.65 + g0 * 0.35, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.18, 1.35) * (exit_cone * g2 + scale_ticks * g4) * 0.65
+            + vec3<f32>(0.68, 0.42, 1.38) * diff_halo * g1 * 0.60;
+    } else if (z_idx == 1u) {
+        // Z01 Outer Halo (1601): NFW dark matter halo (F0), tidal stellar stream (F1), globular clusters (F2), X-ray galactic corona (F3), runaway star (F4)
+        let dm_nfw = (exp(-abs(length(q1) - 0.32) * 19.0) + exp(-abs(length(q2) - 0.30) * 19.0) * 0.85) * (0.22 + 1.25 * f0);
+        let stream_p = doc_rot_x(p - vec3<f32>(-0.16, 0.02, 0.0), 0.72);
+        let t_stream = exp(-abs(length(stream_p.xz) - 0.38) * 34.0) * exp(-abs(stream_p.y) * 24.0) * (0.22 + 1.35 * f1);
+        let gc1 = exp(-length(p - vec3<f32>(-0.42, 0.24, 0.14)) * 28.0);
+        let gc2 = exp(-length(p - vec3<f32>(-0.12, -0.34, -0.16)) * 28.0);
+        let gc3 = exp(-length(p - vec3<f32>(0.18, 0.32, 0.12)) * 28.0);
+        let gc4 = exp(-length(p - vec3<f32>(-0.26, 0.36, -0.18)) * 28.0);
+        let globs = (gc1 + gc2 + gc3 + gc4) * (0.28 + 1.45 * f2);
+        let corona = exp(-length(q1) * 4.8) * smoothstep(0.08, 0.24, length(q1)) * (0.16 + 0.95 * f3);
+        let run_d = length(p.yz - vec2<f32>(0.42 * p.x + 0.10, -0.25 * p.x + 0.05));
+        let runaway = exp(-run_d * 34.0) * smoothstep(-0.32, 0.52, p.x) * (0.55 + 0.45 * sin(p.x * 26.0 - time * 3.0)) * (0.16 + 1.40 * f4);
+        let disk_ref = (mw_bulge + mw_arms * 0.65 + m31_bulge * 0.65) * 0.52;
+        dens = (disk_ref + dm_nfw + t_stream + globs + corona + runaway) * env_outer;
+        neb_col = mix(vec3<f32>(0.46, 0.34, 1.38), vec3<f32>(1.48, 1.06, 0.44), clamp(globs * 1.2 + t_stream * 0.85, 0.0, 1.0))
+            + vec3<f32>(0.26, 0.98, 1.42) * (corona * g3 + runaway * g4) * 0.72;
+    } else if (z_idx == 2u) {
+        // Z02 Dwarf Galaxies (1602): dwarf swarm (F0), Sagittarius Dwarf & polar stream (F1), Fornax spheroidal (F2), ultra-faint reticle (F3), tidal shear tails (F4)
+        let d1 = exp(-length(p - vec3<f32>(-0.46, 0.22, -0.12)) * 24.0);
+        let d2 = exp(-length(p - vec3<f32>(-0.14, -0.32, 0.18)) * 24.0);
+        let d3 = exp(-length(p - vec3<f32>(0.44, -0.16, 0.14)) * 24.0);
+        let d4 = exp(-length(p - vec3<f32>(0.24, 0.34, -0.16)) * 24.0);
+        let swarm = (d1 + d2 + d3 + d4) * (0.32 + 1.30 * f0);
+        let sgr_core = exp(-length((p - vec3<f32>(-0.22, 0.18, 0.06)) * vec3<f32>(1.8, 0.7, 1.4)) * 20.0);
+        let sgr_loop = exp(-abs(length((p - vec3<f32>(-0.30, 0.0, 0.04)).xy) - 0.24) * 34.0) * exp(-abs(p.z - 0.04) * 24.0);
+        let sgr = (sgr_core + sgr_loop * 0.78) * (0.24 + 1.38 * f1);
+        let fornax_p = p - vec3<f32>(0.06, 0.26, -0.14);
+        let fornax = exp(-length(fornax_p * vec3<f32>(1.0, 1.35, 1.1)) * 18.0) * (0.26 + 1.42 * f2);
+        let ufd_p = p - vec3<f32>(-0.04, -0.26, -0.12);
+        let ufd_r = length(ufd_p);
+        let ufd = (exp(-ufd_r * 26.0) * 0.65 + exp(-abs(ufd_r - 0.11) * 44.0) * (0.55 + 0.45 * cos(atan2(ufd_p.z, ufd_p.x) * 4.0))) * (0.20 + 1.42 * f3);
+        let tidal_tail = exp(-abs(p.y - 0.32 * sin(p.x * 6.5)) * 28.0) * exp(-abs(p.z) * 20.0) * smoothstep(0.55, 0.05, abs(p.x)) * (0.18 + 1.35 * f4);
+        let hosts = (mw_bulge + mw_arms * 0.55 + m31_bulge * 0.55) * 0.45;
+        dens = (hosts + swarm + sgr + fornax + ufd + tidal_tail) * env_outer;
+        neb_col = mix(vec3<f32>(0.36, 0.78, 1.42), vec3<f32>(1.48, 0.96, 0.40), clamp(fornax * 1.3 + sgr_core * 0.9, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.26, 1.38) * ufd * g3 * 0.75
+            + vec3<f32>(1.28, 0.48, 1.18) * tidal_tail * g4 * 0.65;
+    } else if (z_idx == 3u) {
+        // Z03 Intergalactic Space (1603): ionized WHIM gas (F0), shared DM bridge (F1), 2.54-Mly traveling photon (F2), magnetic field lines (F3), apparent void (F4)
+        let axis_d = length(p.yz - vec2<f32>(0.30 * p.x + 0.02, -0.16 * p.x));
+        let span = smoothstep(-0.36, -0.18, p.x) * (1.0 - smoothstep(0.18, 0.36, p.x));
+        let whim = exp(-axis_d * 11.0) * (0.45 + 0.55 * fbm3(p * 8.5, 3)) * span * (0.26 + 1.30 * f0);
+        let dm_bridge = exp(-axis_d * 6.5) * exp(-abs(r - 0.34) * 12.0) * (0.20 + 1.25 * f1);
+        let ph_x = -0.18 + 0.36 * fract(time * 0.22);
+        let ph_pos = vec3<f32>(ph_x, 0.30 * ph_x + 0.02, -0.16 * ph_x);
+        let ph_d = length(p - ph_pos);
+        let photon_pkt = (exp(-ph_d * 26.0) + exp(-abs(ph_d - 0.09) * 42.0) * 0.75 + exp(-axis_d * 34.0) * span * 0.45) * (0.20 + 1.45 * f2);
+        let mag_lines = exp(-abs(sin((p.y - 0.30 * p.x) * 28.0 + sin(p.x * 8.0))) * 14.0) * exp(-axis_d * 10.0) * span * (0.18 + 1.35 * f3);
+        let void_grid = exp(-abs(r - 0.54) * 34.0) * pow(max(0.0, cos(atan2(p.z, p.x) * 6.0)), 6.0) * (0.15 + 1.28 * f4);
+        let void_atten = select(1.0, 0.58, doc_feat(inst) == 4u);
+        let anchors = (mw_bulge + mw_arms * 0.6 + m31_bulge + m31_arms * 0.6) * 0.52 * void_atten;
+        dens = (anchors + whim * void_atten + dm_bridge + photon_pkt + mag_lines + void_grid) * env_outer;
+        neb_col = mix(vec3<f32>(0.26, 0.82, 1.42), vec3<f32>(0.56, 0.34, 1.44), clamp(dm_bridge * 1.2 + g1 * 0.4, 0.0, 1.0))
+            + vec3<f32>(1.52, 1.16, 0.38) * photon_pkt * 0.85
+            + vec3<f32>(0.24, 1.28, 1.08) * mag_lines * 0.70;
+    } else if (z_idx == 4u) {
+        // Z04 Magellanic Clouds (1604): LMC barred irregular (F0), SMC companion (F1), 200-kpc HI Magellanic Stream (F2), Tarantula 30 Doradus starburst (F3), tidal shear (F4)
+        let lmc_p = p - vec3<f32>(0.08, -0.06, 0.02);
+        let lmc_bar = exp(-length(lmc_p * vec3<f32>(0.85, 2.2, 1.4)) * 12.0);
+        let lmc_arm = exp(-abs(lmc_p.y) * 24.0) * exp(-abs(length(lmc_p.xz) - 0.16) * 22.0) * smoothstep(-0.05, 0.16, lmc_p.x);
+        let lmc = (lmc_bar + lmc_arm * 0.75) * (0.38 + 1.25 * f0);
+        let smc_p = p - vec3<f32>(0.32, -0.22, 0.10);
+        let smc = exp(-length(smc_p * vec3<f32>(1.3, 0.9, 1.5)) * 16.0) * (0.34 + 1.35 * f1);
+        let stream_arc = exp(-abs(length((p - vec3<f32>(-0.06, -0.04, 0.0)).xy) - 0.34) * 24.0) * exp(-abs(p.z - 0.04) * 18.0) * (0.55 + 0.45 * fbm3(p * 9.0, 3)) * (0.24 + 1.35 * f2);
+        let tarantula = exp(-length(p - vec3<f32>(0.14, -0.03, 0.05)) * 30.0) * (0.32 + 1.55 * f3);
+        let bridge_shear = exp(-length((p - mix(vec3<f32>(0.08, -0.06, 0.02), vec3<f32>(0.32, -0.22, 0.10), clamp((p.x - 0.08) / 0.24, 0.0, 1.0)))) * 24.0) * (0.24 + 1.38 * f4);
+        let mw_ref = (mw_bulge + mw_arms * 0.65) * 0.48;
+        dens = (mw_ref + lmc + smc + stream_arc + tarantula + bridge_shear) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.78, 1.44), vec3<f32>(1.42, 0.98, 0.44), clamp(lmc_bar + smc * 0.8, 0.0, 1.0))
+            + vec3<f32>(1.48, 0.34, 1.12) * tarantula * 0.92
+            + vec3<f32>(0.24, 1.18, 1.46) * (stream_arc * g2 + bridge_shear * g4) * 0.68;
+    } else if (z_idx == 5u) {
+        // Z05 Triangulum M33 (1605): face-on M33 disk (F0), flocculent 2-arm spiral (F1), NGC 604 giant HII nursery (F2), third-rank triad halo (F3), M31 tether (F4)
+        let m33_p = doc_rot_x(p - vec3<f32>(0.04, -0.04, 0.0), 0.32);
+        let r33 = length(m33_p.xz);
+        let az33 = atan2(m33_p.z, m33_p.x);
+        let core33 = exp(-length(m33_p) * 14.0) * (0.45 + 1.15 * f0);
+        let arms33 = exp(-abs(m33_p.y) * 28.0) * (0.35 + 0.65 * pow(max(0.0, cos(2.0 * az33 - 4.2 * log(r33 + 0.06))), 3.2)) * exp(-r33 * 3.8) * (0.38 + 1.25 * f1);
+        let ngc604 = exp(-length(m33_p - vec3<f32>(0.16, 0.01, 0.11)) * 28.0) * (0.30 + 1.55 * f2);
+        let rank_rings = (exp(-abs(r33 - 0.28) * 36.0) + exp(-abs(length(q2) - 0.22) * 32.0) * 0.85 + exp(-abs(length(q1) - 0.20) * 32.0) * 0.75) * (0.16 + 1.35 * f3);
+        let m31_tether = exp(-length(p - mix(vec3<f32>(0.04, -0.04, 0.0), vec3<f32>(0.35, 0.12, -0.05), clamp((p.x - 0.04) / 0.31, 0.0, 1.0))) * 22.0) * (0.20 + 1.38 * f4);
+        dens = (core33 + arms33 + ngc604 + rank_rings + m31_tether + m31_bulge * 0.42) * env_outer;
+        neb_col = mix(vec3<f32>(0.30, 0.76, 1.46), vec3<f32>(1.38, 1.02, 0.48), clamp(core33 * 0.9 + rank_rings * 0.65, 0.0, 1.0))
+            + vec3<f32>(1.48, 0.36, 1.16) * ngc604 * 0.95
+            + vec3<f32>(0.28, 1.24, 1.38) * m31_tether * g4 * 0.72;
+    } else if (z_idx == 6u) {
+        // Z06 Andromeda M31 (1606): tilted M31 spiral (F0), golden ancient bulge (F1), dark dust lanes (F2), M32 & M110 satellites (F3), future MW-M31 merger (F4)
+        let m31_c = doc_rot_z(p - vec3<f32>(0.06, 0.02, 0.0), 0.56);
+        let rm = length(m31_c.xz);
+        let azm = atan2(m31_c.z, m31_c.x);
+        let bulge_m = exp(-length(m31_c * vec3<f32>(1.0, 1.4, 1.0)) * 12.0) * (0.48 + 1.28 * f1);
+        let dust_groove = 1.0 - (0.45 + 0.42 * g2) * (exp(-abs(rm - 0.18) * 38.0) + exp(-abs(rm - 0.30) * 36.0));
+        let dust_ring_glow = (exp(-abs(rm - 0.22) * 38.0) + exp(-abs(rm - 0.34) * 36.0)) * exp(-abs(m31_c.y) * 28.0) * (0.22 + 1.35 * f2);
+        let spiral_m = exp(-abs(m31_c.y) * 28.0) * (0.35 + 0.65 * pow(max(0.0, cos(2.0 * azm + 4.4 * log(rm + 0.06))), 3.4)) * exp(-rm * 3.4) * max(dust_groove, 0.12) * (0.42 + 1.15 * f0);
+        let m32 = exp(-length(p - vec3<f32>(0.22, -0.12, 0.08)) * 28.0);
+        let m110 = exp(-length((p - vec3<f32>(-0.14, 0.24, -0.10)) * vec3<f32>(1.4, 0.9, 1.2)) * 24.0);
+        let sats_m = (m32 + m110) * (0.26 + 1.45 * f3);
+        let merger_arc = exp(-abs(length((p - vec3<f32>(-0.08, 0.0, 0.0)).xy) - 0.28) * 26.0) * exp(-abs(p.z) * 20.0) * (0.18 + 1.38 * f4);
+        dens = (bulge_m + spiral_m + dust_ring_glow + sats_m + merger_arc) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.68, 1.44), vec3<f32>(1.52, 1.06, 0.44), clamp(bulge_m * 1.1 + sats_m * 0.9, 0.0, 1.0))
+            + vec3<f32>(1.36, 0.56, 0.24) * dust_ring_glow * g2 * 0.75
+            + vec3<f32>(0.92, 0.38, 1.42) * merger_arc * g4 * 0.72;
+    } else if (z_idx == 7u) {
+        // Z07 Local Group Center (1607): barycenter reticle (F0), two subgroup hulls (F1), shared gravity vectors (F2), collective Virgo flow (F3), potential saddle contours (F4)
+        let bary_p = p - vec3<f32>(0.04, 0.02, 0.0);
+        let bary_r = length(bary_p);
+        let cross = (exp(-length(bary_p.yz) * 38.0) + exp(-length(bary_p.xz) * 38.0) + exp(-abs(bary_r - 0.11) * 42.0)) * smoothstep(0.24, 0.0, bary_r) * (0.28 + 1.38 * f0);
+        let sub_mw = exp(-abs(length(q1) - 0.22) * 32.0);
+        let sub_m31 = exp(-abs(length(p - vec3<f32>(0.30, 0.04, 0.02)) - 0.26) * 30.0);
+        let subgroups = (sub_mw + sub_m31) * (0.20 + 1.35 * f1);
+        let grav_line = exp(-length(p.yz - vec2<f32>(0.30 * p.x + 0.02, -0.16 * p.x)) * 28.0) * smoothstep(0.38, 0.0, abs(p.x)) * (0.55 + 0.45 * cos(p.x * 24.0)) * (0.20 + 1.35 * f2);
+        let bulk_flow = exp(-abs(sin((p.y - 0.45 * p.x) * 20.0)) * 18.0) * exp(-abs(p.z) * 16.0) * (0.5 + 0.5 * sin((p.x + p.y) * 18.0 - time * 2.4)) * (0.16 + 1.35 * f3);
+        let saddle = (exp(-abs(bary_r - 0.24) * 34.0) + exp(-abs(bary_r - 0.38) * 34.0)) * exp(-abs(p.y) * 18.0) * (0.18 + 1.35 * f4);
+        let galaxies = (mw_bulge + mw_arms * 0.65 + m31_bulge + m31_arms * 0.65 + m33_base * 0.65) * 0.52;
+        dens = (galaxies + cross + subgroups + grav_line + bulk_flow + saddle) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.78, 1.44), vec3<f32>(1.48, 1.08, 0.42), clamp(cross * 1.1 + grav_line * 0.85, 0.0, 1.0))
+            + vec3<f32>(0.58, 0.36, 1.42) * (subgroups * g1 + saddle * g4) * 0.72
+            + vec3<f32>(0.24, 1.28, 1.12) * bulk_flow * g3 * 0.70;
+    } else {
+        // Z08 Local Group Limit (1608): diffuse membership fade (F0), zero-velocity turnaround shell (F1), Virgo Supercluster beacon (F2), Laniakea streamlines (F3), outward jump (F4)
+        let diff_edge = exp(-r * 3.6) * smoothstep(0.18, 0.52, r) * (0.24 + 1.18 * f0);
+        let zv_grid = 0.55 + 0.45 * cos(atan2(p.z, p.x) * 8.0) * cos(p.y * 14.0);
+        let zv_shell = exp(-abs(r - 0.56) * 36.0) * zv_grid * (0.28 + 1.38 * f1);
+        let virgo_node = exp(-length(p - vec3<f32>(0.48, 0.24, -0.14)) * 22.0) * (0.26 + 1.45 * f2);
+        let lan_streams = exp(-abs(sin((p.y - 0.35 * p.x) * 18.0 + sin(p.z * 10.0))) * 16.0) * smoothstep(0.36, 0.68, r) * (0.20 + 1.35 * f3);
+        let jump_rings = (exp(-abs(r - 0.42) * 34.0) + exp(-abs(r - 0.66) * 34.0)) * (0.18 + 1.35 * f4);
+        let lg_core = (mw_bulge + m31_bulge + m33_base * 0.6) * 0.46;
+        dens = (lg_core + diff_edge + zv_shell + virgo_node + lan_streams + jump_rings) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.84, 1.44), vec3<f32>(1.50, 1.04, 0.40), clamp(virgo_node * 1.3 + lg_core, 0.0, 1.0))
+            + vec3<f32>(0.24, 1.28, 1.24) * zv_shell * g1 * 0.72
+            + vec3<f32>(0.88, 0.42, 1.42) * (lan_streams * g3 + jump_rings * g4) * 0.68;
+    }
+
+    let out_d = select(0.0, min(dens, 1.38), dens >= 0.045);
+    return vec4<f32>(min(neb_col, vec3<f32>(1.28)), out_d);
+}
+
+fn shade_doc_laniakea_stage(
+    vid: u32,
+    p: vec3<f32>,
+    r: f32,
+    inst: HeroVolumeInstance,
+    time: f32,
+) -> vec4<f32> {
+    if (r > 0.76) {
+        return vec4<f32>(0.0);
+    }
+    let is_comp = vid >= 3700u && vid <= 3709u;
+    let z_idx = select(
+        select(clamp(doc_zone(inst), 0u, 9u), vid - 1700u, vid >= 1700u && vid <= 1709u),
+        vid - 3700u,
+        is_comp
+    );
+    let f0 = doc_feat_focus(inst, 0u);
+    let f1 = doc_feat_focus(inst, 1u);
+    let f2 = doc_feat_focus(inst, 2u);
+    let f3 = doc_feat_focus(inst, 3u);
+    let f4 = doc_feat_focus(inst, 4u);
+    let g0 = doc_solar_feat_gate(inst, 0u);
+    let g1 = doc_solar_feat_gate(inst, 1u);
+    let g2 = doc_solar_feat_gate(inst, 2u);
+    let g3 = doc_solar_feat_gate(inst, 3u);
+    let g4 = doc_solar_feat_gate(inst, 4u);
+
+    var dens: f32 = 0.0;
+    var neb_col = mix(inst.color_a.rgb, inst.color_b.rgb, 0.5);
+    let env_outer = (1.0 - smoothstep(0.48, 0.72, r)) * 0.76;
+
+    if (is_comp) {
+        let az = atan2(p.z, p.x);
+        let knot = exp(-r * 13.0) * (0.62 + 0.58 * g0);
+        let fil = pow(smoothstep(0.14, 0.0, abs(snoise3(p * 5.2 + vec3<f32>(f32(z_idx) * 0.7)))), 2.2) * (0.45 + 0.85 * (g1 + g2));
+        let ring = exp(-abs(r - (0.36 + 0.04 * f32(z_idx % 3u))) * 34.0) * (0.5 + 0.5 * cos(az * 4.0)) * (0.32 + 0.95 * (g3 + g4));
+        dens = (knot + fil + ring) * env_outer;
+        neb_col = mix(vec3<f32>(0.26, 0.72, 1.44), vec3<f32>(1.48, 0.98, 0.36), clamp(knot + g0 * 0.45, 0.0, 1.0))
+            + vec3<f32>(0.36, 1.24, 1.32) * ring * 0.45;
+        return vec4<f32>(min(neb_col, vec3<f32>(1.28)), min(dens, 1.35));
+    }
+
+    // Shared Laniakea convergence coordinates
+    let ga = p - vec3<f32>(0.18, 0.02, 0.0);
+    let r_ga = length(ga);
+    let dir_ga = normalize(ga + vec3<f32>(1e-4));
+    let s1 = abs(snoise3(dir_ga * 4.6 + vec3<f32>(r_ga * 2.4 - time * 0.22)));
+    let s2 = abs(snoise3(dir_ga * 4.6 + vec3<f32>(5.2, -3.1, 2.7)));
+    let base_threads = pow(smoothstep(0.14, 0.0, length(vec2<f32>(s1, s2))), 2.5) * exp(-r_ga * 1.1);
+
+    if (z_idx == 0u) {
+        // Z00 Local Group Limit in Laniakea (1700): LG peripheral knot (F0), diffuse membership halo (F1), turnaround shell (F2), scale jump rings (F3), Laniakea streamlines (F4)
+        let lg_p = p - vec3<f32>(-0.34, -0.06, 0.08);
+        let lg_r = length(lg_p);
+        let lg_knot = exp(-lg_r * 22.0) * (0.38 + 1.35 * f0);
+        let diff_mem = exp(-lg_r * 7.5) * smoothstep(0.05, 0.24, lg_r) * (0.24 + 1.25 * f1);
+        let zv_surf = exp(-abs(lg_r - 0.20) * 38.0) * (0.55 + 0.45 * cos(atan2(lg_p.z, lg_p.x) * 6.0)) * (0.24 + 1.38 * f2);
+        let scale_jump = (exp(-abs(r - 0.30) * 34.0) + exp(-abs(r - 0.52) * 34.0)) * (0.20 + 1.35 * f3);
+        let lan_flow = base_threads * (0.36 + 1.32 * f4);
+        dens = (lg_knot + diff_mem + zv_surf + scale_jump + lan_flow) * env_outer;
+        neb_col = mix(vec3<f32>(0.26, 0.76, 1.44), vec3<f32>(1.50, 1.04, 0.38), clamp(lg_knot * 1.2 + scale_jump * 0.7, 0.0, 1.0))
+            + vec3<f32>(0.24, 1.28, 1.22) * zv_surf * g2 * 0.75;
+    } else if (z_idx == 1u) {
+        // Z01 Local Volume (1701): neighbor galaxies CenA/M81/Sculptor (F0), galaxy group halos (F1), Mpc distance arcs (F2), peculiar velocity vectors (F3), 3D density slice (F4)
+        let g_cen = p - vec3<f32>(0.22, 0.16, -0.08);
+        let g_m81 = p - vec3<f32>(-0.24, 0.22, 0.12);
+        let g_scu = p - vec3<f32>(-0.18, -0.26, -0.10);
+        let g_maf = p - vec3<f32>(0.26, -0.18, 0.14);
+        let neighbors = (exp(-length(g_cen) * 24.0) + exp(-length(g_m81) * 24.0) + exp(-length(g_scu) * 24.0) + exp(-length(g_maf) * 24.0) + exp(-r * 20.0) * 0.8) * (0.32 + 1.30 * f0);
+        let grp_halos = (exp(-abs(length(g_cen) - 0.11) * 38.0) + exp(-abs(length(g_m81) - 0.11) * 38.0) + exp(-abs(length(g_scu) - 0.11) * 38.0)) * (0.22 + 1.38 * f1);
+        let dist_arcs = (exp(-abs(length(p.xz) - 0.24) * 38.0) + exp(-abs(length(p.xz) - 0.44) * 38.0)) * exp(-abs(p.y) * 22.0) * (0.22 + 1.35 * f2);
+        let pec_vec = exp(-abs(sin((p.y - 0.35 * p.x) * 22.0)) * 18.0) * exp(-abs(p.z) * 16.0) * (0.55 + 0.45 * cos(p.x * 24.0 - time * 2.5)) * (0.20 + 1.35 * f3);
+        let map_grid = (exp(-abs(sin(p.x * 16.0)) * 20.0) * exp(-abs(sin(p.z * 16.0)) * 20.0)) * exp(-abs(p.y) * 12.0) * (0.18 + 1.38 * f4);
+        dens = (neighbors + grp_halos + dist_arcs + pec_vec + map_grid) * env_outer;
+        neb_col = mix(vec3<f32>(0.32, 0.78, 1.44), vec3<f32>(1.48, 1.02, 0.40), clamp(neighbors * 1.1 + dist_arcs * 0.7, 0.0, 1.0))
+            + vec3<f32>(0.26, 1.26, 1.14) * (pec_vec * g3 + map_grid * g4) * 0.70;
+    } else if (z_idx == 2u) {
+        // Z02 Local Sheet (1702): flattened galactic sheet (F0), Council of Giants 12-galaxy ring (F1), Local Plane grid (F2), Local Void cliff (F3), Virgo bridge (F4)
+        let y_sh = p.y - 0.05;
+        let r_xz = length(p.xz);
+        let sheet = exp(-abs(y_sh) * 34.0) * exp(-r_xz * 2.8) * (0.36 + 1.22 * f0);
+        let az = atan2(p.z, p.x);
+        let council = exp(-abs(y_sh) * 36.0) * exp(-abs(r_xz - 0.34) * 32.0) * (0.35 + 0.65 * pow(max(0.0, cos(az * 6.0)), 6.0)) * (0.30 + 1.42 * f1);
+        let plane_grid = exp(-abs(y_sh) * 38.0) * (exp(-abs(sin(p.x * 18.0)) * 18.0) + exp(-abs(sin(p.z * 18.0)) * 18.0)) * 0.55 * (0.20 + 1.35 * f2);
+        let void_rim = exp(-abs(p.y + 0.14) * 32.0) * exp(-abs(r_xz - 0.28) * 20.0) * (0.22 + 1.38 * f3);
+        let virgo_bridge = exp(-abs(y_sh) * 32.0) * exp(-abs(p.z + 0.25 * p.x) * 28.0) * smoothstep(-0.05, 0.52, p.x) * (0.24 + 1.40 * f4);
+        let void_cut = select(1.0, smoothstep(-0.18, 0.02, p.y), doc_feat(inst) == 3u);
+        dens = ((sheet + council + plane_grid + virgo_bridge) * void_cut + void_rim) * env_outer;
+        neb_col = mix(vec3<f32>(0.30, 0.78, 1.44), vec3<f32>(1.50, 1.06, 0.42), clamp(council * 1.2 + virgo_bridge * 0.85, 0.0, 1.0))
+            + vec3<f32>(0.68, 0.36, 1.42) * void_rim * g3 * 0.75;
+    } else if (z_idx == 3u) {
+        // Z03 Virgo Cluster (1703): 2000-galaxy swarm (F0), M87 core & relativistic jet (F1), X-ray intracluster gas (F2), dark-matter potential cage (F3), fast orbits & ram stripping (F4)
+        let vc = p - vec3<f32>(-0.04, 0.02, 0.0);
+        let r_vc = length(vc);
+        let swarm_knots = exp(-r_vc * 6.5) * (0.45 + 0.55 * pow(max(0.0, snoise3(vc * 16.0)), 2.0)) * (0.34 + 1.25 * f0);
+        let m87_core = exp(-r_vc * 22.0);
+        let m87_jet = exp(-length(vc.xz - vec2<f32>(0.22 * vc.y, 0.0)) * 36.0) * smoothstep(0.56, 0.0, abs(vc.y));
+        let m87 = (m87_core + m87_jet * 1.15) * (0.36 + 1.35 * f1);
+        let icm_xray = exp(-r_vc * 4.8) * smoothstep(0.04, 0.22, r_vc) * (0.22 + 1.18 * f2);
+        let dm_cage = (exp(-abs(r_vc - 0.26) * 36.0) + exp(-abs(r_vc - 0.44) * 36.0)) * (0.55 + 0.45 * cos(atan2(vc.z, vc.x) * 6.0)) * (0.20 + 1.35 * f3);
+        let ram_tails = exp(-abs(vc.z) * 24.0) * exp(-abs(vc.y - 0.16 * sin(vc.x * 10.0)) * 28.0) * smoothstep(-0.38, 0.38, vc.x) * (0.22 + 1.38 * f4);
+        dens = (swarm_knots + m87 + icm_xray + dm_cage + ram_tails) * env_outer;
+        neb_col = mix(vec3<f32>(0.34, 0.72, 1.46), vec3<f32>(1.52, 1.04, 0.40), clamp(m87_core * 1.3 + swarm_knots * 0.85, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.18, 1.52) * (m87_jet * g1 + ram_tails * g4) * 0.72
+            + vec3<f32>(0.58, 0.34, 1.44) * (icm_xray * g2 + dm_cage * g3) * 0.65;
+    } else if (z_idx == 4u) {
+        // Z04 Virgo Supercluster (1704): supercluster lobe (F0), Virgo branch arm (F1), cluster bead chain (F2), historical vs Laniakea frame (F3), hierarchical substructure (F4)
+        let vsc_p = (p - vec3<f32>(-0.14, 0.06, 0.0)) * vec3<f32>(0.85, 1.45, 1.25);
+        let lobe = exp(-abs(length(vsc_p) - 0.32) * 28.0) * (0.26 + 1.28 * f0);
+        let branch = exp(-length(p.yz - vec2<f32>(0.06 - 0.18 * p.x, 0.08 * p.x)) * 22.0) * smoothstep(-0.46, 0.24, p.x) * (0.28 + 1.32 * f1);
+        let chain = exp(-length(p.yz - vec2<f32>(0.06 - 0.18 * p.x, 0.0)) * 28.0) * pow(max(0.0, cos(p.x * 20.0)), 6.0) * smoothstep(0.48, 0.0, abs(p.x)) * (0.24 + 1.40 * f2);
+        let hist_ring = (exp(-abs(length(vsc_p) - 0.24) * 36.0) + exp(-abs(r - 0.56) * 34.0)) * (0.20 + 1.35 * f3);
+        let sub_tree = base_threads * (0.35 + 1.28 * f4);
+        dens = (lobe + branch + chain + hist_ring + sub_tree) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.76, 1.44), vec3<f32>(1.48, 1.02, 0.38), clamp(chain * 1.2 + branch * 0.85, 0.0, 1.0))
+            + vec3<f32>(0.32, 1.24, 1.28) * hist_ring * g3 * 0.72;
+    } else if (z_idx == 5u) {
+        // Z05 Galactic Flows (1705): peculiar flow pulses (F0), coherent streamlines (F1), gravitational valley contours (F2), Hubble expansion vs infall (F3), Cosmicflows cone (F4)
+        let flow_pulse = base_threads * (0.65 + 0.35 * sin(r_ga * 22.0 - time * 3.0)) * (0.36 + 1.28 * f0);
+        let stream_rib = exp(-abs(sin(atan2(ga.z, ga.x) * 5.0 + r_ga * 4.0)) * 12.0) * exp(-abs(ga.y) * 14.0) * (0.26 + 1.30 * f1);
+        let valley_iso = (exp(-abs(r_ga - 0.20) * 36.0) + exp(-abs(r_ga - 0.38) * 36.0)) * exp(-abs(ga.y + 0.10) * 18.0) * (0.22 + 1.35 * f2);
+        let hubble_rings = exp(-abs(r - 0.48) * 34.0) * (0.55 + 0.45 * cos(atan2(p.z, p.x) * 8.0)) * (0.20 + 1.38 * f3);
+        let cone_axis = length(p.yz - vec2<f32>(0.18 * (p.x + 0.36), 0.0));
+        let survey_cone = exp(-abs(cone_axis - 0.32 * max(p.x + 0.36, 0.0)) * 32.0) * smoothstep(-0.36, 0.42, p.x) * (0.20 + 1.40 * f4);
+        dens = (flow_pulse + stream_rib + valley_iso + hubble_rings + survey_cone) * env_outer;
+        neb_col = mix(vec3<f32>(0.24, 0.74, 1.46), vec3<f32>(1.50, 1.00, 0.36), clamp((0.55 - r_ga) * 1.1 + flow_pulse * 0.5, 0.0, 1.0))
+            + vec3<f32>(0.28, 1.28, 1.18) * (valley_iso * g2 + survey_cone * g4) * 0.72
+            + vec3<f32>(1.38, 0.46, 0.92) * hubble_rings * g3 * 0.68;
+    } else if (z_idx == 6u) {
+        // Z06 Local Void (1706): carved cosmic void cavity (F0), interior underdensity contours (F1), faster wall expansion (F2), outward repulsion vectors (F3), visual silence rim (F4)
+        let vp = p - vec3<f32>(-0.08, -0.04, 0.02);
+        let rv = length(vp);
+        let cavity_mask = smoothstep(0.22, 0.38, rv);
+        let void_wall = exp(-abs(rv - 0.36) * 28.0) * (0.55 + 0.45 * fbm3(p * 8.0, 3)) * (0.38 + 1.25 * f0);
+        let under_iso = exp(-abs(rv - 0.18) * 38.0) * 0.32 * (0.18 + 1.35 * f1);
+        let exp_shell = exp(-abs(rv - 0.44) * 34.0) * (0.55 + 0.45 * sin(atan2(vp.z, vp.x) * 6.0 - time * 2.0)) * (0.24 + 1.35 * f2);
+        let rep_rays = exp(-abs(sin(atan2(vp.z, vp.x) * 6.0)) * 18.0) * exp(-abs(vp.y) * 18.0) * smoothstep(0.14, 0.44, rv) * (0.22 + 1.38 * f3);
+        let silence_crown = exp(-abs(rv - 0.40) * 38.0) * exp(-abs(vp.y) * 24.0) * (0.26 + 1.42 * f4);
+        let silence_atten = select(1.0, 0.55, doc_feat(inst) == 4u);
+        dens = ((base_threads * 0.55 * cavity_mask + void_wall) * silence_atten + under_iso + exp_shell + rep_rays + silence_crown) * env_outer;
+        neb_col = mix(vec3<f32>(0.24, 0.72, 1.44), vec3<f32>(1.46, 0.98, 0.38), clamp(void_wall * 1.1 + silence_crown * 0.9, 0.0, 1.0))
+            + vec3<f32>(0.24, 1.28, 1.36) * (rep_rays * g3 + exp_shell * g2) * 0.72;
+    } else if (z_idx == 7u) {
+        // Z07 Great Attractor (1707): multi-stream convergence valley (F0), Hydra-Centaurus sub-knots (F1), Norma Cluster core (F2), Zone of Avoidance MW dust band (F3), Shapley scale shift (F4)
+        let conv_streams = base_threads * (0.38 + 1.25 * f0);
+        let hydra = exp(-length(p - vec3<f32>(-0.14, 0.14, -0.06)) * 22.0);
+        let centaurus = exp(-length(p - vec3<f32>(0.04, 0.12, 0.08)) * 22.0);
+        let hc_knots = (hydra + centaurus) * (0.30 + 1.42 * f1);
+        let norma = exp(-length((p - vec3<f32>(0.18, -0.02, 0.02)) * vec3<f32>(0.9, 1.3, 1.1)) * 18.0) * (0.34 + 1.45 * f2);
+        let zoa_band = exp(-abs(p.y + 0.22 * p.x) * 28.0) * exp(-abs(p.z) * 14.0) * (0.22 + 1.35 * f3);
+        let zoa_absorb = 1.0 - 0.55 * g3 * exp(-abs(p.y + 0.22 * p.x) * 32.0);
+        let shapley = (exp(-length(p - vec3<f32>(0.42, 0.16, -0.10)) * 20.0) + exp(-length(p.yz - vec2<f32>(0.36 * p.x, -0.22 * p.x)) * 24.0) * smoothstep(0.05, 0.46, p.x)) * (0.22 + 1.45 * f4);
+        dens = ((conv_streams + hc_knots + norma) * max(zoa_absorb, 0.25) + zoa_band * 0.65 + shapley) * env_outer;
+        neb_col = mix(vec3<f32>(0.26, 0.72, 1.44), vec3<f32>(1.52, 1.02, 0.36), clamp(norma * 1.2 + hc_knots * 0.9, 0.0, 1.0))
+            + vec3<f32>(1.28, 0.52, 0.22) * zoa_band * g3 * 0.75
+            + vec3<f32>(0.32, 1.28, 1.38) * shapley * g4 * 0.78;
+    } else if (z_idx == 8u) {
+        // Z08 Laniakea Basin (1708): full 520-Mly feather plume (F0), watershed separatrix hull (F1), 100k galaxy tracers (F2), kinematic vector grid (F3), unbound dark-energy rim (F4)
+        let feather = base_threads * (0.42 + 1.22 * f0);
+        let sep_hull = exp(-abs(r - 0.54) * 32.0) * (0.55 + 0.45 * cos(atan2(p.z, p.x) * 6.0) * cos(p.y * 10.0)) * (0.24 + 1.38 * f1);
+        let gal_sparks = pow(max(0.0, snoise3(p * 18.0)), 3.2) * exp(-r * 2.2) * (0.30 + 1.42 * f2);
+        let dyn_grid = (exp(-abs(sin(p.x * 16.0)) * 22.0) + exp(-abs(sin(p.y * 16.0)) * 22.0)) * exp(-abs(p.z) * 16.0) * 0.55 * (0.20 + 1.35 * f3);
+        let unbound_rim = exp(-abs(r - 0.60) * 30.0) * (0.22 + 1.42 * f4);
+        dens = (feather + sep_hull + gal_sparks + dyn_grid + unbound_rim) * env_outer;
+        neb_col = mix(vec3<f32>(0.24, 0.74, 1.44), vec3<f32>(1.50, 1.02, 0.38), clamp(gal_sparks * 1.3 + (0.5 - r_ga) * 0.7, 0.0, 1.0))
+            + vec3<f32>(0.26, 1.26, 1.32) * (sep_hull * g1 + dyn_grid * g3) * 0.70
+            + vec3<f32>(1.46, 0.36, 0.52) * unbound_rim * g4 * 0.78;
+    } else {
+        // Z09 Laniakea Boundary (1709): watershed flow divide saddle (F0), permeable statistical boundary (F1), Perseus-Pisces & Shapley basins (F2), Cosmic Web Voronoi (F3), outward scale bridge (F4)
+        let divide_wall = exp(-abs(p.x - 0.04 * sin(p.y * 6.0)) * 28.0) * exp(-r * 2.4) * (0.28 + 1.35 * f0);
+        let perm_dash = exp(-abs(r - 0.48) * 34.0) * pow(max(0.0, cos(atan2(p.z, p.x) * 10.0)), 4.0) * (0.22 + 1.38 * f1);
+        let pp_basin = exp(-length(p - vec3<f32>(0.36, -0.16, 0.10)) * 20.0);
+        let sh_basin = exp(-length(p - vec3<f32>(0.34, 0.20, -0.12)) * 20.0);
+        let lan_basin = exp(-length(p - vec3<f32>(-0.30, 0.0, 0.04)) * 18.0);
+        let basins = (pp_basin + sh_basin + lan_basin * 0.75) * (0.28 + 1.42 * f2);
+        let web_f1 = fbm3(p * 3.8, 3);
+        let web_f2 = fbm3(p * 3.8 + vec3<f32>(6.1, -3.7, 4.9), 3);
+        let web_voronoi = pow(smoothstep(0.045, 0.0, length(vec2<f32>(web_f1, web_f2))), 2.2) * (0.24 + 1.38 * f3);
+        let scale_bridge = (exp(-abs(r - 0.34) * 34.0) + exp(-abs(r - 0.58) * 34.0)) * (0.20 + 1.38 * f4);
+        dens = (base_threads * 0.42 + divide_wall + perm_dash + basins + web_voronoi + scale_bridge) * env_outer;
+        neb_col = mix(vec3<f32>(0.28, 0.68, 1.44), vec3<f32>(1.48, 0.98, 0.40), clamp(basins * 1.2 + divide_wall * 0.75, 0.0, 1.0))
+            + vec3<f32>(0.92, 0.44, 1.44) * (web_voronoi * g3 + scale_bridge * g4) * 0.72
+            + vec3<f32>(0.26, 1.28, 1.24) * perm_dash * g1 * 0.70;
+    }
+
+    let out_d = select(0.0, min(dens, 1.38), dens >= 0.045);
+    return vec4<f32>(min(neb_col, vec3<f32>(1.28)), out_d);
+}
+
 fn raymarch_doc_cosmos_macro(
     kind: u32,
     vid: u32,
@@ -1580,6 +1978,12 @@ fn raymarch_doc_cosmos_macro(
                     accum_a += (1.0 - accum_a) * min(mw_d * 0.55, 0.22);
                 }
             }
+            if (is_mw && mw_stage_z == 10u && r > rs * 1.52 && r < 0.50) {
+                let mw_st = shade_doc_milky_way_stage(vid, pos, r, inst, time);
+                let st_a = mw_st.a * step_len * 0.38;
+                accum_rgb += (1.0 - accum_a) * min(mw_st.rgb, vec3<f32>(1.15)) * st_a;
+                accum_a += (1.0 - accum_a) * min(st_a * 0.50, 0.16);
+            }
 
             if (is_degenerate && r > 0.26 && r < 0.92 && length(pos.xz) < 0.16) {
                 // Hawking Polar Radiation Pairs & Evaporating Quantum Jet Cones
@@ -1611,8 +2015,9 @@ fn raymarch_doc_cosmos_macro(
         return vec4<f32>(accum_rgb, accum_a);
     }
 
-    // Kind 3u: Cosmological Macro + Landmarks (vid 4, 6..10, 20..23)
-    let steps: i32 = i32(mix(16.0, 30.0, fovea_k));
+    // Kind 3u: Cosmological Macro + Landmarks (vid 4, 6..10, 20..23, 1500..1709, 3660..3709)
+    let max_steps = select(30.0, 26.0, vid >= 1500u);
+    let steps: i32 = i32(mix(16.0, max_steps, fovea_k));
     let dt = (t1 - t0) / f32(steps);
     for (var i: i32 = 0; i < 30; i = i + 1) {
         if (i >= steps || accum_a > 0.94) {
@@ -1665,35 +2070,14 @@ fn raymarch_doc_cosmos_macro(
                     neb_col = mix(vec3<f32>(0.85, 0.96, 1.15), vec3<f32>(0.24, 0.68, 1.48), clamp(ion_w * 1.4, 0.0, 1.0)) * (1.0 - 0.35 * dust_w)
                         + vec3<f32>(1.28, 0.92, 0.44) * dust_w;
                 }
-            } else if (vid == 6u) {
-                // Local Group: MW + M31 + M33 Triangulum + Magellanic satellite smudges cleanly separated in black void
-                let q1 = p - vec3<f32>(-0.36, -0.10, 0.06);
-                let r1 = length(q1.xz);
-                let bulge1 = exp(-length(q1) * 18.0) * 1.15;
-                let arm1 = exp(-abs(q1.y) * 32.0) * pow(max(0.0, cos(atan2(q1.z, q1.x) - 3.4 * log(r1 + 0.05))), 4.5) * exp(-r1 * 5.2);
-                let q2_raw = p - vec3<f32>(0.36, 0.12, -0.05);
-                let q2 = doc_rot_z(q2_raw, 0.6);
-                let r2 = length(q2.xz);
-                let bulge2 = exp(-length(q2) * 20.0) * 1.05;
-                let arm2 = exp(-abs(q2.y) * 34.0) * pow(max(0.0, cos(atan2(q2.z, q2.x) + 3.8 * log(r2 + 0.05))), 4.5) * exp(-r2 * 5.6);
-                let q3 = p - vec3<f32>(0.22, -0.28, 0.18);
-                let m33 = exp(-length(q3) * 24.0) * 0.85 + exp(-abs(q3.y) * 36.0) * exp(-length(q3.xz) * 12.0) * 0.45;
-                let dust_cut = smoothstep(-0.18, 0.32, snoise3(p * 12.0));
-                dens = (bulge1 + arm1 * dust_cut + bulge2 + arm2 * dust_cut + m33) * 0.65;
-                neb_col = mix(vec3<f32>(0.35, 0.62, 1.45), vec3<f32>(1.55, 1.12, 0.55), clamp((bulge1 + bulge2) * 1.1, 0.0, 1.0));
-            } else if (vid == 7u) {
-                // Laniakea: Flowing Watershed Filaments into Great Attractor + M87 Virgo Relativistic Jet
-                let ga = p - vec3<f32>(0.18, 0.04, 0.0);
-                let r_ga = length(ga);
-                let dir_ga = normalize(ga + vec3<f32>(1e-4));
-                let s1 = abs(snoise3(dir_ga * 4.8 + vec3<f32>(r_ga * 2.4 - time * 0.25)));
-                let s2 = abs(snoise3(dir_ga * 4.8 + vec3<f32>(5.2, -3.1, 2.7)));
-                let thread = pow(smoothstep(0.14, 0.0, length(vec2<f32>(s1, s2))), 2.6);
-                let knot = exp(-r_ga * 16.0);
-                let virgo = p - vec3<f32>(-0.38, 0.22, -0.10);
-                let m87_jet = exp(-length(virgo.xz) * 36.0) * exp(-abs(virgo.y) * 5.0) * 1.1;
-                dens = (thread * 0.95 * exp(-r_ga * 1.2) + knot * 1.25 + m87_jet) * (1.0 - smoothstep(0.68, 0.92, r));
-                neb_col = mix(vec3<f32>(0.22, 0.65, 1.45), vec3<f32>(1.65, 0.98, 0.34), clamp(knot * 1.4 + (0.6 - r_ga) * 0.5, 0.0, 1.0));
+            } else if (vid == 6u || (vid >= 1600u && vid <= 1608u) || (vid >= 3680u && vid <= 3688u)) {
+                let lg_res = shade_doc_local_group_stage(vid, p, r, inst, time);
+                neb_col = lg_res.rgb;
+                dens = lg_res.a;
+            } else if (vid == 7u || (vid >= 1700u && vid <= 1709u) || (vid >= 3700u && vid <= 3709u)) {
+                let lan_res = shade_doc_laniakea_stage(vid, p, r, inst, time);
+                neb_col = lan_res.rgb;
+                dens = lan_res.a;
             } else if (vid == 8u) {
                 // Cosmic Web 1D Voronoi Filaments & Supernodes
                 let w_warp = curl_noise3(p * 2.6);
