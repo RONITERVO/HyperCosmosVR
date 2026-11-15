@@ -87,7 +87,8 @@ fn doc_sun_noise1(value: f32) -> f32 {
 }
 
 struct SunGranule {
-    // Distance to the nearest power-cell boundary in units of one granule.
+    // Continuous gap between the two smallest cell powers, scaled for thermal
+    // lane widths. This is not an exact Euclidean boundary distance.
     edge: f32,
     // Independent cell life cycle; rising/hot centers give way to cooler lanes.
     heat: f32,
@@ -125,7 +126,6 @@ fn doc_sun_granule(n: vec3<f32>, physical_time: f32, footprint: f32) -> SunGranu
     var first = 1e6;
     var second = 1e6;
     var nearest = vec3<f32>(0.0);
-    var runner_up = vec3<f32>(0.0);
     var nearest_seed = vec3<f32>(0.5);
     var nearest_phase = 0.0;
     for (var z = -1; z <= 1; z = z + 1) {
@@ -141,7 +141,6 @@ fn doc_sun_granule(n: vec3<f32>, physical_time: f32, footprint: f32) -> SunGranu
                 let distance = dot(delta, delta) - (growth - 0.5) * 0.22;
                 if (distance < first) {
                     second = first;
-                    runner_up = nearest;
                     first = distance;
                     nearest = center;
                     result.heat = growth;
@@ -150,35 +149,47 @@ fn doc_sun_granule(n: vec3<f32>, physical_time: f32, footprint: f32) -> SunGranu
                     nearest_phase = phase;
                 } else if (distance < second) {
                     second = distance;
-                    runner_up = center;
                 }
             }
         }
     }
-    result.edge = max(0.0, (second - first) / max(2.0 * length(runner_up - nearest), 1e-4));
+    // Both order statistics remain continuous when the runner-up changes.
+    // Dividing their gap by that runner's center separation would introduce
+    // a finite thermal jump inside a cell, even though the gap is unchanged.
+    result.edge = max(0.0, (second - first) * 0.5);
     let displacement = q - nearest;
     let tangent_offset = displacement - n * dot(displacement, n);
     let direction_seed = nearest_seed - vec3<f32>(0.5);
     let tangent = normalize(cross(n, direction_seed + vec3<f32>(0.127, 0.329, 0.713)));
     let transverse = cross(n, tangent);
     let local = vec2<f32>(dot(tangent_offset, tangent), dot(tangent_offset, transverse));
-    let aspect = vec2<f32>(0.44 + nearest_seed.x * 0.25, 0.33 + nearest_seed.z * 0.19);
-    let plume_radius = dot(local / aspect, local / aspect);
-    // A bright rising plume has an uneven interior, not a constant filled
-    // polygon. About400km structure spreads slowly away from its center.
-    let spreading = tangent_offset * (2.0 - result.heat * 0.35);
+    let aspect = vec2<f32>(0.40 + nearest_seed.x * 0.22, 0.32 + nearest_seed.z * 0.17);
+    let plume_center = (nearest_seed.xy - vec2<f32>(0.5)) * 0.12;
+    let plume_local = (local - plume_center) / aspect;
+    let plume_radius = dot(plume_local, plume_local);
+    // The brightness comes from a rising, spreading plume, rather than a
+    // constant hot fill inside a thin power-cell outline. A cooling intrusion
+    // separates an older plume into two independently shaped bright lobes.
+    // Their combined area approximately retains the parent plume's hot area.
+    let aging = smoothstep(0.05, 0.85, max(0.0, -cos(nearest_phase)));
+    let split_resolved = 1.0 - smoothstep(cell_radius * 0.06, cell_radius * 0.24, footprint);
+    let separation = 0.42 + aging * 0.43;
+    let daughter_a = (plume_local - vec2<f32>(separation, nearest_seed.z * 0.25 - 0.12))
+        / vec2<f32>(0.60 + nearest_seed.y * 0.10, 0.82 + nearest_seed.x * 0.16);
+    let daughter_b = (plume_local + vec2<f32>(separation, nearest_seed.x * 0.23 - 0.10))
+        / vec2<f32>(0.63 + nearest_seed.z * 0.10, 0.85 + nearest_seed.y * 0.14);
+    let hot_a = exp(-dot(daughter_a, daughter_a));
+    let hot_b = exp(-dot(daughter_b, daughter_b));
+    let daughters = (1.0 - (1.0 - hot_a) * (1.0 - hot_b)) * 0.94;
+    let parent_plume = exp(-plume_radius * 0.92);
+    let spreading = tangent_offset * (1.6 - result.heat * 0.30);
     let mottling = snoise3(nearest * 2.1 + spreading * 2.1
         + vec3<f32>(physical_time * 0.0013, 0.0, physical_time * 0.0008));
-    result.plume = clamp(exp(-plume_radius * 0.65) + mottling * 0.23, 0.0, 1.0);
-    // Cooling intrudes into older granules as off-center, curved lanes. The
-    // cell then changes its power weight and neighbors take over its area.
-    let aging = max(0.0, -cos(nearest_phase));
-    let split_curve = local.x - 0.09 * sin(local.y * 8.0 + nearest_seed.z * TAU)
-        - (nearest_seed.y - 0.5) * 0.24;
-    let split_width = 0.035 + 0.025 * aging;
-    let split_resolved = 1.0 - smoothstep(cell_radius * 0.045, cell_radius * 0.18, footprint);
-    result.fragmentation = exp(-split_curve * split_curve / (split_width * split_width))
-        * smoothstep(0.07, 0.27, length(local)) * aging * split_resolved;
+    let plume = mix(parent_plume, daughters, aging * split_resolved);
+    result.plume = clamp(plume * (1.0 + mottling * 0.15), 0.0, 1.0);
+    let split_curve = plume_local.x - 0.10 * sin(plume_local.y * 2.8 + nearest_seed.z * TAU);
+    result.fragmentation = exp(-split_curve * split_curve / 0.055)
+        * exp(-plume_radius * 0.85) * aging * split_resolved;
     return result;
 }
 
@@ -194,30 +205,95 @@ fn doc_sun_small_scale(n: vec3<f32>, physical_time: f32, footprint: f32) -> f32 
 // An irregular set of radial channels, tied to the spot rather than the camera.
 // The bright material travels outwards along them; the field-aligned skeleton
 // stays persistent. Analytic pixel integration avoids a regular spoke comb.
-fn doc_sun_penumbral_mean(radial_fraction: f32) -> vec3<f32> {
-    // Angular ensemble means of the variable-length channels below. A constant
-    // distant mean brightens short outer tips as they become unresolved.
-    let means = array<vec3<f32>,12>(
-        vec3<f32>(0.282,0.125,0.265), vec3<f32>(0.416,0.199,0.408),
-        vec3<f32>(0.458,0.223,0.470), vec3<f32>(0.466,0.230,0.513),
-        vec3<f32>(0.337,0.176,0.424), vec3<f32>(0.235,0.127,0.319),
-        vec3<f32>(0.163,0.088,0.221), vec3<f32>(0.105,0.057,0.144),
-        vec3<f32>(0.063,0.034,0.087), vec3<f32>(0.026,0.014,0.036),
-        vec3<f32>(0.004,0.002,0.005), vec3<f32>(0.0));
-    let coordinate = clamp(radial_fraction*10.0,0.0,10.999);
-    let i = u32(coordinate);
+fn doc_sun_penumbral_mean(radial_fraction: f32, spot_index: u32) -> vec3<f32> {
+    // Shipping-GPU ensemble means:8,192angles per authored spot, sampled at
+    // 0.05radial-band intervals and reference times0/373/2000s. The GPU probe
+    // also checks every midpoint; these are finite sampled means, not exact
+    // radiometry. Separate spot tables preserve their own unresolved coverage.
+    let means = array<vec3<f32>,48>(
+        vec3<f32>(0.658693, 0.082199, 0.468166),
+        vec3<f32>(0.652067, 0.080742, 0.437034),
+        vec3<f32>(0.641758, 0.078383, 0.416193),
+        vec3<f32>(0.624562, 0.065906, 0.395104),
+        vec3<f32>(0.647733, 0.076321, 0.438470),
+        vec3<f32>(0.654390, 0.082309, 0.444018),
+        vec3<f32>(0.640361, 0.077584, 0.415308),
+        vec3<f32>(0.587071, 0.056000, 0.299383),
+        vec3<f32>(0.562561, 0.043661, 0.241388),
+        vec3<f32>(0.543151, 0.032618, 0.205406),
+        vec3<f32>(0.537720, 0.028621, 0.195355),
+        vec3<f32>(0.535845, 0.027549, 0.197418),
+        vec3<f32>(0.532882, 0.026660, 0.189066),
+        vec3<f32>(0.526677, 0.022515, 0.169852),
+        vec3<f32>(0.525867, 0.023174, 0.165548),
+        vec3<f32>(0.520536, 0.021112, 0.160026),
+        vec3<f32>(0.499388, 0.013327, 0.089137),
+        vec3<f32>(0.489324, 0.007136, 0.042868),
+        vec3<f32>(0.464326, 0.002986, 0.017887),
+        vec3<f32>(0.285878, 0.000783, 0.005250),
+        vec3<f32>(0.074565, 0.000078, 0.000511),
+        vec3<f32>(0.000000, 0.000000, 0.000000),
+        vec3<f32>(0.000000, 0.000000, 0.000000),
+        vec3<f32>(0.000000, 0.000000, 0.000000),
+        vec3<f32>(0.688290, 0.091438, 0.497189),
+        vec3<f32>(0.701833, 0.103270, 0.521618),
+        vec3<f32>(0.681224, 0.092812, 0.489647),
+        vec3<f32>(0.667173, 0.087353, 0.466084),
+        vec3<f32>(0.693708, 0.099153, 0.489790),
+        vec3<f32>(0.720732, 0.113858, 0.535705),
+        vec3<f32>(0.676836, 0.096573, 0.478789),
+        vec3<f32>(0.620742, 0.073878, 0.370050),
+        vec3<f32>(0.582834, 0.054667, 0.295836),
+        vec3<f32>(0.573570, 0.047759, 0.280105),
+        vec3<f32>(0.558427, 0.038490, 0.247692),
+        vec3<f32>(0.546592, 0.032423, 0.216762),
+        vec3<f32>(0.533677, 0.028560, 0.192365),
+        vec3<f32>(0.525923, 0.025625, 0.177500),
+        vec3<f32>(0.523972, 0.024748, 0.170039),
+        vec3<f32>(0.526935, 0.023540, 0.183925),
+        vec3<f32>(0.502830, 0.013967, 0.096848),
+        vec3<f32>(0.490784, 0.007043, 0.045430),
+        vec3<f32>(0.462796, 0.002906, 0.018265),
+        vec3<f32>(0.284185, 0.000822, 0.005268),
+        vec3<f32>(0.074363, 0.000076, 0.000496),
+        vec3<f32>(0.000000, 0.000000, 0.000000),
+        vec3<f32>(0.000000, 0.000000, 0.000000),
+        vec3<f32>(0.000000, 0.000000, 0.000000),
+    );
+    let coordinate = clamp(radial_fraction*20.0,0.0,22.999);
+    let i = min(spot_index,1u)*24u+u32(coordinate);
     return mix(means[i],means[i+1u],fract(coordinate));
 }
 
+fn doc_sun_penumbral_periodic_noise(coordinate: f32, period: f32, seed: f32) -> f32 {
+    let base = floor(coordinate);
+    let cell = base - floor(base / period) * period;
+    let next = cell + 1.0 - floor((cell + 1.0) / period) * period;
+    let f = fract(coordinate);
+    let weight = f * f * (3.0 - 2.0 * f);
+    return mix(doc_sun_hash11(cell + seed), doc_sun_hash11(next + seed), weight);
+}
+
 fn doc_sun_penumbral_fibrils(angle: f32, radial_fraction: f32, physical_time: f32,
-    seed_offset: f32, angular_footprint: f32, radial_footprint: f32) -> vec3<f32> {
+    spot_index: u32, angular_footprint: f32, radial_footprint: f32) -> vec3<f32> {
+    let seed_offset = f32(spot_index)*4.17+1.3;
     let strand_count = 310.0;
     let radial = clamp(radial_fraction, 0.0, 1.15);
-    let warped_angle = angle + 0.020 * sin(angle * 5.0 + seed_offset) * radial
-        + 0.009 * sin(angle * 13.0 - radial * 2.7 + seed_offset) * radial;
+    // Neighboring filaments follow the same gently curved magnetic direction,
+    // but terminate independently. They are not full-radius angular stripes.
+    let warped_angle = angle + 0.055 * sin(angle * 4.0 + seed_offset) * radial * radial
+        + 0.024 * sin(angle * 9.0 - radial * 4.0 + seed_offset) * radial;
     let coordinate = fract(warped_angle / TAU) * strand_count;
     let cell = floor(coordinate);
-    var filaments = 0.0;
+    // The material between resolved filaments is also structured warm plasma.
+    // Both coordinates follow the same curved field; periodic angular noise
+    // prevents a seam and the slower radial variation elongates the patches.
+    let bundle_phase = doc_sun_penumbral_periodic_noise(coordinate * 0.5, 155.0, seed_offset * 29.0);
+    let across = doc_sun_penumbral_periodic_noise(coordinate, 310.0, seed_offset * 37.0);
+    let along = doc_sun_noise1(radial * 8.0 + bundle_phase * 12.0 - physical_time * 0.0015);
+    let warm_matrix = (0.32 + 0.32 * (along * 0.55 + across * 0.45))
+        * (1.0 - smoothstep(0.88, 1.04, radial));
+    var filaments = warm_matrix;
     var transport = 0.0;
     var peripheral_coverage = 0.0;
     let pixel_width = angular_footprint * strand_count / TAU;
@@ -225,45 +301,57 @@ fn doc_sun_penumbral_fibrils(angle: f32, radial_fraction: f32, physical_time: f3
     // The physical width is approximately constant along each filament before
     // tapering; a constant angular width instead makes rigid expanding spokes.
     let radius_ratio = mix(0.27, 1.0, clamp(radial, 0.0, 1.0));
-    for (var i = -2; i <= 2; i = i + 1) {
-        let id = cell + f32(i);
+    // Two staggered populations place bright heads throughout the penumbra.
+    // Their shorter, overlapping bodies retain predominantly outward flow.
+    for (var population = 0u; population < 2u; population += 1u) {
+      for (var i = -6; i <= 6; i += 1) {
+        let id = cell + f32(i) + f32(population) * 0.5;
         let wrapped = id - floor(id / strand_count) * strand_count;
         let seed = doc_sun_hash11(wrapped + seed_offset * 53.0);
         let seed2 = doc_sun_hash11(wrapped * 1.731 + seed_offset * 71.0);
         let seed3 = doc_sun_hash11(wrapped * 2.317 + seed_offset * 113.0);
-        let head_at = -0.05 + seed2 * 0.38;
-        let tip_at = 0.55 + seed3 * 0.49;
-        let progress = clamp((radial_fraction - head_at) / max(tip_at - head_at, 0.20), 0.0, 1.0);
+        let head_at = select(-0.15 + seed2 * 0.40, 0.14 + seed2 * 0.58, population == 1u);
+        let body_length = select(0.24 + seed3 * 0.23, 0.18 + seed3 * 0.30, population == 1u);
+        let tip_at = min(head_at + body_length, 1.04);
+        let progress = clamp((radial_fraction - head_at) / max(tip_at-head_at,0.08), 0.0, 1.0);
         let extent = smoothstep(head_at-radial_aa, head_at+radial_aa, radial_fraction)
             * (1.0-smoothstep(tip_at-radial_aa*2.0,tip_at+radial_aa,radial_fraction));
-        // Stable individual curvature and staggered heads/tips break the radial
-        // comb without moving its footpoint frame or synchronizing lifetimes.
-        let bend = (0.12 + seed2 * 0.60)
-            * sin(progress * 3.2 + seed3 * TAU) * progress;
+        // Round the bright head and let both width and temperature approach
+        // zero at the true tail, including tails shortened by the outer edge.
+        let flow_profile = smoothstep(0.0,0.14,progress)
+            * (1.0-smoothstep(0.25,1.0,progress));
+        let bend = (seed2 - 0.5) * 0.50 * sin(progress * PI)
+            + 0.10 * sin(progress * 5.0 + seed3 * TAU) * progress;
         let center = id + 0.20 + seed * 0.60 + bend;
         let d = coordinate - center;
-        let head_length = 0.055 + seed3 * 0.035;
-        let head = exp(-pow((radial_fraction-head_at-0.035)/head_length,2.0));
-        let width = (0.11 + seed * 0.13) / radius_ratio
-            * (1.0-progress*0.58) * (1.0+head*0.55);
+        let head = exp(-pow((progress-0.13)/(0.14+seed3*0.05),2.0));
+        // Near the head, the two bright sides of the dark core are roughly
+        // 150–180km apart. Scale by physical spot radius, not apparent size.
+        // Scharmer etal2002: https://doi.org/10.1038/nature01173
+        let width = (0.29 + seed * 0.07) / radius_ratio
+            * (0.028 / doc_sun_spot_penumbra_radius(spot_index))
+            * sqrt(flow_profile) * (1.0+head*0.25);
         // Convolve the Gaussian channel with an approximate pixel footprint,
         // retaining integrated energy as several fibrils merge into a pixel.
-        let filtered_width = sqrt(width * width + pixel_width * pixel_width * 0.20);
+        let filtered_width = max(sqrt(width * width + pixel_width * pixel_width * 0.20),1e-6);
         let ridge = exp(-d * d / max(filtered_width * filtered_width, 1e-6)) * width / filtered_width;
-        let core_width = width * 0.26;
-        let filtered_core = sqrt(core_width*core_width + pixel_width*pixel_width*0.20);
-        let dark_core = exp(-d*d/max(filtered_core*filtered_core,1e-6)) * core_width/filtered_core
-            * smoothstep(0.12,0.38,progress);
-        let strand = max(0.0,ridge-dark_core*0.30) * extent;
-        let outward_flow = doc_sun_noise1(radial_fraction*19.0-physical_time*0.0036+seed*37.0);
-        filaments += strand * (0.70+seed*0.15+head*0.24);
-        transport += strand * outward_flow * 0.85;
-        peripheral_coverage = max(peripheral_coverage, ridge*extent);
+        let core_width = width * 0.40;
+        let filtered_core = max(sqrt(core_width*core_width + pixel_width*pixel_width*0.20),1e-6);
+        let core_offset = d-width*0.12*sin(progress*5.0+seed2*TAU);
+        let dark_core = exp(-core_offset*core_offset/max(filtered_core*filtered_core,1e-6))
+            * core_width/filtered_core * smoothstep(0.035,0.18,progress);
+        let outward_flow = doc_sun_noise1(progress*7.0-physical_time*0.0036+seed*37.0);
+        let body_structure = 0.72 + outward_flow * 0.28;
+        let strand = max(0.0,ridge-dark_core*0.65) * extent * body_structure * flow_profile;
+        filaments += strand * (0.24+seed*0.04+head*0.18);
+        transport += strand * outward_flow * 0.32;
+        peripheral_coverage = max(peripheral_coverage, ridge*extent*flow_profile*(0.65+head*0.35));
+      }
     }
     let unresolved = smoothstep(0.8, 2.2, pixel_width);
     let resolved = vec3<f32>(clamp(filaments,0.0,1.0),clamp(transport,0.0,1.0),
         clamp(peripheral_coverage,0.0,1.0));
-    return mix(resolved,doc_sun_penumbral_mean(radial_fraction),unresolved);
+    return mix(resolved,doc_sun_penumbral_mean(radial_fraction,spot_index),unresolved);
 }
 
 struct SunSpotMaterial {
@@ -304,7 +392,7 @@ fn doc_sun_spot_material(n: vec3<f32>, index: u32, physical_time: f32,
     let radial_footprint = footprint / max(penumbra_r - umbra_r, 0.001);
     let angular_footprint = footprint / max(radial, umbra_r * 0.45);
     let fibrils = doc_sun_penumbral_fibrils(angle, radial_fraction, physical_time,
-        f32(index) * 4.17 + 1.3, angular_footprint, radial_footprint);
+        index, angular_footprint, radial_footprint);
     // The outer boundary is formed partly by individual tapered filament tips;
     // quiet granulation shows between them instead of a uniform circular rim.
     let penumbral_base = 1.0-smoothstep(0.72-radial_footprint,0.96+radial_footprint,radial_fraction);
@@ -338,14 +426,13 @@ fn shade_doc_sun_surface(p_surf: vec3<f32>, n_surf: vec3<f32>, v_dir: vec3<f32>,
     let footprint = max(pixel_footprint / max(mu, 0.12), 1e-7);
     let granule = doc_sun_granule(n, physical_time, footprint);
     let small_scale = doc_sun_small_scale(n, physical_time, footprint);
-    // Smooth thermal profiles preserve variation throughout each granule.
-    // Bright upflows are rounded and irregular; cool lanes have variable width
-    // and develop internal branches rather than outlining flat white tiles.
-    let lane_width = 0.046 + (1.0 - granule.heat) * 0.026;
-    let upflow = 1.0 - exp(-pow(granule.edge / lane_width, 1.35));
-    let interior_heat = 0.57 + 0.43 * granule.plume;
-    let cell_temperature = 5150.0 + granule.heat * 140.0
-        + upflow * (990.0 * interior_heat - granule.fragmentation * 320.0);
+    // Broad plume-to-lane cooling avoids a nearly uniform bright plateau
+    // bounded by a thin dark contour. The downflow joins continuously at every
+    // cell boundary; its thermal width changes with the independent life cycle.
+    let lane_width = 0.095 + (1.0 - granule.heat) * 0.055;
+    let upflow = 1.0 - exp(-pow(granule.edge / lane_width, 2.0));
+    let cell_temperature = 5150.0 + upflow * (350.0 + granule.heat * 70.0
+        + granule.plume * 1120.0 - granule.fragmentation * 120.0);
     // The distant mean is not another broad noise octave. Real granules become
     // unresolved at a whole-Sun view instead of growing into continent-sized blobs.
     var magnetic_network = 0.0;
@@ -365,12 +452,17 @@ fn shade_doc_sun_surface(p_surf: vec3<f32>, n_surf: vec3<f32>, v_dir: vec3<f32>,
     let lane = 1.0 - smoothstep(0.018, 0.10, granule.edge);
     let facular_detail = mix(0.06, lane * pow(max(0.0, small_scale + 0.25), 2.0), granule.detail);
     let faculae = magnetic_network * (1.0 - spot_coverage) * facular_detail * (0.18 + 0.82 * pow(1.0 - mu, 1.5));
-    let temperature = cell_temperature + small_scale * (70.0 + upflow * 90.0) + faculae * 620.0;
-    // Filter emitted radiance, not temperature. The sampled power-cell ensemble
-    // has measured mean relative radiance (1.0764,1.0997,1.1181); normalize that
-    // mean before fading to the unresolved photosphere so approaching it does
-    // not change its total energy or white balance.
-    let resolved = doc_sun_visible_radiance(temperature) / vec3<f32>(1.0764, 1.0997, 1.1181);
+    let temperature = cell_temperature + small_scale * (35.0 + upflow * 55.0) + faculae * 620.0;
+    // Filter emitted radiance, not temperature. Ensemble means from180,000
+    // quiet surface samples across three independent times also account for
+    // the daughter-lobe footprint fade. Otherwise suppressing a cool split
+    // would brighten the whole surface as the observer recedes.
+    let granule_radius = 900000.0 / DOC_SUN_RADIUS_M;
+    let morphology_blur = smoothstep(granule_radius * 0.06, granule_radius * 0.24, footprint);
+    let radiance_mean = vec3<f32>(0.957025, 0.957494, 0.961169)
+        + morphology_blur * vec3<f32>(0.021057, 0.026853, 0.028074)
+        + morphology_blur * morphology_blur * vec3<f32>(0.003844, 0.004249, 0.009141);
+    let resolved = doc_sun_visible_radiance(temperature) / radiance_mean;
     let quiet = mix(vec3<f32>(1.0), resolved, granule.detail);
     var radiance = quiet * (1.0 - spot_coverage) + spot_radiance;
     if (doc_feat(inst) == 1u || doc_feat(inst) == 2u) {
@@ -378,7 +470,10 @@ fn shade_doc_sun_surface(p_surf: vec3<f32>, n_surf: vec3<f32>, v_dir: vec3<f32>,
         // temperature-derived chromaticity and the real limb law; redistribute
         // display contrast around the quiet mean to expose cool lanes/umbrae.
         let luminance = dot(radiance,vec3<f32>(0.2126,0.7152,0.0722));
-        radiance *= pow(max(luminance,1e-4),1.1) / (1.0+0.063*granule.detail*granule.detail);
+        let contrast_variance = 0.1613 - morphology_blur * 0.016
+            + morphology_blur * morphology_blur * 0.0282;
+        radiance *= pow(max(luminance,1e-4),1.1)
+            / (1.0+contrast_variance*granule.detail*granule.detail);
     }
     // Broad visible-band limb darkening and a neutral filtered photosphere.
     // Coronal instrument colors are handled separately, never painted onto this surface.

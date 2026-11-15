@@ -77,6 +77,16 @@ points in `solar_hero.wgsl`, sharing the same physical geometry and material
 helpers. Other documentary heroes retain their existing dispatch. Draw
 batches preserve storage indices and neighboring instance order.
 
+Finite strand proxy quads now use the actual perspective tangent bounds of
+their end-cap disks, reducing redundant raster work while preserving the
+physical radius, analytic ray integral and true depth. Closed-loop emission
+uses a fragment specialization of the same material equations for its first
+49,152 segments, followed by the remaining generic families in their original
+order. Surface resolution, strand count, volume samples, frame uniforms and
+physical stereo units are unchanged. The
+[current refinement record](../artifacts/solar_presence/surface_refinement/README.md)
+separates these measured changes from native-headset acceptance.
+
 The atmosphere optimization retains radial density integration while moving
 selected angular texture evaluations to emission-weighted directions. The
 thin chromosphere also accumulates angular variance and viewing-distance
@@ -84,7 +94,7 @@ moments to filter its mottling. A rotated, quintic-interpolated lattice
 provides three smooth noise channels for the diffuse atmosphere. This is an
 appearance approximation, not an exact integral of every previous noise
 sample; resolved plasma remains a separate three-dimensional strand pass.
-EUV contouring and sampling stability are still being revised. The
+EUV sampling and motion stability remain visual acceptance requirements. The
 [solar review report](../artifacts/solar_presence/README.md) records diagnostic
 performance results separately from visual and native-headset acceptance.
 
@@ -128,6 +138,27 @@ resolution, calibration or measured radiance. A fixed co-rotating frame keeps
 the same sunspots and magnetic roots available during inspection; plasma and
 granules evolve within it.
 
+Granule lane shading uses a continuous scaled gap between the two lowest
+cell powers rather than a runner-dependent geometric denominator. The gap
+is an appearance coordinate, not exact distance to a physical lane. Bright
+parent plumes develop two shaped daughter lobes and a cooling intrusion;
+these illustrate fragmentation inside the evolving power cell rather than
+simulate convection or create independently solved daughter fluid cells.
+The quiet boundary temperature joins continuously as the winning cell changes.
+Footprint-dependent RGB ensemble normalization preserves the approximate
+mean while the fine plume morphology becomes unresolved. A GPU regression
+bisects actual changes in the shipping cell seed and compares the material
+on both sides, separately from its mean-radiance/LOD checks.
+
+Penumbral filaments have rounded heads, darker internal cores, and tails whose
+width and thermal amplitude both fade to zero. Periodic, elongated material
+between them follows the same curved spot coordinates. The two spots each
+use a 24-knot unresolved mean table calibrated from the shipping GPU material
+at 8,192 angles and three physical times; an independent knot/midpoint sweep
+checks 20 K mean-temperature and 0.02 outer-coverage budgets. This calibration
+keeps the procedural resolved and filtered appearances consistent. It does
+not calibrate them against measured solar radiance or constitute an MHD model.
+
 The whole-Sun overview (macro `255`, no selected feature) and F1/F2 combine
 this filtered visible photosphere with illustrative temperature-colored
 coronal strands and blue outflow tracers. Those added plasma colors and their
@@ -139,7 +170,8 @@ Granulation and active-region observations (F1/F2) retain the visible continuum
 with an explicit display-contrast enhancement. Before limb darkening and tone
 mapping, the linear RGB radiance is scaled by luminance to the power 1.1,
 making the resulting luminance proportional to the original luminance to the
-power 2.1, with a small detail-dependent mean normalization. This preserves
+power 2.1, with mean normalization that follows detail and morphology footprint.
+This preserves
 the input temperature-derived chromaticity and applies the limb curve after
 the enhancement. It is a viewing transform that makes cool lanes and umbrae
 more legible, not calibrated solar radiometry. The whole-Sun overview does

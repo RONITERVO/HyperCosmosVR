@@ -108,6 +108,8 @@ pub struct PipelineBank {
     pub solar_corona_stereo: wgpu::RenderPipeline,
     pub solar_plasma_mono: wgpu::RenderPipeline,
     pub solar_plasma_stereo: wgpu::RenderPipeline,
+    pub solar_loop_emission_mono: wgpu::RenderPipeline,
+    pub solar_loop_emission_stereo: wgpu::RenderPipeline,
     pub solar_absorption_mono: wgpu::RenderPipeline,
     pub solar_absorption_stereo: wgpu::RenderPipeline,
 
@@ -439,7 +441,8 @@ impl PipelineBank {
         // so wgpu's DX12 fragment cache avoids duplicate expensive compiles.
         let ((hero_surface_mono, hero_surface_stereo),
             (hero_volume_mono, hero_volume_stereo),
-            (solar_plasma_mono, solar_plasma_stereo, solar_absorption_mono, solar_absorption_stereo),
+            (solar_plasma_mono, solar_plasma_stereo, solar_loop_emission_mono,
+                solar_loop_emission_stereo, solar_absorption_mono, solar_absorption_stereo),
             (solar_surface_mono, solar_surface_stereo, solar_corona_mono, solar_corona_stereo)) =
         std::thread::scope(|scope| {
             let surfaces = scope.spawn(|| {
@@ -499,6 +502,7 @@ impl PipelineBank {
                     "vs_solar_plasma",
                     "fs_solar_plasma",
                     None,
+                    None,
                 );
                 let solar_plasma_stereo = build_solar_plasma_pipeline(
                     device,
@@ -507,16 +511,26 @@ impl PipelineBank {
                     "vs_solar_plasma_stereo",
                     "fs_solar_plasma",
                     STEREO_MULTIVIEW_MASK,
+                    None,
+                );
+                let solar_loop_emission_mono = build_solar_plasma_pipeline(
+                    device, &hero_layout, &solar_plasma_shader,
+                    "vs_solar_plasma", "fs_solar_plasma", None, Some(0),
+                );
+                let solar_loop_emission_stereo = build_solar_plasma_pipeline(
+                    device, &hero_layout, &solar_plasma_shader,
+                    "vs_solar_plasma_stereo", "fs_solar_plasma", STEREO_MULTIVIEW_MASK, Some(0),
                 );
                 let solar_absorption_mono = build_solar_plasma_pipeline(
                     device, &hero_layout, &solar_plasma_shader,
-                    "vs_solar_absorption", "fs_solar_absorption", None,
+                    "vs_solar_absorption", "fs_solar_absorption", None, None,
                 );
                 let solar_absorption_stereo = build_solar_plasma_pipeline(
                     device, &hero_layout, &solar_plasma_shader,
-                    "vs_solar_absorption_stereo", "fs_solar_absorption", STEREO_MULTIVIEW_MASK,
+                    "vs_solar_absorption_stereo", "fs_solar_absorption", STEREO_MULTIVIEW_MASK, None,
                 );
-                (solar_plasma_mono, solar_plasma_stereo, solar_absorption_mono, solar_absorption_stereo)
+                (solar_plasma_mono, solar_plasma_stereo, solar_loop_emission_mono,
+                    solar_loop_emission_stereo, solar_absorption_mono, solar_absorption_stereo)
             });
             let solar = scope.spawn(|| {
                 let surface_mono = build_hero_pipeline(device, &hero_layout, &solar_hero_shader,
@@ -761,6 +775,8 @@ impl PipelineBank {
             solar_corona_stereo,
             solar_plasma_mono,
             solar_plasma_stereo,
+            solar_loop_emission_mono,
+            solar_loop_emission_stereo,
             solar_absorption_mono,
             solar_absorption_stereo,
             particle_mono,
@@ -969,7 +985,9 @@ fn build_solar_plasma_pipeline(
     vs_entry: &str,
     fs_entry: &str,
     multiview_mask: Option<NonZeroU32>,
+    family: Option<u32>,
 ) -> wgpu::RenderPipeline {
+    let constants = family.map(|family| [("SOLAR_PLASMA_FAMILY", f64::from(family))]);
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(vs_entry),
         layout: Some(layout),
@@ -995,7 +1013,10 @@ fn build_solar_plasma_pipeline(
         fragment: Some(wgpu::FragmentState {
             module: shader,
             entry_point: Some(fs_entry),
-            compilation_options: Default::default(),
+            compilation_options: wgpu::PipelineCompilationOptions {
+                constants: constants.as_ref().map_or(&[], |constants| constants.as_slice()),
+                ..Default::default()
+            },
             targets: &[Some(wgpu::ColorTargetState {
                 format: HDR_SCENE_FORMAT,
                 blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),

@@ -17,6 +17,7 @@ const FIELD_GRID_DIM: u32 = 256;
 // Must cover all families in solar_plasma_address(): loops, eruptive strands,
 // open funnels, spicules, convective circulation and 512 radiative packet paths.
 const SOLAR_PLASMA_SEGMENT_COUNT: u32 = 122_880;
+const SOLAR_CLOSED_LOOP_SEGMENT_COUNT: u32 = 49_152;
 
 // Preserve array order and storage indices when splitting dedicated Sun draws
 // from the general lesson shader. In particular, translucent neighbors cannot
@@ -699,16 +700,24 @@ impl ScenePass {
                     "solar plasma hero address exceeds 12 bits"
                 );
                 let first_segment = (hero_index as u32) << 20;
+                rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
+                rpass.set_bind_group(1, hero_volume_bg, &[]);
+                // Same vertex program, instances, blend order and equations;
+                // fix only the first family's fragment dispatch at compile time.
+                rpass.set_pipeline(if is_stereo {
+                    &pipelines.solar_loop_emission_stereo
+                } else {
+                    &pipelines.solar_loop_emission_mono
+                });
+                rpass.draw(0..6, first_segment..first_segment + SOLAR_CLOSED_LOOP_SEGMENT_COUNT);
                 rpass.set_pipeline(if is_stereo {
                     &pipelines.solar_plasma_stereo
                 } else {
                     &pipelines.solar_plasma_mono
                 });
-                rpass.set_bind_group(0, &self.shared_frame_bg, &[]);
-                rpass.set_bind_group(1, hero_volume_bg, &[]);
                 rpass.draw(
                     0..6,
-                    first_segment..first_segment + SOLAR_PLASMA_SEGMENT_COUNT,
+                    first_segment + SOLAR_CLOSED_LOOP_SEGMENT_COUNT..first_segment + SOLAR_PLASMA_SEGMENT_COUNT,
                 );
             }
 

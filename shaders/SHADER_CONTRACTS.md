@@ -58,6 +58,33 @@ order-independent transparency solution. See the
 [solar physical contract](../docs/SOLAR_PHYSICAL_RENDERING.md) and
 [diagnostic review record](../artifacts/solar_presence/README.md).
 
+**Solar surface material:** `SunGranule.edge` is half the gap between the two
+smallest power-cell values, not Euclidean distance to a boundary. The constant
+scale avoids a finite temperature jump when the runner-up changes. The quiet
+downflow temperature converges to the same value at a winner boundary;
+illustrative parent/daughter plume lobes remain inside the evolving cell.
+Linear radiance is normalized using footprint-dependent ensemble means before
+fading to unresolved detail. The F1/F2 contrast normalization also follows
+that footprint. These are procedural appearance controls, not calibrated
+radiometry. Penumbral filament heads/tails taper both width and thermal
+amplitude; separate 24-knot mean tables per spot are sampled from the actual
+GPU material at 8,192 angles and three physical times. The surface regressions
+check quiet mean/LOD behavior, actual winner-boundary crossings and penumbral
+temperature/coverage budgets. See the
+[refinement evidence](../artifacts/solar_presence/surface_refinement/README.md).
+
+**Solar strand projection and specialization:** Quad bounds use the true
+perspective tangent extrema of each finite end-cap disk and their union,
+with a floating-point margin and the existing eye-plane fallback. This
+tightens raster coverage without changing the strand radius, material,
+finite ray integral or depth. `SOLAR_PLASMA_FAMILY` defaults to `0xffffffffu`,
+which reads the instance family. Dedicated mono/stereo closed-loop emission
+pipelines set the fragment override to `0u` for the first 49,152 segments;
+the remaining segments use the generic pipeline, in the same order. Both
+draws use the same vertex program, instances, equations and blend targets.
+No extra material buffer, varying or texture is part of this specialization;
+the existing frame/hero binding layouts and all 122,880 segments are retained.
+
 **Stereo Multiview Pattern (`vs_main` vs `vs_stereo`):**
 Every render shader provides a Desktop Mono vertex entry point (`vs_*_main`, passes `eye_idx = 0u`) and an OpenXR Multiview vertex entry point (`vs_*_stereo`, uses `@builtin(view_index)` and requires `PipelineCompilationOptions` / `RenderPassDescriptor { multiview_mask: NonZeroU32::new(0b11) }` or wgpu 30 `multiview: NonZeroU32::new(2)` as configured in `wgpu 30.0.2`). Fragment entry points never touch `@builtin(view_index)` directly, so mono and stereo share one fragment entry point.
 

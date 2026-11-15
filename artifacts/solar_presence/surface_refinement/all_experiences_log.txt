@@ -1,0 +1,47 @@
+    Finished `release` profile [optimized] target(s) in 0.94s
+     Running `target\release\cosmos_app.exe --headless-render target/solar_refinement_all_experiences --benchmark-sweep --width 960 --height 540`
+[HyperCosmosVR] Headless RTX 5070 rendered 43 PNG captures into 'target/solar_refinement_all_experiences':
+  - 01_cold_start_earth_aurora.png       exp=03 u= +6.6 ms= 80.49 glyphs= 128 tethers=18 black=482467px non_black=35933px
+  - 02_earth_deep_cutaway.png            exp=03 u= +6.3 ms=  6.36 glyphs= 241 tethers=25 black=446636px non_black=71764px
+  - 02b_scale_meridian_dive.png          exp=03 u= +6.5 ms=  5.00 glyphs= 132 tethers=18 black=478841px non_black=39559px
+  - 03_solar_system_saturn.png           exp=04 u=+10.7 ms=  5.58 glyphs= 149 tethers=20 black=458999px non_black=59401px
+  - 03b_solar_system_panorama.png        exp=04 u=+11.4 ms=  4.41 glyphs= 110 tethers=18 black=456911px non_black=61489px
+  - 04_milky_way_sgr_a_star.png          exp=05 u=+20.5 ms=  5.34 glyphs= 166 tethers=20 black=412158px non_black=106242px
+  - 04b_milky_way_landmarks.png          exp=05 u=+20.5 ms=  4.04 glyphs= 173 tethers=22 black=461294px non_black=57106px
+  - 05_cosmic_web.png                    exp=08 u=+25.4 ms=  5.51 glyphs= 145 tethers=19 black=441976px non_black=76424px
+  - 06_cmb_and_inflation.png             exp=09 u=+26.4 ms=  5.61 glyphs= 225 tethers=22 black=283672px non_black=234728px
+  - 07_quantum_atom_orbitals.png         exp=13 u=-10.0 ms=  4.05 glyphs= 205 tethers=21 black=489881px non_black=28519px
+  - 07b_matter_quarks_confinement.png    exp=13 u=-11.2 ms=  3.75 glyphs= 215 tethers=21 black=477171px non_black=41229px
+  - 07c_matter_molecules.png             exp=13 u=-10.2 ms=  4.05 glyphs= 202 tethers=22 black=491432px non_black=26968px
+  - 08_planck_foam.png                   exp=14 u=-35.0 ms=  4.16 glyphs= 284 tethers=24 black=425049px non_black=93351px
+  - 08b_spacetime_gravitational_waves.png exp=14 u=-29.6 ms=  4.57 glyphs= 226 tethers=21 black=410119px non_black=108281px
+  - 09a_mind_hsl_prism_harp_nested.png   exp=17 u= +2.1 ms=  7.80 glyphs= 273 tethers=25 black=72527px non_black=445873px
+  - 09b_colors_hsl_prism.png             exp=01 u= +1.9 ms=  4.54 glyphs= 116 tethers=19 black=381212px non_black=137188px
+  - 09c_music_cymatic_harp.png           exp=02 u= +1.9 ms=  4.30 glyphs= 141 tethers=24 black=394734px non_black=123666px
+  - 09d_colors_materials_gallery.png     exp=01 u= +1.8 ms=  5.88 glyphs= 151 tethers=24 black=239854px non_black=278546px
+  - 09e_music_48string_chladni.png       exp=02 u= +2.0 ms=  3.81 glyphs= 126 tethers=23 black=426640px non_black=91760px
+  - 10_exoplanets_signal_cones.png       exp=22 u=+18.3 ms=  4.98 glyphs= 401 tethers=27 black=340532px non_black=177868px
+  - 10b_seti_prime_beacon.png            exp=22 u=+18.3 ms=  6.19 glyphs= 364 tethers=23 black=314533px non_black=203867px
+  - 11_final_horizon_lotus.png           exp=25 u=+28.6 ms=  3.66 glyphs= 289 tethers=19 black=470925px non_black=47475px
+  - 12_local_group_galaxies.png          exp=06 u=+22.0 ms=  4.37 glyphs= 177 tethers=21 black=422910px non_black=95490px
+  - 13_laniakea_flow_basin.png           exp=07 u=+23.8 ms=  5.16 glyphs= 144 tethers=20 black=448637px non_black=69763px
+  - 14_early_inflation_horizon.png       exp=10 u=+26.9 ms=  5.79 glyphs= 194 tethers=21 black=431039px non_black=87361px
+  - 15_hyper_lotus_evidence.png          exp=11 u=+27.6 ms=  4.26 glyphs= 167 tethers=20 black=487379px non_black=31021px
+  - 16_hyper_lotus_future.png            exp=12 u=+27.6 ms=  4.10 glyphs= 164 tethers=19 black=490094px non_black=28306px
+  - 17_complexity_emergence_helix.png    exp=15 u= -7.0 ms=  4.14 glyphs= 229 tethers=20 black=488513px non_black=29887px
+  - 18_life_biosphere_tree.png           exp=16 u= -1.0 ms=  4.87 glyphs= 251 tethers=21 black=492006px non_black=26394px
+  - 18b_life_dna_cell.png                exp=16 u= -1.1 ms=  4.63 glyphs= 312 tethers=30 black=484482px non_black=33918px
+  - 18c_mind_brain_lobes.png             exp=17 u= +2.8 ms=  4.28 glyphs= 189 tethers=19 black=481996px non_black=36404px
+  - 19_culture_civilization_web.png      exp=18 u= +6.2 ms=  5.19 glyphs= 220 tethers=22 black=441805px non_black=76595px
+  - 20_technology_orbital_ring.png       exp=19 u= +7.6 ms=  5.46 glyphs= 240 tethers=20 black=420385px non_black=98015px
+  - 20b_tech_ai_silicon_chip.png         exp=19 u= +7.5 ms=  5.61 glyphs= 241 tethers=21 black=417511px non_black=100889px
+  - 21_futures_possibility_arcs.png      exp=20 u=+11.8 ms=  5.69 glyphs= 190 tethers=18 black=417876px non_black=100524px
+  - 21b_futures_dyson_oneill.png         exp=20 u=+11.8 ms=  4.97 glyphs= 218 tethers=19 black=408998px non_black=109402px
+  - 22_cosmic_life_orion_spur.png        exp=21 u=+18.1 ms=  5.58 glyphs= 259 tethers=20 black=407653px non_black=110747px
+  - 22b_cosmic_life_europa_plumes.png    exp=21 u=+18.1 ms=  5.18 glyphs= 334 tethers=22 black=400254px non_black=118146px
+  - 23_hyper_lotus_perspectives.png      exp=23 u=+27.6 ms=  3.81 glyphs= 346 tethers=22 black=484620px non_black=33780px
+  - 23b_perspectives_six_lenses.png      exp=23 u=+27.6 ms=  6.10 glyphs= 343 tethers=21 black=482351px non_black=36049px
+  - 24_hyper_lotus_meaning.png           exp=24 u=+27.6 ms=  5.35 glyphs= 277 tethers=20 black=489258px non_black=29142px
+  - 24b_meaning_self_valuing_scales.png  exp=24 u=+27.6 ms=  6.97 glyphs= 352 tethers=21 black=486465px non_black=31935px
+  - 25_journey_peripheral_exit_prompt.png exp=03 u= +6.6 ms=  4.57 glyphs=  85 tethers=19 black=483465px non_black=34935px
+[HyperCosmosVR] Benchmark Sweep (120 frames, 'NVIDIA GeForce RTX 5070'): min=0.61ms mean=1.14ms (875.3 FPS) p99=2.73ms max=3.19ms

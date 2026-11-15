@@ -1,5 +1,9 @@
 # Solar presence review
 
+The [current surface refinement and native-size evidence](surface_refinement/README.md)
+build on baseline `9926ad1`. The report, preview and logs below remain the
+historical baseline; their images do not show the later surface materials.
+
 This change replaces the short Sun stop with six connected observations of a
 living stellar surface, magnetic atmosphere and explanatory interior. It also
 corrects Solar System body scale and navigation. The broader visual-quality

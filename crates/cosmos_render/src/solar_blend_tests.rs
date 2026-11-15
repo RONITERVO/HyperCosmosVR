@@ -89,6 +89,7 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
         "vs_blend_probe",
         "fs_solar_absorption",
         None,
+        None,
     );
     let emit = build_solar_plasma_pipeline(
         &gpu.device,
@@ -97,6 +98,16 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
         "vs_blend_probe",
         "fs_solar_plasma",
         None,
+        None,
+    );
+    let emit_loop = build_solar_plasma_pipeline(
+        &gpu.device,
+        &layout,
+        &shader,
+        "vs_blend_probe",
+        "fs_solar_plasma",
+        None,
+        Some(0),
     );
     let projection =
         cosmos_math::reversed_z_infinite_perspective_rh(std::f32::consts::FRAC_PI_2, 1.0, 0.02)
@@ -119,7 +130,7 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::bytes_of(&frame),
-            usage: wgpu::BufferUsages::UNIFORM,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
     let hero_buffer = gpu
         .device
@@ -191,7 +202,7 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
-    let render = |background: [f64; 3], do_absorb: bool, do_emit: bool, reverse: bool| {
+    let render = |bg: [f64; 3], do_absorb: bool, do_emit: bool, reverse: bool, fixed: bool| {
         let mut encoder = gpu.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -202,9 +213,9 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: background[0],
-                            g: background[1],
-                            b: background[2],
+                            r: bg[0],
+                            g: bg[1],
+                            b: bg[2],
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -222,7 +233,8 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
             });
             pass.set_bind_group(0, &frame_bg, &[]);
             pass.set_bind_group(1, &hero_bg, &[]);
-            for (enabled, pipeline) in [(do_absorb, &absorb), (do_emit, &emit)] {
+            let emission_pipeline = if fixed { &emit_loop } else { &emit };
+            for (enabled, pipeline) in [(do_absorb, &absorb), (do_emit, emission_pipeline)] {
                 if !enabled {
                     continue;
                 }
@@ -278,10 +290,10 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
         rgb
     };
     let background = [0.9, 0.6, 0.3];
-    let attenuated = render(background, true, false, false);
-    let emission = render([0.0; 3], false, true, false);
-    let combined = render(background, true, true, false);
-    let reversed = render(background, true, true, true);
+    let attenuated = render(background, true, false, false, false);
+    let emission = render([0.0; 3], false, true, false, false);
+    let combined = render(background, true, true, false, false);
+    let reversed = render(background, true, true, true, false);
     assert!(
         attenuated[0] < 0.85,
         "fixture must contain visible cool absorption: {attenuated:?}"
@@ -299,5 +311,23 @@ fn solar_absorption_and_emission_are_independent_of_strand_submission_order() {
             (combined[channel] - attenuated[channel] - emission[channel]).abs() < 0.0015,
             "emission must add after absorption without attenuating earlier strands"
         );
+    }
+    // Specialization must preserve the real fragment's heating/rain output,
+    // not merely compile. Compare its actual HDR result through the same rays,
+    // columns, uniforms and blending across the event's distinct phases.
+    for time in [0.0, 14.0, 30.0, 44.0, 59.9] {
+        let mut sample = frame;
+        sample.scale_params[3] = time;
+        gpu.queue
+            .write_buffer(&frame_buffer, 0, bytemuck::bytes_of(&sample));
+        let reference = render(background, true, true, false, false);
+        let specialized = render(background, true, true, false, true);
+        for channel in 0..3 {
+            assert!(
+                (reference[channel] - specialized[channel]).abs()
+                    <= (reference[channel].abs() * 0.001).max(2e-6),
+                "family specialization changed time{time} channel{channel}: {reference:?} vs {specialized:?}"
+            );
+        }
     }
 }

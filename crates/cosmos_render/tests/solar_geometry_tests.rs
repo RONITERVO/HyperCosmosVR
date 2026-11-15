@@ -12,6 +12,28 @@ fn solar_plasma_proxies_enclose_finite_caps_under_oblique_and_near_perspective()
         (DVec3::Z, DVec3::NEG_Z * 0.1, DVec3::Z * 0.1, 0.02),
         (DVec3::Z * 0.005, DVec3::NEG_X * 0.1, DVec3::X * 0.1, 0.02),
         (DVec3::Z * 0.2, DVec3::NEG_Z * 0.1, DVec3::Z, 0.02),
+        // A broad cap very close to the eye used to combine incompatible
+        // lateral/depth extrema, making the proxy four times too wide.
+        (
+            DVec3::Z * 0.045,
+            DVec3::NEG_X * 0.015,
+            DVec3::X * 0.015,
+            0.04,
+        ),
+        (
+            DVec3::Z * 0.04001,
+            DVec3::NEG_X * 0.015,
+            DVec3::X * 0.015,
+            0.04,
+        ),
+        // End-on and nearly side-on caps exercise zero/repeated tangent roots.
+        (DVec3::Z * 0.101, DVec3::NEG_Z * 0.1, DVec3::Z * 0.1, 0.02),
+        (
+            DVec3::Z * 0.045,
+            DVec3::new(-0.015, 0.0, -1e-6),
+            DVec3::new(0.015, 0.0, 1e-6),
+            0.04,
+        ),
     ];
     let mut seed = 937_u32;
     let mut random = || {
@@ -72,6 +94,10 @@ fn solar_plasma_proxies_enclose_finite_caps_under_oblique_and_near_perspective()
     assert!(
         output[0][1] - output[0][0] < 0.032,
         "side-on CME segments must not retain the old 0.11R padded length"
+    );
+    assert!(
+        output[4 * 4][3] - output[4 * 4][2] < 0.18,
+        "near cap must use its actual tangent rays, not the old 0.72R independent-extrema width"
     );
     let mut finite = 0;
     for (index, (ro, a, b, bound)) in cases.iter().enumerate() {

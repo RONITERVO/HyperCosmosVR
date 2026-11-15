@@ -4,6 +4,10 @@
 // This is an authored magnetic/thermal illustration, not an MHD simulation.
 // Includes common_oled, doc_common, hero_doc_sun, hero_solar_interior.
 
+// The closed-loop emission pipeline fixes this to0, removing unrelated material
+// branches/register pressure. All other draws retain the instance's family.
+override SOLAR_PLASMA_FAMILY: u32 = 0xffffffffu;
+
 struct SolarPlasmaVertex {
     @builtin(position) clip: vec4<f32>,
     @location(0) local_position: vec3<f32>,
@@ -286,11 +290,14 @@ struct SolarPlasmaProxy {
     full_screen: bool,
 };
 
-// The finite cylinder is the convex hull of its end caps. Bound each cap's
-// projected coordinates using its radial support and depth interval, then take
-// their union. This avoids extending every side-on segment by a whole tube
-// radius along its axis, which caused neighboring broad CME quads to overlap
-// several times before the analytic cap test could reject their fragments.
+// A finite cylinder is the convex hull of its end caps. Perspective projection
+// preserves that hull while both caps are in front of the eye. Find each disk's
+// actual projected extrema, rather than independently combining its widest XY
+// and nearest Z (which cannot generally be the same point on a tilted disk).
+// For a screen coordinate t before multiplication by the plane distance,
+// (depth*t-x)^2 = radius^2*|(screen+t*view) perpendicular to axis|^2.
+// Its two roots are the cap's tangent rays. This only tightens the proxy; the
+// strand radius, finite ray integral, material and true depth remain unchanged.
 fn solar_plasma_proxy(ro: vec3<f32>, a: vec3<f32>, b: vec3<f32>, bound: f32) -> SolarPlasmaProxy {
     var proxy: SolarPlasmaProxy;
     proxy.center = (a+b)*0.5;
@@ -306,9 +313,9 @@ fn solar_plasma_proxy(ro: vec3<f32>, a: vec3<f32>, b: vec3<f32>, bound: f32) -> 
     proxy.along = select(fallback,normalize(projected_axis+vec3<f32>(1e-12)),
         dot(projected_axis,projected_axis)>1e-8);
     proxy.side = normalize(cross(proxy.along,view)+vec3<f32>(1e-12));
-    let extent_x = bound*sqrt(max(0.0,1.0-pow(dot(axis,proxy.along),2.0)));
-    let extent_y = bound*sqrt(max(0.0,1.0-pow(dot(axis,proxy.side),2.0)));
-    let extent_depth = bound*sqrt(max(0.0,1.0-pow(dot(axis,view),2.0)));
+    let axis_depth = dot(axis,view);
+    let radius_squared = bound*bound;
+    let extent_depth = bound*sqrt(max(0.0,1.0-axis_depth*axis_depth));
     var low = vec2<f32>(1e30);
     var high = vec2<f32>(-1e30);
     for (var cap=0u; cap<2u; cap+=1u) {
@@ -321,15 +328,25 @@ fn solar_plasma_proxy(ro: vec3<f32>, a: vec3<f32>, b: vec3<f32>, bound: f32) -> 
             return proxy;
         }
         let xy = vec2<f32>(dot(p-proxy.center,proxy.along),dot(p-proxy.center,proxy.side));
-        let extent = vec2<f32>(extent_x,extent_y);
-        let near_scale = distance/(depth-extent_depth);
-        let far_scale = distance/(depth+extent_depth);
-        low = min(low,min((xy-extent)*near_scale,(xy-extent)*far_scale));
-        high = max(high,max((xy+extent)*near_scale,(xy+extent)*far_scale));
+        let axis_xy = vec2<f32>(dot(axis,proxy.along),dot(axis,proxy.side));
+        // Factor the denominator to retain precision for a cap close to the
+        // eye plane. Express the discriminant with cross products to avoid
+        // subtracting two nearly equal squared projected positions.
+        let denominator = (depth-extent_depth)*(depth+extent_depth);
+        let tangent_x = cross(axis,depth*proxy.along+xy.x*view);
+        let tangent_y = cross(axis,depth*proxy.side+xy.y*view);
+        let discriminant = max(vec2<f32>(dot(tangent_x,tangent_x),dot(tangent_y,tangent_y))
+            - radius_squared*vec2<f32>(axis_xy.y*axis_xy.y,axis_xy.x*axis_xy.x),vec2<f32>(0.0));
+        let center = depth*xy-radius_squared*axis_xy*axis_depth;
+        let extent = bound*sqrt(discriminant);
+        let scale = distance/denominator;
+        low = min(low,(center-extent)*scale);
+        high = max(high,(center+extent)*scale);
     }
     // Cover floating-point support error without introducing a visible tail or
     // a meaningful amount of the old longitudinal overdraw.
-    let epsilon = max(bound*1e-4,1e-7);
+    let coordinate_scale = max(max(abs(low.x),abs(low.y)),max(abs(high.x),abs(high.y)));
+    let epsilon = max(bound*1e-4,1e-7*(1.0+coordinate_scale));
     proxy.limits = vec4<f32>(low.x-epsilon,high.x+epsilon,low.y-epsilon,high.y+epsilon);
     return proxy;
 }
@@ -474,7 +491,7 @@ fn solar_plasma_integral(ro: vec3<f32>, rd: vec3<f32>, a: vec3<f32>, b: vec3<f32
 
 fn solar_plasma_fragment(in: SolarPlasmaVertex, absorption: bool) -> SurfaceFsOut {
     let inst = hero_instances[in.tags.x];
-    let family = in.tags.y;
+    let family = select(in.tags.y,SOLAR_PLASMA_FAMILY,SOLAR_PLASMA_FAMILY != 0xffffffffu);
     if (absorption && (family == 2u || family >= 4u)) { discard; }
     let interior = doc_feat(inst) == 0u;
     if (family >= 4u && !interior) { discard; }
