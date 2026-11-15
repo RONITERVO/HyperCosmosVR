@@ -1234,6 +1234,12 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "tecnofirma", "technosignature", "fermi", "filtro", "filter", "protocelula", "protocell",
     "abiogenesis", "prebiotica", "prebiotic", "eucariota", "eukaryote",
     "estromatolito", "stromatolite",
+    "radar", "laser", "descifrado", "decipher", "silencio", "silence",
+    "meti", "tratado", "treaty", "relativista", "relativistic",
+    "espejo", "mirror", "archivo", "archive", "modulacion", "modulation",
+    "polarizacion", "polarization", "interferencia", "interference",
+    "paralaje", "parallax", "entropia", "entropy", "diplomacia", "diplomacy",
+    "reciprocidad", "reciprocity", "semiotica", "semiotic",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

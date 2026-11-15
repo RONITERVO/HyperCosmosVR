@@ -378,7 +378,12 @@ pub fn select_compute_mode(
             22 | 23 => 15,
             _ => 13,
         },
-        11 | 12 | 22 => 13,
+        11 | 12 => 13,
+        22 => match doc.active_zone_index {
+            2 | 8..=11 | 13..=14 | 26 => 14,
+            19..=22 | 25 | 27 => 15,
+            _ => 13,
+        },
         13 => {
             if u_cam < -12.5 {
                 3
@@ -476,6 +481,12 @@ pub fn build_far_shell_uniforms(
                 if matches!(doc.active_zone_index, 6..=10) {
                     galaxy_plane = 0.0;
                     star_density *= 0.25;
+                }
+            }
+            22 => {
+                if matches!(doc.active_zone_index, 19 | 20 | 27) {
+                    galaxy_plane *= 0.35;
+                    star_density *= 0.65;
                 }
             }
             _ => {}

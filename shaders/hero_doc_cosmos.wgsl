@@ -851,6 +851,49 @@ fn shade_doc_solar_planet_surface(
         return (col * (ndotl * 1.1 + 0.02) + atmo_c * fresnel * 0.5) * inst.color_a.a;
     }
 
+    if (vid >= 3830u && vid <= 3835u) {
+        // Canonical Exp 22 Companions (`3830..=3835`): secondary observatories, target stars, responders, trust & coexistence worlds
+        let sub = doc_submode(inst);
+        let feat_f = f32(doc_feat(inst) & 7u);
+        let spin_p = doc_rot_y(p_surf, time * 0.08 + feat_f * 0.45);
+        let n_t = fbm3(spin_p * 4.5 + vec3<f32>(f32(sub) * 1.3), 4);
+        let lat_grid = exp(-abs(sin(spin_p.y * 16.0)) * 12.0);
+        let lon_grid = exp(-abs(sin(atan2(spin_p.z, spin_p.x) * 6.0)) * 12.0);
+        let grid_g = max(lat_grid, lon_grid);
+        var surf_c = inst.color_a.rgb;
+        var rim_c = inst.color_b.rgb;
+        if (sub == 0u) {
+            // 3830 (Z04): Synchronized terrestrial observatory node
+            let land = smoothstep(0.02, 0.24, n_t);
+            surf_c = mix(vec3<f32>(0.02, 0.14, 0.30), vec3<f32>(0.16, 0.62, 0.46), land) + vec3<f32>(0.22, 0.95, 1.25) * grid_g * 0.45;
+        } else if (sub == 1u) {
+            // 3831 (Z05): Distant solar-type host star + transiting signal belt
+            let gran = 0.65 + 0.35 * sin(n_t * 9.0 + time * 1.2);
+            let eq_band = exp(-abs(spin_p.y) * 18.0);
+            surf_c = mix(vec3<f32>(0.92, 0.56, 0.16), vec3<f32>(1.18, 0.92, 0.42), gran) + vec3<f32>(0.24, 1.05, 1.32) * eq_band * 0.6;
+        } else if (sub == 2u) {
+            // 3832 (Z19): Relativistic proper-motion target star with drift wake
+            let pulse = 0.5 + 0.5 * sin(atan2(spin_p.z, spin_p.x) * 4.0 - time * 2.0);
+            surf_c = mix(vec3<f32>(0.28, 0.58, 0.98), vec3<f32>(1.12, 0.84, 0.34), pulse * 0.6) + vec3<f32>(0.36, 1.12, 1.42) * grid_g * 0.35;
+        } else if (sub == 3u) {
+            // 3833 (Z21..Z22): Alien intelligent responder world with structured carrier bands
+            let rings = exp(-abs(sin(spin_p.y * 20.0 - time * 1.5)) * 10.0);
+            let land = smoothstep(0.06, 0.28, n_t);
+            surf_c = mix(vec3<f32>(0.04, 0.18, 0.36), vec3<f32>(0.24, 0.72, 0.96), land) + vec3<f32>(0.42, 0.86, 1.38) * rings * 0.55;
+        } else if (sub == 4u) {
+            // 3834 (Z25..Z26): Reciprocal trust & diplomatic treaty partner biosphere
+            let seal = exp(-abs(abs(spin_p.y) - 0.35) * 16.0);
+            let land = smoothstep(0.04, 0.25, n_t);
+            surf_c = mix(vec3<f32>(0.08, 0.24, 0.32), vec3<f32>(0.78, 0.68, 0.24), land) + vec3<f32>(0.28, 1.15, 0.88) * max(seal, grid_g * 0.5) * 0.5;
+        } else {
+            // 3835 (Z27): Dual-perspective coexistence counterpart world
+            let dawn = smoothstep(-0.3, 0.4, dot(normalize(spin_p), vec3<f32>(0.7, 0.3, 0.6)));
+            surf_c = mix(vec3<f32>(0.14, 0.42, 0.74), vec3<f32>(0.96, 0.68, 0.26), dawn * 0.72 + 0.15 * n_t)
+                   + vec3<f32>(0.26, 1.02, 1.32) * exp(-abs(spin_p.y) * 14.0) * 0.38;
+        }
+        return (surf_c * (ndotl * 1.08 + 0.04) + rim_c * fresnel * 0.55) * inst.color_a.a;
+    }
+
     if (vid == 12u) {
         // App 01 Physical Material Spheres OR Red/Black Dwarf Cooling Remnants
         let m_mode = doc_submode(inst);

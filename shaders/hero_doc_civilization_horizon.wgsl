@@ -713,6 +713,1015 @@ fn shade_doc_cosmic_life_stage(
     return vec4<f32>(col * env, dens * env);
 }
 
+fn shade_doc_cosmic_contact_stage(
+    p: vec3<f32>,
+    z_idx: u32,
+    feat: u32,
+    inst: HeroVolumeInstance,
+    zone_col: vec3<f32>,
+    time: f32,
+    voice: f32,
+    bass: f32,
+) -> vec4<f32> {
+    let r = length(p);
+    if (r > 0.72) {
+        return vec4<f32>(0.0);
+    }
+    let env = smoothstep(0.72, 0.50, r);
+    let ff = f32(min(feat, 7u));
+    let feat_hi = select(0.55, 1.0, feat <= 7u);
+    let f_use = select(feat, 0u, feat > 5u);
+    let cue_p = 0.82 + 0.22 * doc_cue(inst);
+    var col = vec3<f32>(0.0);
+    var dens: f32 = 0.0;
+
+    if (z_idx == 0u) {
+        // Z00 unexplained-signal: Parabolic SETI Dish + Tripod Feed Horn + Six Candidate Sky Anomalies
+        let pd = doc_rot_x(doc_rot_y(p - vec3<f32>(0.0, -0.18, 0.0), 0.18 * ff * 0.15), 0.42);
+        let d_dish = ch_parabolic_dish_sdf(pd, 0.42, 0.21);
+        let dish_edge = exp(-pow(abs(d_dish) * 76.0, 2.0));
+        let grid_s = max(
+            exp(-pow(abs(fract(atan2(pd.z, pd.x) / TAU * 12.0) - 0.5) * 18.0, 2.0)),
+            exp(-pow(abs(fract(length(pd.xz) * 10.0) - 0.5) * 18.0, 2.0))
+        );
+        let tripod = cl_bar(pd, vec3<f32>(0.27, 0.0, 0.0), vec3<f32>(0.0, 0.32, 0.0), 0.008, 90.0)
+                   + cl_bar(pd, vec3<f32>(-0.135, 0.0, 0.23), vec3<f32>(0.0, 0.32, 0.0), 0.008, 90.0)
+                   + cl_bar(pd, vec3<f32>(-0.135, 0.0, -0.23), vec3<f32>(0.0, 0.32, 0.0), 0.008, 90.0);
+        let feed_top = vec3<f32>(0.0, 0.32, 0.0);
+        var sky = 0.0;
+        var sky_col = vec3<f32>(0.24, 1.38, 0.96);
+        if (f_use == 0u) {
+            // F0: Narrow monochromatic RF carrier beam + phase ripples
+            let wave = 0.50 + 0.72 * pow(max(sin(pd.y * 28.0 - time * 4.0), 0.0), 4.0);
+            sky = cl_bar(pd, feed_top, vec3<f32>(0.0, 0.84, 0.0), 0.012, 78.0) * wave;
+        } else if (f_use == 1u) {
+            // F1: Brief optical laser pulse droplets into auxiliary side mirror
+            for (var k = 0; k < 4; k = k + 1) {
+                let yk = 0.36 + f32(k) * 0.10;
+                sky += cl_spot(pd, vec3<f32>(0.12, yk, 0.0), 22.0);
+            }
+            sky += cl_ring_xz(pd - vec3<f32>(0.14, 0.16, 0.0), 0.12, 0.008, 84.0);
+            sky_col = vec3<f32>(0.42, 1.28, 1.48);
+        } else if (f_use == 2u) {
+            // F2: Megastructure transit rectangular chord crossing blinking star
+            let star = cl_spot(p, vec3<f32>(0.0, 0.36, 0.0), 14.0);
+            let occ = exp(-pow(abs(p.y - 0.36) * 32.0, 2.0)) * smoothstep(0.18, 0.04, abs(p.x));
+            sky = star * 0.9 + occ * 1.1;
+            sky_col = vec3<f32>(1.38, 0.82, 0.28);
+        } else if (f_use == 3u) {
+            // F3: Exoplanet backlit atmospheric absorption ring with artificial notch
+            let limb = cl_ring_xy(p - vec3<f32>(-0.14, 0.34, 0.0), 0.14, 0.010, 80.0);
+            let band = cl_bar(p, vec3<f32>(-0.28, 0.34, 0.0), vec3<f32>(0.0, 0.34, 0.0), 0.006, 88.0);
+            sky = limb + band * 0.8;
+            sky_col = vec3<f32>(0.32, 1.22, 0.86);
+        } else if (f_use == 4u) {
+            // F4: Hyperbolic interstellar trajectory arcing past the dish
+            let arc = cl_bar(p, vec3<f32>(-0.42, 0.42, 0.0), vec3<f32>(0.04, 0.26, 0.0), 0.009, 82.0)
+                    + cl_bar(p, vec3<f32>(0.04, 0.26, 0.0), vec3<f32>(0.44, 0.44, 0.0), 0.009, 82.0)
+                    + cl_spot(p, vec3<f32>(0.04, 0.26, 0.0), 18.0);
+            sky = arc;
+            sky_col = vec3<f32>(1.28, 0.68, 0.26);
+        } else {
+            // F5: Prime pulse sequence descending (2, 3, 5, 7 spacing)
+            let p_a = cl_spot(pd, vec3<f32>(0.0, 0.42, 0.0), 20.0);
+            let p_b = cl_spot(pd, vec3<f32>(0.0, 0.51, 0.0), 20.0);
+            let p_c = cl_spot(pd, vec3<f32>(0.0, 0.62, 0.0), 20.0);
+            let p_d = cl_ring_xz(pd - vec3<f32>(0.0, 0.72, 0.0), 0.09, 0.007, 82.0);
+            sky = p_a + p_b + p_c + p_d;
+            sky_col = vec3<f32>(0.54, 1.06, 1.46);
+        }
+        col = vec3<f32>(0.78, 1.05, 1.38) * dish_edge * (0.28 + 0.82 * grid_s)
+            + vec3<f32>(1.36, 0.88, 0.30) * tripod
+            + sky_col * sky
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.04, time) * 0.65;
+        dens = dish_edge * 0.84 + tripod * 0.75 + sky * 0.85;
+    } else if (z_idx == 1u) {
+        // Z01 first-anomaly: Holographic Waterfall Spectrogram & 6-Sigma Residual Screen
+        let ped = cl_ring_xz(p - vec3<f32>(0.0, -0.34, 0.0), 0.28, 0.010, 82.0)
+                + cl_bar(p, vec3<f32>(0.0, -0.34, 0.0), vec3<f32>(0.0, -0.14, 0.0), 0.010, 84.0);
+        let screen = exp(-pow(abs(p.z) * 26.0, 2.0)) * smoothstep(0.46, 0.36, abs(p.x)) * smoothstep(0.42, 0.32, abs(p.y - 0.08));
+        let frame = cl_bar(p, vec3<f32>(-0.42, -0.12, 0.0), vec3<f32>(0.42, -0.12, 0.0), 0.007, 88.0)
+                  + cl_bar(p, vec3<f32>(-0.42, 0.36, 0.0), vec3<f32>(0.42, 0.36, 0.0), 0.007, 88.0);
+        var trace = 0.0;
+        var t_col = vec3<f32>(0.24, 1.28, 1.42);
+        if (f_use == 0u) {
+            // F0: 6-sigma narrow spike rising cleanly above noise baseline
+            let noise_floor = exp(-abs(p.y + 0.06) * 32.0) * smoothstep(0.40, 0.05, abs(p.x)) * (0.5 + 0.5 * sin(p.x * 48.0));
+            let spike = cl_bar(p, vec3<f32>(0.08, -0.06, 0.0), vec3<f32>(0.08, 0.34, 0.0), 0.014, 72.0);
+            trace = noise_floor * 0.7 + spike * 1.2;
+        } else if (f_use == 1u) {
+            // F1: Logarithmic ms-to-year pulse width scale bars
+            for (var k = 0; k < 4; k = k + 1) {
+                let bx = -0.27 + f32(k) * 0.18;
+                let bw = 0.02 + f32(k) * 0.03;
+                trace += cl_bar(p, vec3<f32>(bx, -0.04, 0.0), vec3<f32>(bx, 0.10 + f32(k) * 0.06, 0.0), bw * 0.35 + 0.008, 68.0);
+            }
+            t_col = vec3<f32>(1.28, 0.88, 0.32);
+        } else if (f_use == 2u) {
+            // F2: Diagonal waterfall drift ridge across time-frequency grid
+            let ridge = cl_bar(p, vec3<f32>(-0.34, -0.06, 0.0), vec3<f32>(0.34, 0.30, 0.0), 0.014, 72.0);
+            trace = ridge * (0.7 + 0.4 * sin(p.y * 28.0 - time * 3.0));
+            t_col = vec3<f32>(0.26, 1.38, 0.92);
+        } else if (f_use == 3u) {
+            // F3: 3D circular polarization Stokes corkscrew helix
+            let hy = 0.10 + 0.14 * cos(p.x * 16.0 - time * 2.5);
+            let hz = 0.14 * sin(p.x * 16.0 - time * 2.5);
+            trace = exp(-length(vec2<f32>(p.y - hy, p.z - hz)) * 32.0) * smoothstep(0.40, 0.08, abs(p.x));
+            t_col = vec3<f32>(0.92, 0.42, 1.38);
+        } else if (f_use == 4u) {
+            // F4: Twin return-ping verification rings
+            trace = cl_ring_xy(p - vec3<f32>(-0.18, 0.12, 0.0), 0.13, 0.009, 82.0)
+                  + cl_ring_xy(p - vec3<f32>(0.18, 0.12, 0.0), 0.13, 0.009, 82.0);
+            t_col = vec3<f32>(0.32, 1.32, 1.12);
+        } else {
+            // F5: Fading transient echo dissolving into sparse amber flecks
+            let fade_seg = cl_bar(p, vec3<f32>(-0.36, 0.18, 0.0), vec3<f32>(0.02, 0.18, 0.0), 0.012, 74.0);
+            let static_dots = pow(max(0.0, snoise3(p * 18.0)), 4.0) * smoothstep(-0.02, 0.36, p.x);
+            trace = fade_seg + static_dots * 1.25;
+            t_col = vec3<f32>(1.28, 0.56, 0.24);
+        }
+        col = vec3<f32>(0.42, 0.86, 1.32) * (ped + frame)
+            + vec3<f32>(0.08, 0.22, 0.34) * screen * 0.45
+            + t_col * trace
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.68;
+        dens = (ped + frame) * 0.72 + screen * 0.25 + trace * 0.88;
+    } else if (z_idx == 2u) {
+        // Z02 instrumental-detection: Wireframe Horn Cutaway + 4-Stage Holographic DSP Pipeline
+        let horn = cl_ring_xy(p - vec3<f32>(-0.34, 0.0, 0.0), 0.16, 0.009, 80.0)
+                 + cl_bar(p, vec3<f32>(-0.34, 0.14, 0.0), vec3<f32>(-0.12, 0.02, 0.0), 0.008, 86.0)
+                 + cl_bar(p, vec3<f32>(-0.34, -0.14, 0.0), vec3<f32>(-0.12, -0.02, 0.0), 0.008, 86.0);
+        let pipe = cl_bar(p, vec3<f32>(-0.10, 0.0, 0.0), vec3<f32>(0.44, 0.0, 0.0), 0.008, 88.0);
+        var dsp = 0.0;
+        var d_col = vec3<f32>(0.24, 1.26, 1.44);
+        if (f_use == 0u) {
+            dsp = cl_spot(p, vec3<f32>(0.26, 0.24, 0.0), 15.0) + cl_ring_xy(p - vec3<f32>(0.26, 0.24, 0.0), 0.12, 0.008, 82.0);
+            d_col = vec3<f32>(0.24, 1.34, 0.78);
+        } else if (f_use == 1u) {
+            dsp = cl_spot(p, vec3<f32>(0.18, 0.10, 0.0), 20.0) + cl_spot(p, vec3<f32>(0.32, -0.08, 0.0), 20.0)
+                + cl_ring_xy(p - vec3<f32>(0.24, 0.0, 0.0), 0.18, 0.007, 82.0);
+        } else if (f_use == 2u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                dsp += cl_ring_xy(p - vec3<f32>(0.16, 0.0, 0.0), 0.09 + f32(k) * 0.08, 0.007, 82.0);
+            }
+            d_col = vec3<f32>(1.36, 0.94, 0.28);
+        } else if (f_use == 3u) {
+            for (var ix = 0; ix < 2; ix = ix + 1) {
+                for (var iy = 0; iy < 2; iy = iy + 1) {
+                    dsp += cl_spot(p, vec3<f32>(0.10 + f32(ix) * 0.18, -0.09 + f32(iy) * 0.18, 0.0), 20.0);
+                }
+            }
+            d_col = vec3<f32>(0.42, 0.96, 1.48);
+        } else if (f_use == 4u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                let bx = -0.02 + f32(k) * 0.14;
+                dsp += exp(-abs(sd_hex_prism(doc_rot_x(p - vec3<f32>(bx, 0.0, 0.0), 1.570796), 0.055, 0.04)) * 78.0);
+            }
+        } else {
+            dsp = cl_bar(p, vec3<f32>(0.06, 0.0, 0.0), vec3<f32>(0.40, 0.18, 0.0), 0.008, 86.0)
+                + cl_bar(p, vec3<f32>(0.06, 0.0, 0.0), vec3<f32>(0.40, -0.18, 0.0), 0.008, 86.0);
+            d_col = vec3<f32>(0.82, 0.62, 1.44);
+        }
+        col = vec3<f32>(0.54, 1.02, 1.44) * (horn + pipe)
+            + d_col * dsp
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.06, time) * 0.65;
+        dens = (horn + pipe) * 0.78 + dsp * 0.86;
+    } else if (z_idx == 3u) {
+        // Z03 interference-rejected: Polar Antenna Radiation Lobes + Sidelobe RFI Rejection
+        let ang_lobe = atan2(p.y + 0.16, length(p.xz));
+        let main_lobe = exp(-abs(length(p - vec3<f32>(0.0, 0.06, 0.0)) - 0.26 * pow(max(sin(ang_lobe), 0.0), 2.5)) * 42.0) * step(-0.22, p.y);
+        let side_lobe = cl_ring_xz(p - vec3<f32>(0.0, -0.18, 0.0), 0.36, 0.008, 78.0);
+        let core_dish = cl_bar(p, vec3<f32>(0.0, -0.26, 0.0), vec3<f32>(0.0, 0.24, 0.0), 0.010, 82.0);
+        var rfi = 0.0;
+        var r_col = vec3<f32>(1.36, 0.38, 0.22);
+        if (f_use == 0u) {
+            // F0: LEO satellite streak through lower sidelobe
+            rfi = cl_bar(p, vec3<f32>(-0.42, 0.06, 0.0), vec3<f32>(0.42, 0.22, 0.0), 0.009, 82.0)
+                + cl_spot(p, vec3<f32>(0.18, 0.17, 0.0), 17.0);
+        } else if (f_use == 1u) {
+            // F1: Aircraft sweeping radar fan
+            rfi = cl_bar(p, vec3<f32>(-0.42, -0.18, 0.0), vec3<f32>(-0.08, -0.02, 0.0), 0.012, 76.0)
+                + cl_ring_xy(p - vec3<f32>(-0.28, -0.10, 0.0), 0.14, 0.008, 80.0);
+        } else if (f_use == 2u) {
+            // F2: Amber ground-loop EMI from local electronics shed
+            rfi = cl_ring_xz(p - vec3<f32>(0.24, -0.28, 0.0), 0.14, 0.010, 74.0)
+                + cl_spot(p, vec3<f32>(0.24, -0.28, 0.0), 16.0);
+            r_col = vec3<f32>(1.38, 0.78, 0.22);
+        } else if (f_use == 3u) {
+            // F3: Oblique Moon/meteor bounce arc
+            rfi = cl_bar(p, vec3<f32>(0.36, 0.36, 0.0), vec3<f32>(0.08, -0.10, 0.0), 0.008, 82.0)
+                + cl_spot(p, vec3<f32>(0.36, 0.36, 0.0), 14.0);
+            r_col = vec3<f32>(0.92, 0.86, 1.34);
+        } else if (f_use == 4u) {
+            // F4: Vertical bit-overflow clipping sawtooth
+            for (var k = 0; k < 4; k = k + 1) {
+                let xk = -0.24 + f32(k) * 0.16;
+                rfi += cl_bar(p, vec3<f32>(xk, -0.12, 0.0), vec3<f32>(xk + 0.06, 0.16, 0.0), 0.007, 84.0);
+            }
+            r_col = vec3<f32>(1.34, 0.34, 0.48);
+        } else {
+            // F5: Twin ON-source / OFF-source nod calibration cones
+            rfi = cl_bar(p, vec3<f32>(0.0, -0.16, 0.0), vec3<f32>(0.26, 0.34, 0.0), 0.014, 72.0)
+                + cl_bar(p, vec3<f32>(0.0, -0.16, 0.0), vec3<f32>(-0.26, 0.34, 0.0), 0.008, 84.0) * 0.45;
+            r_col = vec3<f32>(0.24, 1.38, 0.96);
+        }
+        col = vec3<f32>(0.26, 1.02, 1.44) * (main_lobe * 0.88 + side_lobe * 0.65 + core_dish * 0.85)
+            + r_col * rfi
+            + zone_col * cl_feature_beacon(p, feat, 0.38, 0.02, time) * 0.62;
+        dens = (main_lobe + side_lobe + core_dish) * 0.72 + rfi * 0.85;
+    } else if (z_idx == 4u) {
+        // Z04 independent-verification (+companion 3830): Wireframe Earth & Synchronized Observatories
+        let lat_g = exp(-abs(sin(p.y * 22.0)) * 18.0);
+        let lon_g = exp(-abs(sin(atan2(p.z, p.x) * 8.0)) * 18.0);
+        let globe = exp(-abs(length(p - vec3<f32>(0.0, -0.06, 0.0)) - 0.24) * 58.0) * max(lat_g, lon_g);
+        let beam_a = cl_bar(p, vec3<f32>(-0.20, 0.08, 0.0), vec3<f32>(0.0, 0.44, 0.0), 0.007, 88.0);
+        let beam_b = cl_bar(p, vec3<f32>(0.20, 0.04, 0.0), vec3<f32>(0.0, 0.44, 0.0), 0.007, 88.0);
+        var overlay = beam_a + beam_b;
+        var o_col = vec3<f32>(0.26, 1.32, 0.94);
+        if (f_use == 1u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                overlay += cl_ring_xz(p - vec3<f32>(0.0, 0.22 + f32(k) * 0.07, 0.0), 0.14 - f32(k) * 0.02, 0.007, 84.0);
+            }
+            o_col = vec3<f32>(0.64, 0.96, 1.46);
+        } else if (f_use == 2u) {
+            overlay += cl_bar(p, vec3<f32>(0.0, 0.18, 0.0), vec3<f32>(0.0, -0.30, 0.0), 0.009, 86.0);
+        } else if (f_use == 3u) {
+            overlay += cl_ring_xy(p - vec3<f32>(0.26, 0.24, 0.0), 0.11, 0.009, 82.0);
+            o_col = vec3<f32>(1.38, 0.96, 0.28);
+        } else if (f_use == 4u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                overlay += cl_ring_xy(p - vec3<f32>(-0.26, 0.16 + f32(k) * 0.07, -0.06), 0.12, 0.006, 84.0);
+            }
+            o_col = vec3<f32>(0.88, 0.72, 1.38);
+        } else if (f_use == 5u) {
+            overlay += doc_line_glow(sd_hex_prism(doc_rot_x(p - vec3<f32>(0.0, 0.34, 0.0), 1.570796), 0.14, 0.015), 76.0);
+            o_col = vec3<f32>(1.28, 0.64, 0.28);
+        }
+        col = vec3<f32>(0.24, 0.92, 1.42) * globe + o_col * overlay
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.0, time) * 0.62;
+        dens = globe * 0.84 + overlay * 0.82;
+    } else if (z_idx == 5u) {
+        // Z05 distant-origin (+companion 3831): Rotating Earth Linked to Distant Star System
+        let earth_wf = exp(-abs(length(p - vec3<f32>(-0.28, -0.10, 0.0)) - 0.15) * 56.0);
+        let star_pt = cl_spot(p, vec3<f32>(0.30, 0.22, 0.0), 14.0);
+        var link = cl_bar(p, vec3<f32>(-0.16, 0.0, 0.0), vec3<f32>(0.24, 0.18, 0.0), 0.008, 84.0);
+        var l_col = vec3<f32>(0.32, 1.28, 1.44);
+        if (f_use == 1u) {
+            // F1: Sinusoidal barycentric Doppler S-curve
+            let wave = exp(-abs(p.y - 0.12 * sin(p.x * 11.0)) * 34.0) * smoothstep(0.38, 0.06, abs(p.x));
+            link += wave * 1.1;
+        } else if (f_use == 2u) {
+            // F2: Dispersive ISM delay cloud separating violet & red packets
+            let ism = exp(-pow(length(p - vec3<f32>(0.02, 0.08, 0.0)) * 8.0, 2.0));
+            link += cl_spot(p, vec3<f32>(-0.08, 0.05, 0.0), 19.0) + cl_spot(p, vec3<f32>(0.14, 0.14, 0.0), 19.0) + ism * 0.7;
+            l_col = vec3<f32>(0.88, 0.46, 1.42);
+        } else if (f_use == 3u) {
+            // F3: Wide orbital parallax triangle baseline
+            link += cl_bar(p, vec3<f32>(-0.28, -0.26, 0.0), vec3<f32>(0.30, 0.22, 0.0), 0.007, 86.0)
+                  + cl_bar(p, vec3<f32>(-0.28, 0.08, 0.0), vec3<f32>(0.30, 0.22, 0.0), 0.007, 86.0);
+            l_col = vec3<f32>(0.24, 1.38, 0.88);
+        } else if (f_use == 4u) {
+            // F4: Exoplanet orbit ring around target star
+            link += cl_ring_xz(doc_rot_x(p - vec3<f32>(0.30, 0.22, 0.0), 0.45), 0.18, 0.008, 82.0);
+            l_col = vec3<f32>(1.32, 0.92, 0.34);
+        } else if (f_use == 5u) {
+            // F5: Orbital transmitter phase wobble circles
+            link += cl_ring_xy(p - vec3<f32>(0.30, 0.22, 0.0), 0.13, 0.008, 80.0)
+                  + cl_ring_xy(p - vec3<f32>(0.30, 0.22, 0.0), 0.22, 0.007, 80.0);
+        }
+        col = vec3<f32>(0.24, 0.96, 1.46) * earth_wf
+            + vec3<f32>(1.42, 0.98, 0.36) * star_pt
+            + l_col * link
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.0, time) * 0.62;
+        dens = earth_wf * 0.82 + star_pt * 0.88 + link * 0.80;
+    } else if (z_idx == 6u) {
+        // Z06 artificial-pattern: Prime Pulse Clusters, Phase Modulation, Entropy Crystal vs LGM-1 Pulsar
+        var pat = 0.0;
+        var p_col = vec3<f32>(0.26, 1.34, 1.28);
+        if (f_use == 0u) {
+            for (var k = 0; k < 5; k = k + 1) {
+                let cx = -0.36 + f32(k) * 0.18;
+                pat += cl_spot(p, vec3<f32>(cx, 0.12 * sin(f32(k)), 0.0), 17.0);
+            }
+        } else if (f_use == 1u) {
+            let phase_step = select(-1.0, 1.0, fract(p.x * 5.0) > 0.5);
+            pat = exp(-abs(p.y - 0.16 * phase_step * sin(p.x * 24.0)) * 34.0) * smoothstep(0.45, 0.10, abs(p.x));
+            p_col = vec3<f32>(0.42, 0.96, 1.48);
+        } else if (f_use == 2u) {
+            let dust = pow(max(0.0, snoise3(p * 11.0)), 3.0) * smoothstep(0.04, -0.28, p.x);
+            let crystal = doc_line_glow(sd_hex_prism(doc_rot_y(p - vec3<f32>(0.22, 0.0, 0.0), time * 0.25), 0.18, 0.14), 76.0);
+            pat = dust + crystal;
+            p_col = vec3<f32>(0.22, 1.38, 0.88);
+        } else if (f_use == 3u) {
+            let grid = max(exp(-abs(fract(p.x * 8.0) - 0.5) * 18.0), exp(-abs(fract(p.y * 8.0) - 0.5) * 18.0))
+                     * smoothstep(0.36, 0.26, abs(p.x)) * smoothstep(0.36, 0.26, abs(p.y)) * exp(-abs(p.z) * 16.0);
+            pat = grid * 1.15;
+            p_col = vec3<f32>(1.36, 0.96, 0.30);
+        } else if (f_use == 4u) {
+            let needle = cl_bar(p, vec3<f32>(0.0, -0.44, 0.0), vec3<f32>(0.0, 0.44, 0.0), 0.011, 86.0);
+            let iso = exp(-abs(r - 0.34) * 44.0) * 0.45;
+            pat = needle + iso;
+        } else {
+            // F5: Spinning natural pulsar lighthouse impostor (LGM-1)
+            let pp = doc_rot_z(p, 0.48 + time * 0.5);
+            pat = cl_spot(pp, vec3<f32>(0.0), 14.0)
+                + cl_bar(pp, vec3<f32>(0.0, -0.42, 0.0), vec3<f32>(0.0, 0.42, 0.0), 0.014, 70.0)
+                + cl_ring_xz(pp, 0.24, 0.008, 78.0);
+            p_col = vec3<f32>(1.32, 0.62, 0.26);
+        }
+        col = p_col * pat + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.70;
+        dens = pat * 0.88;
+    } else if (z_idx == 7u) {
+        // Z07 accumulated-evidence: 6-Tier Luminous Rio-Scale Inference Pyramid
+        var pyr = 0.0;
+        for (var k = 0; k < 6; k = k + 1) {
+            let fk = f32(k);
+            let yk = -0.30 + fk * 0.12;
+            let rk = 0.42 - fk * 0.062;
+            let active_tier = select(0.32, 1.15, k == i32(f_use));
+            pyr += cl_ring_xz(p - vec3<f32>(0.0, yk, 0.0), rk, 0.009, 82.0) * active_tier;
+        }
+        let spine = cl_bar(p, vec3<f32>(0.0, -0.32, 0.0), vec3<f32>(0.0, 0.36, 0.0), 0.010, 82.0)
+                  * select(0.55, 1.35, f_use >= 3u);
+        let apex = cl_spot(p, vec3<f32>(0.0, 0.36 - select(0.0, 0.14, f_use == 0u), 0.0), 14.0);
+        let pyr_col = mix(vec3<f32>(0.32, 1.06, 1.46), vec3<f32>(1.42, 0.96, 0.28), ff * 0.18);
+        col = pyr_col * (pyr + spine) + vec3<f32>(1.42, 1.04, 0.38) * apex
+            + zone_col * cl_feature_beacon(p, feat, 0.38, -0.02 + ff * 0.05, time) * 0.72;
+        dens = pyr * 0.78 + spine * 0.72 + apex * 0.85;
+    } else if (z_idx == 8u) {
+        // Z08 scientific-announcement: Translucent Disclosure Prism Pipeline
+        let prism = doc_line_glow(sd_hex_prism(doc_rot_y(p, 0.35), 0.28, 0.22), 76.0);
+        var stage = 0.0;
+        var s_col = vec3<f32>(0.34, 1.18, 1.46);
+        if (f_use == 0u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                let a = f32(k) * 2.094 + time * 0.4;
+                stage += cl_ring_xy(p - vec3<f32>(cos(a) * 0.26, sin(a) * 0.22, 0.0), 0.11, 0.008, 82.0);
+            }
+        } else if (f_use == 1u) {
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * TAU / 6.0;
+                stage += cl_bar(p, vec3<f32>(0.0), vec3<f32>(cos(a) * 0.44, sin(a) * 0.44, 0.0), 0.007, 86.0);
+            }
+            s_col = vec3<f32>(0.24, 1.36, 0.92);
+        } else if (f_use == 2u) {
+            stage = cl_bar(p, vec3<f32>(0.0, 0.06, 0.0), vec3<f32>(0.38, 0.34, 0.0), 0.012, 74.0)
+                  + cl_spot(p, vec3<f32>(0.38, 0.34, 0.0), 15.0);
+            s_col = vec3<f32>(1.42, 0.38, 0.18);
+        } else if (f_use == 3u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                stage += cl_ring_xz(p - vec3<f32>(-0.24 + f32(k) * 0.16, -0.18 + f32(k) * 0.12, 0.0), 0.09, 0.008, 82.0);
+            }
+            s_col = vec3<f32>(1.32, 0.94, 0.34);
+        } else if (f_use == 4u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                stage += exp(-abs(r - (0.14 + f32(k) * 0.11)) * 48.0);
+            }
+        } else {
+            stage = cl_ring_xy(p - vec3<f32>(0.18, 0.18, 0.0), 0.15, 0.010, 80.0)
+                  + cl_bar(p, vec3<f32>(0.06, 0.18, 0.0), vec3<f32>(0.30, 0.18, 0.0), 0.008, 84.0);
+            s_col = vec3<f32>(1.38, 0.98, 0.28);
+        }
+        col = vec3<f32>(0.42, 0.88, 1.38) * prism * 0.85 + s_col * stage
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.04, time) * 0.65;
+        dens = prism * 0.72 + stage * 0.84;
+    } else if (z_idx == 9u) {
+        // Z09 international-coordination: Wireframe Earth + 6 Polycentric Governance Rings
+        let lat_g = exp(-abs(sin(p.y * 20.0)) * 18.0);
+        let lon_g = exp(-abs(sin(atan2(p.z, p.x) * 8.0)) * 18.0);
+        let globe = exp(-abs(r - 0.24) * 58.0) * max(lat_g, lon_g);
+        let ring_m = cl_ring_xz(doc_rot_z(p, 0.22 * ff), 0.38, 0.008, 82.0)
+                   + cl_ring_xy(doc_rot_y(p, 0.35 * ff), 0.44, 0.007, 82.0);
+        var nodes = 0.0;
+        for (var k = 0; k < 6; k = k + 1) {
+            let a = f32(k) * TAU / 6.0 + ff * 0.25;
+            let node_hi = select(0.45, 1.25, k == i32(f_use));
+            nodes += cl_spot(p, vec3<f32>(cos(a) * 0.40, 0.0, sin(a) * 0.40), 17.0) * node_hi;
+        }
+        col = vec3<f32>(0.24, 0.96, 1.46) * (globe + ring_m * 0.82)
+            + vec3<f32>(1.36, 0.94, 0.32) * nodes
+            + zone_col * cl_feature_beacon(p, feat, 0.44, 0.06, time) * 0.62;
+        dens = globe * 0.82 + ring_m * 0.72 + nodes * 0.80;
+    } else if (z_idx == 10u) {
+        // Z10 planetary-reaction: Social Refraction Kaleidoscope Dome Around Earth
+        let core_e = exp(-abs(r - 0.20) * 56.0);
+        var dome = 0.0;
+        var d_col = vec3<f32>(0.92, 0.56, 1.38);
+        if (f_use == 0u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                let yk = -0.24 + f32(k) * 0.16;
+                dome += exp(-abs(p.y - yk) * 34.0) * smoothstep(0.46, 0.16, abs(p.x)) * exp(-abs(p.z) * 16.0);
+            }
+            d_col = vec3<f32>(1.38, 0.42, 0.34);
+        } else if (f_use == 1u) {
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * 1.25 + time * 0.3;
+                dome += doc_line_glow(sd_hex_prism(doc_rot_y(p - vec3<f32>(cos(a) * 0.34, sin(a) * 0.24, 0.0), a), 0.08, 0.015), 76.0);
+            }
+            d_col = vec3<f32>(1.32, 0.34, 0.72);
+        } else if (f_use == 2u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                dome += cl_ring_xy(doc_rot_z(p, f32(k) * 1.047), 0.36, 0.008, 82.0);
+            }
+            d_col = vec3<f32>(1.38, 0.96, 0.36);
+        } else if (f_use == 3u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                dome += cl_ring_xz(p, 0.26 + f32(k) * 0.10, 0.007, 82.0);
+            }
+            d_col = vec3<f32>(0.32, 1.18, 1.46);
+        } else if (f_use == 4u) {
+            let belt = exp(-abs(p.y) * 28.0) * exp(-abs(length(p.xz) - 0.32) * 36.0);
+            dome = belt + cl_ring_xz(p, 0.42, 0.006, 82.0);
+            d_col = vec3<f32>(1.28, 0.82, 0.32);
+        } else {
+            let bright_side = smoothstep(-0.04, 0.12, p.x) * exp(-abs(r - 0.38) * 44.0);
+            let dim_side = smoothstep(0.04, -0.12, p.x) * exp(-abs(r - 0.38) * 44.0) * 0.18;
+            dome = bright_side + dim_side;
+            d_col = vec3<f32>(0.26, 1.28, 1.44);
+        }
+        col = vec3<f32>(0.24, 0.92, 1.42) * core_e + d_col * dome
+            + zone_col * cl_feature_beacon(p, feat, 0.44, 0.02, time) * 0.65;
+        dens = core_e * 0.80 + dome * 0.84;
+    } else if (z_idx == 11u) {
+        // Z11 interpretation: Bitstream De-Framing Prism & Arecibo Matrix Unfolder
+        let ribbon = cl_bar(p, vec3<f32>(-0.44, 0.22, 0.0), vec3<f32>(0.44, 0.22, 0.0), 0.008, 86.0);
+        var mat = 0.0;
+        var m_col = vec3<f32>(0.26, 1.34, 1.18);
+        if (f_use == 0u) {
+            mat = cl_bar(p, vec3<f32>(-0.18, -0.24, 0.0), vec3<f32>(-0.18, 0.32, 0.0), 0.011, 80.0)
+                + cl_bar(p, vec3<f32>(0.18, -0.24, 0.0), vec3<f32>(0.18, 0.32, 0.0), 0.011, 80.0);
+            m_col = vec3<f32>(1.38, 0.96, 0.28);
+        } else if (f_use == 1u) {
+            let grid_2d = max(exp(-abs(fract(p.x * 10.0) - 0.5) * 18.0), exp(-abs(fract(p.y * 10.0) - 0.5) * 18.0))
+                        * smoothstep(0.32, 0.22, abs(p.x)) * smoothstep(0.24, 0.14, abs(p.y + 0.06)) * exp(-abs(p.z) * 18.0);
+            mat = grid_2d * 1.15;
+        } else if (f_use == 2u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                mat += cl_bar(p, vec3<f32>(-0.34, -0.22 + f32(k) * 0.14, 0.0), vec3<f32>(0.34, -0.22 + f32(k) * 0.14, 0.0), 0.008, 84.0);
+            }
+            m_col = vec3<f32>(0.36, 1.18, 1.48);
+        } else if (f_use == 3u) {
+            let dense_l = pow(max(0.0, snoise3(p * 15.0)), 3.0) * smoothstep(0.0, -0.28, p.x) * smoothstep(0.35, 0.12, abs(p.y));
+            let open_r = doc_line_glow(sd_hex_prism(doc_rot_y(p - vec3<f32>(0.24, -0.04, 0.0), 0.4), 0.18, 0.14), 76.0);
+            mat = dense_l + open_r;
+        } else if (f_use == 4u) {
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * TAU / 5.0;
+                mat += cl_ring_xy(p - vec3<f32>(cos(a) * 0.28, sin(a) * 0.22 - 0.06, 0.0), 0.08, 0.007, 82.0);
+            }
+            m_col = vec3<f32>(1.18, 0.68, 1.42);
+        } else {
+            for (var k = 0; k < 4; k = k + 1) {
+                mat += cl_spot(p, vec3<f32>(-0.32 + f32(k) * 0.22, -0.06, 0.0), 17.0);
+            }
+        }
+        col = vec3<f32>(0.42, 1.02, 1.46) * ribbon + m_col * mat
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.0, time) * 0.68;
+        dens = ribbon * 0.72 + mat * 0.86;
+    } else if (z_idx == 12u) {
+        // Z12 shared-mathematics: Prime Cipher Beacon (5 Concentric Prime Rings + Universal Constants)
+        let pm = doc_rot_x(p, 0.42);
+        let p1 = cl_ring_xz(pm, 0.12, 0.007, 90.0);
+        let p2 = cl_ring_xz(pm, 0.19, 0.007, 90.0);
+        let p3 = cl_ring_xz(pm, 0.31, 0.007, 90.0);
+        let p4 = cl_ring_xz(pm, 0.44, 0.007, 90.0);
+        let p5 = cl_ring_xz(pm, 0.58, 0.007, 90.0) * select(1.0, smoothstep(0.60, 0.36, r), feat == 5u);
+        let ring_sum = p1 + p2 + p3 + p4 + p5;
+        let ang_pm = atan2(pm.z, pm.x);
+        let bin_code = 0.58 + 0.50 * step(0.15, sin(ang_pm * 13.0 + length(pm.xz) * 18.0));
+        let pulse = 0.78 + 0.38 * sin(r * 16.0 - time * 3.0);
+        let pulsar_rays = exp(-pow(abs(pm.y) * 44.0, 2.0)) * exp(-pow(min(abs(pm.x), abs(pm.z)) * 46.0, 2.0)) * smoothstep(0.66, 0.14, length(pm.xz));
+        var extra_m = 0.0;
+        var e_col = vec3<f32>(1.42, 1.02, 0.34);
+        if (f_use == 1u && feat <= 7u) {
+            // F1: 3-4-5 right triangle inscribed in prime plane
+            extra_m = cl_bar(pm, vec3<f32>(-0.22, 0.0, -0.14), vec3<f32>(0.22, 0.0, -0.14), 0.008, 86.0)
+                    + cl_bar(pm, vec3<f32>(0.22, 0.0, -0.14), vec3<f32>(0.22, 0.0, 0.18), 0.008, 86.0)
+                    + cl_bar(pm, vec3<f32>(-0.22, 0.0, -0.14), vec3<f32>(0.22, 0.0, 0.18), 0.008, 86.0);
+        } else if (f_use == 2u && feat <= 7u) {
+            // F2: Hydrogen 21 cm hyperfine twin-spin atom pair
+            extra_m = cl_spot(p, vec3<f32>(-0.16, 0.0, 0.0), 17.0) + cl_spot(p, vec3<f32>(0.16, 0.0, 0.0), 17.0)
+                    + cl_bar(p, vec3<f32>(-0.16, -0.14, 0.0), vec3<f32>(-0.16, 0.14, 0.0), 0.007, 86.0)
+                    + cl_bar(p, vec3<f32>(0.16, -0.14, 0.0), vec3<f32>(0.16, 0.14, 0.0), 0.007, 86.0);
+            e_col = vec3<f32>(0.34, 1.38, 0.88);
+        } else if (f_use == 3u && feat <= 7u) {
+            // F3: Dimensionless pi & alpha calipers
+            extra_m = cl_bar(pm, vec3<f32>(-0.31, 0.0, 0.0), vec3<f32>(0.31, 0.0, 0.0), 0.010, 82.0)
+                    + cl_bar(pm, vec3<f32>(0.0, 0.0, -0.31), vec3<f32>(0.0, 0.0, 0.31), 0.010, 82.0);
+            e_col = vec3<f32>(0.86, 0.68, 1.44);
+        } else if (f_use == 4u && feat <= 7u) {
+            // F4: Four Boolean logic-gate nodes around inner prime loop
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.570796 + 0.785;
+                extra_m += cl_spot(pm, vec3<f32>(cos(a) * 0.25, 0.0, sin(a) * 0.25), 17.0);
+            }
+            e_col = vec3<f32>(0.24, 1.24, 1.48);
+        } else if (f_use == 5u && feat <= 7u) {
+            // F5: Soft outer semantic boundary halo
+            extra_m = exp(-abs(r - 0.56) * 28.0);
+            e_col = vec3<f32>(0.96, 0.56, 1.28);
+        }
+        let tint = mix(vec3<f32>(0.30, 1.32, 1.42), zone_col * 1.25, 0.22);
+        col = tint * ring_sum * pulse * bin_code
+            + vec3<f32>(1.38, 1.00, 0.34) * pulsar_rays
+            + e_col * extra_m
+            + zone_col * cl_feature_beacon(p, feat, 0.44, 0.02, time) * 0.65;
+        dens = ring_sum * 0.88 + pulsar_rays * 0.76 + extra_m * 0.80;
+    } else if (z_idx == 13u) {
+        // Z13 meaning-construction: Lincos Ostensive Grounding & Relational Mapping Sandbox
+        let glyph_a = cl_ring_xy(p - vec3<f32>(-0.26, 0.04, 0.0), 0.14, 0.009, 82.0);
+        let obj_b = cl_spot(p, vec3<f32>(0.26, 0.04, 0.0), 14.0);
+        var map_g = cl_bar(p, vec3<f32>(-0.12, 0.04, 0.0), vec3<f32>(0.18, 0.04, 0.0), 0.008, 84.0);
+        if (f_use == 1u) {
+            map_g += cl_spot(p, vec3<f32>(0.26, 0.24, 0.0), 17.0) + cl_spot(p, vec3<f32>(0.26, -0.16, 0.0), 17.0);
+        } else if (f_use == 2u) {
+            map_g += doc_line_glow(sd_hex_prism(doc_rot_y(p, time * 0.6), 0.16, 0.12), 76.0);
+        } else if (f_use == 3u) {
+            map_g += cl_ring_xz(p - vec3<f32>(-0.22, -0.18, 0.0), 0.14, 0.008, 82.0)
+                   + cl_ring_xz(p - vec3<f32>(0.22, -0.18, 0.0), 0.14, 0.008, 82.0);
+        } else if (f_use == 4u) {
+            map_g += cl_bar(p, vec3<f32>(-0.26, 0.04, 0.0), vec3<f32>(0.0, 0.30, 0.0), 0.007, 86.0)
+                   + cl_bar(p, vec3<f32>(0.0, 0.30, 0.0), vec3<f32>(0.26, 0.04, 0.0), 0.007, 86.0);
+        } else if (f_use == 5u) {
+            map_g += cl_ring_xy(p - vec3<f32>(0.0, 0.04, -0.12), 0.26, 0.007, 82.0)
+                   + cl_ring_xy(p - vec3<f32>(0.0, 0.04, 0.12), 0.26, 0.007, 82.0);
+        }
+        col = vec3<f32>(0.28, 1.24, 1.46) * glyph_a
+            + vec3<f32>(1.38, 0.96, 0.32) * (obj_b + map_g * 0.85)
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.04, time) * 0.65;
+        dens = glyph_a * 0.8 + obj_b * 0.8 + map_g * 0.82;
+    } else if (z_idx == 14u) {
+        // Z14 unknown-language: 4D Alien Multiplexing Hypercube & Nested Recursive Grammar
+        let pa = doc_rot_y(doc_rot_x(p, 0.38 + ff * 0.18), time * 0.25 + ff * 0.32);
+        let outer_c = doc_line_glow(sd_hex_prism(pa, 0.36, 0.24), 76.0);
+        let inner_c = doc_line_glow(sd_hex_prism(pa, 0.18, 0.12), 82.0);
+        var xeno = 0.0;
+        var x_col = vec3<f32>(0.76, 0.44, 1.44);
+        if (f_use == 0u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.570796;
+                xeno += cl_bar(pa, vec3<f32>(cos(a) * 0.16, 0.0, sin(a) * 0.16), vec3<f32>(cos(a) * 0.34, 0.12, sin(a) * 0.34), 0.007, 86.0);
+            }
+        } else if (f_use == 1u) {
+            xeno = cl_ring_xy(pa, 0.28, 0.008, 82.0) + cl_ring_xz(pa, 0.16, 0.008, 82.0);
+            x_col = vec3<f32>(0.28, 1.32, 1.44);
+        } else if (f_use == 2u) {
+            let vortex = exp(-abs(length(pa.xz) - 0.16 - 0.10 * sin(atan2(pa.z, pa.x) * 3.0)) * 32.0);
+            xeno = vortex * smoothstep(0.45, 0.10, r);
+            x_col = vec3<f32>(1.28, 0.42, 0.96);
+        } else if (f_use == 3u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                let a = f32(k) * 2.094;
+                xeno += cl_ring_xy(p - vec3<f32>(cos(a) * 0.28, sin(a) * 0.24, 0.0), 0.08, 0.008, 80.0);
+            }
+            x_col = vec3<f32>(0.44, 0.76, 1.36);
+        } else if (f_use == 4u) {
+            let fake_grid = max(exp(-abs(fract(pa.x * 9.0) - 0.5) * 18.0), exp(-abs(fract(pa.y * 9.0) - 0.5) * 18.0))
+                          * smoothstep(0.32, 0.14, r);
+            xeno = fake_grid;
+            x_col = vec3<f32>(1.38, 0.46, 0.26);
+        } else {
+            xeno = cl_ring_xy(p - vec3<f32>(-0.22, 0.0, 0.0), 0.14, 0.009, 80.0)
+                 + doc_line_glow(sd_hex_prism(p - vec3<f32>(0.22, 0.0, 0.0), 0.14, 0.10), 78.0);
+            x_col = vec3<f32>(1.32, 0.96, 0.34);
+        }
+        col = vec3<f32>(0.34, 1.06, 1.46) * (outer_c * 0.78 + inner_c * 0.92) + x_col * xeno
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.04, time) * 0.65;
+        dens = (outer_c + inner_c) * 0.72 + xeno * 0.84;
+    } else if (z_idx == 15u) {
+        // Z15 cultural-context: Situated Xenocultural Mind Prisms
+        var cult = 0.0;
+        var c_col = vec3<f32>(0.36, 1.24, 1.18);
+        if (f_use == 0u) {
+            cult = cl_spot(p, vec3<f32>(-0.26, 0.0, 0.0), 15.0)
+                 + cl_ring_xy(p, 0.16, 0.008, 82.0)
+                 + cl_bar(p, vec3<f32>(0.16, -0.22, 0.0), vec3<f32>(0.34, 0.22, 0.0), 0.009, 80.0);
+        } else if (f_use == 1u) {
+            cult = cl_ring_xy(p, 0.15, 0.009, 84.0) * (0.6 + 0.4 * sin(time * 6.0))
+                 + cl_ring_xy(p, 0.36, 0.010, 80.0);
+            c_col = vec3<f32>(1.36, 0.88, 0.32);
+        } else if (f_use == 2u) {
+            cult = cl_ring_xz(doc_rot_x(p, 0.78), 0.28, 0.009, 80.0)
+                 + cl_ring_xz(doc_rot_x(p, -0.78), 0.28, 0.009, 80.0)
+                 + cl_spot(p, vec3<f32>(0.0), 16.0);
+            c_col = vec3<f32>(0.88, 0.48, 1.44);
+        } else if (f_use == 3u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.570796 + 0.785;
+                cult += cl_spot(p, vec3<f32>(cos(a) * 0.26, sin(a) * 0.26, 0.0), 16.0);
+            }
+            c_col = vec3<f32>(0.28, 1.32, 0.86);
+        } else if (f_use == 4u) {
+            cult = cl_bar(p, vec3<f32>(-0.28, -0.14, 0.0), vec3<f32>(0.28, 0.18, 0.0), 0.010, 82.0)
+                 + cl_bar(p, vec3<f32>(0.0, -0.32, 0.0), vec3<f32>(0.0, 0.24, 0.0), 0.009, 84.0);
+            c_col = vec3<f32>(1.38, 0.96, 0.28);
+        } else {
+            // F5: Binary twin-star shadows across planetary sculpture
+            cult = cl_spot(p, vec3<f32>(-0.24, 0.24, 0.0), 15.0)
+                 + cl_spot(p, vec3<f32>(0.24, 0.24, 0.0), 15.0)
+                 + cl_ring_xz(p - vec3<f32>(0.0, -0.10, 0.0), 0.24, 0.010, 80.0);
+            c_col = vec3<f32>(1.28, 0.72, 0.34);
+        }
+        col = c_col * cult + zone_col * cl_feature_beacon(p, feat, 0.42, 0.0, time) * 0.68;
+        dens = cult * 0.88;
+    } else if (z_idx == 16u) {
+        // Z16 message-received: Segmented Floating Holographic Dossier Polyhedron
+        let shell = doc_line_glow(sd_hex_prism(doc_rot_y(doc_rot_x(p, 0.32), 0.4 + ff * 0.25), 0.34, 0.22), 76.0);
+        var core = 0.0;
+        var k_col = vec3<f32>(0.32, 1.32, 1.44);
+        if (f_use == 0u) {
+            core = cl_ring_xz(p, 0.20, 0.008, 82.0) + cl_spot(p, vec3<f32>(0.0), 15.0);
+        } else if (f_use == 1u) {
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * TAU / 6.0;
+                core += cl_bar(p, vec3<f32>(0.0), vec3<f32>(cos(a) * 0.22, sin(a) * 0.22, 0.0), 0.007, 86.0);
+            }
+            k_col = vec3<f32>(0.28, 1.36, 0.88);
+        } else if (f_use == 2u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                core += cl_bar(p, vec3<f32>(-0.22, -0.18 + f32(k) * 0.18, 0.0), vec3<f32>(0.22, -0.18 + f32(k) * 0.18, 0.0), 0.009, 82.0);
+            }
+            k_col = vec3<f32>(1.32, 0.92, 0.34);
+        } else if (f_use == 3u) {
+            core = cl_ring_xy(p, 0.18, 0.009, 82.0) + cl_ring_xz(p, 0.24, 0.007, 82.0);
+        } else if (f_use == 4u) {
+            core = cl_spot(p, vec3<f32>(0.0), 14.0);
+            for (var k = 0; k < 5; k = k + 1) {
+                let a = f32(k) * TAU / 5.0;
+                core += cl_bar(p, vec3<f32>(cos(a) * 0.08, sin(a) * 0.08, 0.0), vec3<f32>(cos(a) * 0.30, sin(a) * 0.30, 0.0), 0.007, 86.0);
+            }
+            k_col = vec3<f32>(1.42, 0.44, 0.22);
+        } else {
+            core = doc_line_glow(sd_hex_prism(doc_rot_y(p, time * 0.4), 0.18, 0.18), 78.0);
+            k_col = vec3<f32>(0.92, 0.56, 1.44);
+        }
+        col = vec3<f32>(0.36, 0.96, 1.42) * shell + k_col * core
+            + zone_col * cl_feature_beacon(p, feat, 0.44, 0.04, time) * 0.65;
+        dens = shell * 0.78 + core * 0.84;
+    } else if (z_idx == 17u) {
+        // Z17 decision-to-respond: Earth Reply Console & Council Ring (CRITICAL: F0 REMAINS COMPLETELY SILENT, NO SKY LASER!)
+        let pd = doc_rot_x(p - vec3<f32>(0.0, -0.20, 0.0), 0.42);
+        let dish_edge = exp(-pow(abs(ch_parabolic_dish_sdf(pd, 0.38, 0.19)) * 78.0, 2.0));
+        let tripod = cl_bar(pd, vec3<f32>(0.24, 0.0, 0.0), vec3<f32>(0.0, 0.28, 0.0), 0.008, 90.0)
+                   + cl_bar(pd, vec3<f32>(-0.12, 0.0, 0.21), vec3<f32>(0.0, 0.28, 0.0), 0.008, 90.0)
+                   + cl_bar(pd, vec3<f32>(-0.12, 0.0, -0.21), vec3<f32>(0.0, 0.28, 0.0), 0.008, 90.0);
+        let council_ring = cl_ring_xz(p - vec3<f32>(0.0, -0.28, 0.0), 0.42, 0.007, 82.0);
+        var reply = 0.0;
+        var r_col = vec3<f32>(0.28, 1.28, 1.44);
+        var dish_tint = vec3<f32>(0.76, 1.04, 1.38);
+        if (f_use == 0u) {
+            // F0: Remain silent — quiet indigo/steel dish + calm protective listening veil overhead (ZERO upward laser!)
+            dish_tint = vec3<f32>(0.28, 0.46, 0.78);
+            reply = cl_ring_xz(p - vec3<f32>(0.0, 0.16, 0.0), 0.36, 0.007, 82.0) * 0.75;
+            r_col = vec3<f32>(0.24, 0.56, 0.96);
+        } else if (f_use == 1u) {
+            // F1: Single brief spherical acknowledgment ping
+            reply = cl_ring_xy(p - vec3<f32>(0.0, 0.24, 0.0), 0.14, 0.010, 80.0);
+            r_col = vec3<f32>(1.18, 1.28, 1.42);
+        } else if (f_use == 2u) {
+            // F2: Ascending clean prime & physical-constants rings
+            reply = cl_ring_xz(p - vec3<f32>(0.0, 0.18, 0.0), 0.12, 0.008, 84.0)
+                  + cl_ring_xz(p - vec3<f32>(0.0, 0.32, 0.0), 0.20, 0.008, 84.0);
+            r_col = vec3<f32>(0.28, 1.38, 1.08);
+        } else if (f_use == 3u) {
+            // F3: Warm cultural mosaic sphere ascending cleanly
+            reply = cl_spot(p, vec3<f32>(0.0, 0.24, 0.0), 13.0)
+                  + doc_line_glow(sd_hex_prism(doc_rot_y(p - vec3<f32>(0.0, 0.24, 0.0), time * 0.4), 0.16, 0.12), 78.0);
+            r_col = vec3<f32>(1.38, 0.94, 0.32);
+        } else if (f_use == 4u) {
+            // F4: Full high-power directional beacon revealing Earth coordinate
+            reply = cl_bar(pd, vec3<f32>(0.0, 0.28, 0.0), vec3<f32>(0.0, 0.76, 0.0), 0.014, 74.0)
+                  + cl_ring_xz(p - vec3<f32>(0.0, 0.36, 0.0), 0.22, 0.008, 82.0);
+            r_col = vec3<f32>(0.34, 1.44, 0.88);
+        } else {
+            // F5: Global council deliberation ring + standby ember only (no sky beam)
+            for (var k = 0; k < 6; k = k + 1) {
+                let a = f32(k) * TAU / 6.0 + time * 0.3;
+                reply += cl_spot(p, vec3<f32>(cos(a) * 0.34, 0.14, sin(a) * 0.34), 16.0);
+            }
+            r_col = vec3<f32>(1.38, 0.82, 0.26);
+        }
+        col = dish_tint * (dish_edge + tripod * 0.8) + vec3<f32>(0.42, 0.92, 1.38) * council_ring * 0.72
+            + r_col * reply
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.65;
+        dens = (dish_edge + tripod + council_ring) * 0.74 + reply * 0.86;
+    } else if (z_idx == 18u) {
+        // Z18 transmission-risks: METI Exposure, Beam Geometry & Unilateral Divergence
+        var risk = 0.0;
+        var rk_col = vec3<f32>(1.34, 0.68, 0.26);
+        if (f_use == 0u) {
+            risk = exp(-abs(r - 0.34) * 48.0)
+                 + cl_ring_xy(p, 0.36, 0.008, 82.0)
+                 + cl_spot(p, vec3<f32>(0.0), 14.0);
+            rk_col = vec3<f32>(1.32, 0.56, 0.24);
+        } else if (f_use == 1u) {
+            risk = cl_bar(p, vec3<f32>(-0.36, 0.0, 0.0), vec3<f32>(0.0, 0.0, 0.0), 0.009, 82.0)
+                 + cl_bar(p, vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.36, 0.24, 0.0), 0.009, 82.0)
+                 + cl_bar(p, vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.36, -0.24, 0.0), 0.009, 82.0);
+            rk_col = vec3<f32>(1.28, 0.92, 0.34);
+        } else if (f_use == 2u) {
+            risk = cl_bar(p, vec3<f32>(-0.42, -0.24, 0.0), vec3<f32>(0.42, 0.24, 0.0), 0.009, 84.0)
+                 + cl_spot(p, vec3<f32>(0.42, 0.24, 0.0), 16.0);
+            rk_col = vec3<f32>(0.24, 1.38, 0.82);
+        } else if (f_use == 3u) {
+            risk = exp(-abs(r - 0.18) * 46.0) + exp(-abs(r - 0.34) * 42.0) + exp(-abs(r - 0.48) * 38.0);
+            rk_col = vec3<f32>(1.38, 0.42, 0.26);
+        } else if (f_use == 4u) {
+            risk = cl_bar(p, vec3<f32>(-0.28, -0.26, 0.0), vec3<f32>(0.18, 0.36, 0.0), 0.008, 84.0)
+                 + cl_bar(p, vec3<f32>(0.0, -0.28, 0.0), vec3<f32>(-0.16, 0.36, 0.0), 0.008, 84.0)
+                 + cl_bar(p, vec3<f32>(0.28, -0.26, 0.0), vec3<f32>(0.34, 0.36, 0.0), 0.008, 84.0);
+            rk_col = vec3<f32>(1.34, 0.48, 0.56);
+        } else {
+            risk = cl_bar(p, vec3<f32>(0.0, -0.32, 0.0), vec3<f32>(0.0, 0.44, 0.0), 0.015, 72.0)
+                 + cl_ring_xz(p - vec3<f32>(0.0, -0.32, 0.0), 0.36, 0.007, 82.0);
+            rk_col = vec3<f32>(1.38, 0.94, 0.28);
+        }
+        col = rk_col * risk + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.68;
+        dens = risk * 0.86;
+    } else if (z_idx == 19u) {
+        // Z19 light-speed-limit (+companion 3832): Finite-c Light-Cone & Drifting Star Target Lead
+        let earth_pt = cl_spot(p, vec3<f32>(-0.34, -0.10, 0.0), 15.0);
+        let live_star = cl_spot(p, vec3<f32>(0.30, 0.16, 0.0), 15.0);
+        var rel = 0.0;
+        var rl_col = vec3<f32>(0.32, 1.24, 1.48);
+        if (f_use == 0u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                rel += cl_ring_xy(p - vec3<f32>(-0.34, -0.10, 0.0), 0.14 + f32(k) * 0.14, 0.008, 80.0);
+            }
+        } else if (f_use == 1u) {
+            rel = cl_ring_xy(p - vec3<f32>(0.30, -0.14, 0.0), 0.08, 0.008, 82.0)
+                + cl_bar(p, vec3<f32>(-0.34, -0.10, 0.0), vec3<f32>(0.30, -0.14, 0.0), 0.008, 84.0);
+            rl_col = vec3<f32>(1.32, 0.82, 0.34);
+        } else if (f_use == 2u) {
+            rel = cl_bar(p, vec3<f32>(-0.34, -0.10, 0.0), vec3<f32>(0.30, 0.26, 0.0), 0.009, 82.0)
+                + cl_bar(p, vec3<f32>(0.30, -0.10, 0.0), vec3<f32>(0.30, 0.32, 0.0), 0.007, 86.0);
+            rl_col = vec3<f32>(0.24, 1.38, 0.92);
+        } else if (f_use == 3u) {
+            let spread = 0.03 + clamp((p.x + 0.34) / 0.72, 0.0, 1.0) * 0.22;
+            rel = exp(-abs(length(p.yz - vec2<f32>(0.02, 0.0)) - spread) * 44.0) * smoothstep(-0.38, 0.38, p.x);
+        } else if (f_use == 4u) {
+            let dust = pow(max(0.0, snoise3(p * 12.0)), 3.0) * smoothstep(0.24, 0.02, abs(p.x));
+            rel = cl_bar(p, vec3<f32>(-0.34, -0.10, 0.0), vec3<f32>(0.30, 0.16, 0.0), 0.008, 82.0) + dust * 1.15;
+            rl_col = vec3<f32>(1.18, 0.62, 1.42);
+        } else {
+            rel = cl_spot(p, vec3<f32>(-0.18, -0.02, 0.0), 17.0) + cl_spot(p, vec3<f32>(0.18, 0.10, 0.0), 17.0);
+        }
+        col = vec3<f32>(0.24, 0.98, 1.46) * earth_pt
+            + vec3<f32>(1.38, 0.94, 0.34) * live_star
+            + rl_col * rel
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.65;
+        dens = earth_pt * 0.8 + live_star * 0.8 + rel * 0.84;
+    } else if (z_idx == 20u) {
+        // Z20 interstellar-wait: Generational Archive Torch & Century Hourglass
+        let axis = cl_bar(p, vec3<f32>(0.0, -0.38, 0.0), vec3<f32>(0.0, 0.38, 0.0), 0.009, 84.0);
+        var wait = 0.0;
+        var w_col = vec3<f32>(1.36, 0.96, 0.34);
+        for (var k = 0; k < 5; k = k + 1) {
+            let yk = -0.30 + f32(k) * 0.15;
+            let hi = select(0.55, 1.30, k == i32(f_use % 5u));
+            wait += cl_ring_xz(p - vec3<f32>(0.0, yk, 0.0), 0.16 + 0.06 * abs(yk) * 3.0, 0.008, 82.0) * hi;
+        }
+        if (f_use == 1u) {
+            wait += doc_line_glow(sd_hex_prism(doc_rot_y(p, time * 0.35), 0.16, 0.16), 78.0);
+        } else if (f_use == 2u) {
+            wait += cl_spot(p, vec3<f32>(0.0, -0.22, 0.0), 16.0) + cl_spot(p, vec3<f32>(0.0, 0.22, 0.0), 16.0);
+            w_col = vec3<f32>(0.32, 1.24, 1.46);
+        } else if (f_use == 3u) {
+            wait += cl_ring_xz(p - vec3<f32>(0.0, -0.22, 0.0), 0.36, 0.007, 82.0);
+            w_col = vec3<f32>(1.34, 0.54, 0.24);
+        } else if (f_use == 4u) {
+            wait += cl_spot(p, vec3<f32>(0.0, 0.36, 0.0), 14.0);
+            w_col = vec3<f32>(1.18, 0.42, 0.20);
+        } else if (f_use == 5u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                let a = f32(k) * 1.570796;
+                wait += cl_bar(p, vec3<f32>(0.0, 0.28, 0.0), vec3<f32>(cos(a) * 0.24, 0.44, sin(a) * 0.24), 0.007, 84.0);
+            }
+            w_col = vec3<f32>(0.68, 0.72, 1.42);
+        }
+        col = vec3<f32>(0.42, 0.98, 1.44) * axis + w_col * wait
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.0, time) * 0.65;
+        dens = axis * 0.72 + wait * 0.82;
+    } else if (z_idx == 21u) {
+        // Z21 first-reply (+companion 3833): Bidirectional Ping & Echo Transformation
+        let n_l = cl_spot(p, vec3<f32>(-0.32, 0.0, 0.0), 14.0);
+        let n_r = cl_spot(p, vec3<f32>(0.32, 0.0, 0.0), 14.0);
+        var echo = cl_bar(p, vec3<f32>(-0.28, 0.08, 0.0), vec3<f32>(0.28, 0.08, 0.0), 0.008, 84.0)
+                 + cl_bar(p, vec3<f32>(0.28, -0.08, 0.0), vec3<f32>(-0.28, -0.08, 0.0), 0.008, 84.0);
+        var e_col = vec3<f32>(0.28, 1.36, 1.12);
+        if (f_use == 1u) {
+            echo += cl_ring_xz(p - vec3<f32>(-0.32, 0.0, 0.0), 0.16, 0.008, 82.0);
+        } else if (f_use == 2u) {
+            echo += cl_ring_xy(p, 0.14, 0.009, 82.0) + cl_spot(p, vec3<f32>(0.0), 16.0);
+            e_col = vec3<f32>(1.38, 0.96, 0.30);
+        } else if (f_use == 3u) {
+            echo += cl_spot(p, vec3<f32>(0.0, -0.08, 0.0), 16.0) + cl_ring_xy(p - vec3<f32>(0.0, -0.08, 0.0), 0.12, 0.008, 82.0);
+            e_col = vec3<f32>(1.36, 0.42, 0.24);
+        } else if (f_use == 4u) {
+            echo += doc_line_glow(sd_hex_prism(doc_rot_y(p, time * 0.35), 0.14, 0.12), 78.0);
+            e_col = vec3<f32>(0.42, 0.96, 1.48);
+        } else if (f_use == 5u) {
+            for (var k = 0; k < 4; k = k + 1) {
+                echo += cl_bar(p, vec3<f32>(0.0, -0.08, 0.0), vec3<f32>(-0.32, -0.26 + f32(k) * 0.12, 0.0), 0.007, 86.0);
+            }
+            e_col = vec3<f32>(0.92, 0.56, 1.44);
+        }
+        col = vec3<f32>(0.24, 0.98, 1.46) * n_l
+            + vec3<f32>(1.38, 0.96, 0.32) * n_r
+            + e_col * echo
+            + zone_col * cl_feature_beacon(p, feat, 0.40, 0.04, time) * 0.65;
+        dens = (n_l + n_r) * 0.8 + echo * 0.84;
+    } else if (z_idx == 22u) {
+        // Z22 discontinuous-dialogue (+companion 3833): Train of Modular Dialogue Capsules
+        let bridge = cl_bar(p, vec3<f32>(-0.44, 0.0, 0.0), vec3<f32>(0.44, 0.0, 0.0), 0.007, 86.0);
+        var train = 0.0;
+        var tr_col = vec3<f32>(0.26, 1.28, 1.44);
+        for (var k = 0; k < 3; k = k + 1) {
+            let cx = -0.28 + f32(k) * 0.28;
+            let hi = select(0.65, 1.30, k == i32(f_use % 3u));
+            train += cl_ring_xy(p - vec3<f32>(cx, 0.0, 0.0), 0.10, 0.009, 80.0) * hi;
+            train += cl_spot(p, vec3<f32>(cx, 0.0, 0.0), 18.0) * hi;
+        }
+        if (f_use == 1u) {
+            train += cl_ring_xz(p - vec3<f32>(-0.28, 0.0, 0.0), 0.14, 0.008, 82.0);
+            tr_col = vec3<f32>(1.38, 0.96, 0.32);
+        } else if (f_use == 2u) {
+            train += cl_bar(p, vec3<f32>(0.0, -0.34, 0.0), vec3<f32>(0.0, 0.34, 0.0), 0.009, 82.0);
+            tr_col = vec3<f32>(0.24, 1.38, 0.92);
+        } else if (f_use == 3u) {
+            train += cl_bar(p, vec3<f32>(-0.28, 0.18, 0.0), vec3<f32>(0.28, 0.18, 0.0), 0.008, 84.0)
+                   + cl_bar(p, vec3<f32>(-0.28, -0.18, 0.0), vec3<f32>(0.28, -0.18, 0.0), 0.008, 84.0);
+        } else if (f_use == 4u) {
+            train += cl_ring_xy(p - vec3<f32>(0.0, 0.14, 0.0), 0.16, 0.008, 80.0);
+            tr_col = vec3<f32>(1.38, 0.44, 0.22);
+        } else if (f_use == 5u) {
+            train += doc_line_glow(sd_hex_prism(doc_rot_y(p, time * 0.3), 0.22, 0.18), 76.0);
+            tr_col = vec3<f32>(0.92, 0.56, 1.44);
+        }
+        col = vec3<f32>(0.42, 0.96, 1.44) * bridge + tr_col * train
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.06, time) * 0.65;
+        dens = bridge * 0.72 + train * 0.86;
+    } else if (z_idx == 23u) {
+        // Z23 knowledge-exchange: Comparative Two-Biosphere Holographic Lab Table
+        let table = cl_ring_xz(p - vec3<f32>(0.0, -0.16, 0.0), 0.42, 0.009, 82.0);
+        var lab = 0.0;
+        var l_col = vec3<f32>(0.26, 1.32, 1.24);
+        if (f_use == 0u) {
+            lab = cl_bar(p, vec3<f32>(-0.34, -0.16, 0.0), vec3<f32>(0.0, 0.26, 0.0), 0.009, 82.0)
+                + cl_bar(p, vec3<f32>(0.34, -0.16, 0.0), vec3<f32>(0.0, 0.26, 0.0), 0.009, 82.0)
+                + cl_spot(p, vec3<f32>(0.0, 0.26, 0.0), 15.0);
+        } else if (f_use == 1u) {
+            lab = cl_ring_xy(p - vec3<f32>(-0.20, 0.10, 0.0), 0.15, 0.009, 82.0)
+                + cl_ring_xz(p - vec3<f32>(0.20, 0.10, 0.0), 0.15, 0.009, 82.0);
+            l_col = vec3<f32>(0.42, 1.02, 1.48);
+        } else if (f_use == 2u) {
+            lab = doc_line_glow(sd_hex_prism(doc_rot_y(p - vec3<f32>(0.0, 0.08, 0.0), time * 0.3), 0.20, 0.18), 76.0);
+            l_col = vec3<f32>(1.36, 0.82, 0.30);
+        } else if (f_use == 3u) {
+            let hx = exp(-abs(p.x + 0.18 - 0.07 * sin(p.y * 22.0)) * 34.0) * smoothstep(0.28, 0.04, abs(p.y - 0.08));
+            let tr = exp(-abs(p.x - 0.18 - 0.07 * sin(p.y * 15.0)) * 34.0) * smoothstep(0.28, 0.04, abs(p.y - 0.08));
+            lab = hx + tr;
+            l_col = vec3<f32>(0.24, 1.38, 0.86);
+        } else if (f_use == 4u) {
+            lab = doc_line_glow(sd_hex_prism(p - vec3<f32>(0.0, 0.08, 0.0), 0.24, 0.14), 76.0)
+                + cl_spot(p, vec3<f32>(0.22, 0.22, 0.0), 16.0);
+            l_col = vec3<f32>(1.38, 0.56, 0.22);
+        } else {
+            lab = cl_ring_xy(doc_rot_z(p - vec3<f32>(0.0, 0.08, 0.0), 0.5), 0.22, 0.008, 82.0)
+                + cl_ring_xz(doc_rot_x(p - vec3<f32>(0.0, 0.08, 0.0), 0.5), 0.26, 0.008, 82.0);
+            l_col = vec3<f32>(0.94, 0.54, 1.44);
+        }
+        col = vec3<f32>(0.42, 0.96, 1.42) * table + l_col * lab
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.65;
+        dens = table * 0.74 + lab * 0.86;
+    } else if (z_idx == 24u) {
+        // Z24 cosmic-misunderstandings: Semantic Drift & Signal-Corruption Prism
+        let l_lens = cl_ring_xy(p - vec3<f32>(-0.24, 0.0, 0.0), 0.16, 0.009, 80.0);
+        let r_lens = cl_ring_xy(p - vec3<f32>(0.24, 0.0, 0.0), 0.16, 0.009, 80.0);
+        var drift = 0.0;
+        var dr_col = vec3<f32>(1.36, 0.52, 0.28);
+        if (f_use == 0u) {
+            let smooth_w = exp(-abs(p.y - 0.12 * sin(p.x * 16.0)) * 34.0) * smoothstep(0.02, -0.34, p.x);
+            let cage_r = exp(-abs(p.y - 0.12 * sign(sin(p.x * 16.0))) * 34.0) * smoothstep(-0.02, 0.34, p.x);
+            drift = smooth_w + cage_r;
+        } else if (f_use == 1u) {
+            drift = cl_bar(p, vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.30, 0.24, 0.0), 0.008, 84.0)
+                  + cl_bar(p, vec3<f32>(0.0, 0.0, 0.0), vec3<f32>(0.30, -0.24, 0.0), 0.008, 84.0);
+            dr_col = vec3<f32>(0.88, 0.52, 1.44);
+        } else if (f_use == 2u) {
+            drift = cl_ring_xy(p - vec3<f32>(-0.24, 0.0, 0.0), 0.10, 0.008, 82.0) * (0.5 + 0.5 * sin(time * 7.0))
+                  + cl_ring_xy(p - vec3<f32>(0.24, 0.0, 0.0), 0.22, 0.008, 82.0);
+            dr_col = vec3<f32>(0.32, 1.24, 1.44);
+        } else if (f_use == 3u) {
+            drift = cl_bar(p, vec3<f32>(-0.34, -0.10, 0.0), vec3<f32>(0.34, 0.22, 0.0), 0.010, 80.0);
+            dr_col = vec3<f32>(1.42, 0.36, 0.24);
+        } else if (f_use == 4u) {
+            drift = cl_bar(p, vec3<f32>(-0.36, 0.0, 0.0), vec3<f32>(-0.08, 0.0, 0.0), 0.009, 82.0)
+                  + cl_bar(p, vec3<f32>(0.08, 0.0, 0.0), vec3<f32>(0.36, 0.0, 0.0), 0.009, 82.0);
+            dr_col = vec3<f32>(1.38, 0.32, 0.48);
+        } else {
+            drift = doc_line_glow(sd_hex_prism(doc_rot_y(p, time * 0.4), 0.22, 0.16), 76.0);
+            dr_col = vec3<f32>(1.38, 0.94, 0.28);
+        }
+        col = vec3<f32>(0.32, 1.12, 1.44) * l_lens
+            + vec3<f32>(1.28, 0.62, 0.34) * r_lens
+            + dr_col * drift
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.65;
+        dens = (l_lens + r_lens) * 0.78 + drift * 0.86;
+    } else if (z_idx == 25u) {
+        // Z25 trust (+companion 3834): Reciprocal Verification Trust Lattice Between Twin Spheres
+        let orb_l = exp(-abs(length(p - vec3<f32>(-0.30, 0.0, 0.0)) - 0.14) * 54.0);
+        let orb_r = exp(-abs(length(p - vec3<f32>(0.30, 0.0, 0.0)) - 0.14) * 54.0);
+        var truss = cl_bar(p, vec3<f32>(-0.18, 0.08, 0.0), vec3<f32>(0.18, 0.08, 0.0), 0.008, 84.0)
+                  + cl_bar(p, vec3<f32>(-0.18, -0.08, 0.0), vec3<f32>(0.18, -0.08, 0.0), 0.008, 84.0);
+        var t_col = vec3<f32>(0.24, 1.36, 0.96);
+        if (f_use == 0u) {
+            truss += cl_ring_xy(p, 0.14, 0.009, 82.0) + cl_spot(p, vec3<f32>(0.0), 16.0);
+            t_col = vec3<f32>(1.38, 0.98, 0.30);
+        } else if (f_use == 1u) {
+            truss += cl_bar(p, vec3<f32>(-0.18, 0.0, 0.0), vec3<f32>(0.18, 0.0, 0.0), 0.011, 80.0);
+        } else if (f_use == 2u) {
+            truss += cl_ring_xy(p - vec3<f32>(0.0, 0.08, 0.0), 0.11, 0.009, 82.0);
+            t_col = vec3<f32>(1.38, 0.78, 0.26);
+        } else if (f_use == 3u) {
+            truss += cl_spot(p, vec3<f32>(-0.30, 0.0, 0.0), 18.0) + cl_spot(p, vec3<f32>(0.30, 0.0, 0.0), 18.0);
+            t_col = vec3<f32>(0.42, 0.88, 1.44);
+        } else if (f_use == 4u) {
+            truss = cl_ring_xz(p, 0.28, 0.007, 82.0) * 0.72;
+            t_col = vec3<f32>(0.26, 0.86, 1.38);
+        } else {
+            truss += cl_bar(p, vec3<f32>(-0.18, 0.18, 0.0), vec3<f32>(0.18, 0.18, 0.0), 0.008, 84.0);
+            t_col = vec3<f32>(0.28, 1.24, 1.46);
+        }
+        col = vec3<f32>(0.26, 1.02, 1.46) * orb_l
+            + vec3<f32>(1.34, 0.92, 0.34) * orb_r
+            + t_col * truss
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.02, time) * 0.65;
+        dens = (orb_l + orb_r) * 0.82 + truss * 0.84;
+    } else if (z_idx == 26u) {
+        // Z26 interstellar-diplomacy (+companion 3834): Interlocking Cryptographic Treaty Seal Rings
+        let seal_a = cl_ring_xy(doc_rot_y(p, 0.25 + time * 0.15), 0.36, 0.009, 82.0);
+        let seal_b = cl_ring_xz(doc_rot_x(p, 0.38 - time * 0.12), 0.28, 0.009, 82.0);
+        let seal_c = cl_ring_xy(doc_rot_z(p, 0.52 + ff * 0.25), 0.20, 0.009, 84.0);
+        var clause = 0.0;
+        var cl_col = vec3<f32>(1.38, 0.96, 0.32);
+        if (f_use == 0u) {
+            clause = cl_spot(p, vec3<f32>(0.0, 0.34, 0.0), 15.0) + cl_ring_xy(p - vec3<f32>(0.0, 0.34, 0.0), 0.09, 0.007, 82.0);
+        } else if (f_use == 1u) {
+            for (var k = 0; k < 3; k = k + 1) {
+                clause += cl_spot(p, vec3<f32>(-0.20 + f32(k) * 0.20, 0.0, 0.0), 17.0);
+            }
+            cl_col = vec3<f32>(0.24, 1.38, 0.96);
+        } else if (f_use == 2u) {
+            clause = cl_bar(p, vec3<f32>(-0.34, 0.18, 0.0), vec3<f32>(0.34, 0.18, 0.0), 0.009, 84.0);
+        } else if (f_use == 3u) {
+            clause = exp(-abs(r - 0.44) * 44.0);
+            cl_col = vec3<f32>(0.34, 1.18, 1.48);
+        } else if (f_use == 4u) {
+            clause = cl_ring_xy(p, 0.14, 0.008, 84.0) + cl_ring_xy(p, 0.26, 0.008, 84.0);
+            cl_col = vec3<f32>(0.92, 0.56, 1.44);
+        } else {
+            clause = cl_ring_xz(p - vec3<f32>(0.0, -0.22, 0.0), 0.34, 0.011, 78.0);
+        }
+        col = vec3<f32>(0.28, 1.18, 1.46) * (seal_a + seal_b * 0.9 + seal_c)
+            + cl_col * clause
+            + zone_col * cl_feature_beacon(p, feat, 0.44, 0.0, time) * 0.65;
+        dens = (seal_a + seal_b + seal_c) * 0.74 + clause * 0.84;
+    } else {
+        // Z27 uncertain-coexistence (+companion 3835): Dual-Perspective Luminous Worlds & Light Threads
+        let w_left = cl_spot(p, vec3<f32>(-0.30, 0.0, 0.0), 13.0) + exp(-abs(length(p - vec3<f32>(-0.30, 0.0, 0.0)) - 0.16) * 52.0);
+        let w_right = cl_spot(p, vec3<f32>(0.30, 0.0, 0.0), 13.0) + exp(-abs(length(p - vec3<f32>(0.30, 0.0, 0.0)) - 0.16) * 52.0);
+        var threads = cl_bar(p, vec3<f32>(-0.16, 0.08, 0.0), vec3<f32>(0.16, 0.08, 0.0), 0.007, 86.0)
+                    + cl_bar(p, vec3<f32>(-0.16, -0.08, 0.0), vec3<f32>(0.16, -0.08, 0.0), 0.007, 86.0);
+        var th_col = vec3<f32>(0.42, 1.24, 1.42);
+        if (f_use == 1u) {
+            threads += cl_ring_xz(p - vec3<f32>(-0.30, 0.0, 0.0), 0.22, 0.007, 82.0)
+                     + cl_ring_xz(p - vec3<f32>(0.30, 0.0, 0.0), 0.22, 0.007, 82.0);
+            th_col = vec3<f32>(1.36, 0.94, 0.34);
+        } else if (f_use == 2u) {
+            threads += cl_ring_xy(p, 0.14, 0.008, 82.0) + exp(-abs(r - 0.46) * 32.0) * 0.45;
+        } else if (f_use == 3u) {
+            threads += doc_line_glow(sd_hex_prism(p - vec3<f32>(-0.30, 0.0, 0.0), 0.12, 0.12), 78.0)
+                     + doc_line_glow(sd_hex_prism(doc_rot_y(p - vec3<f32>(0.30, 0.0, 0.0), 0.5), 0.12, 0.12), 78.0);
+            th_col = vec3<f32>(0.26, 1.38, 0.92);
+        } else if (f_use == 4u) {
+            threads += exp(-abs(length(p - vec3<f32>(-0.30, 0.0, 0.0)) - 0.24) * 44.0)
+                     + exp(-abs(length(p - vec3<f32>(0.30, 0.0, 0.0)) - 0.24) * 44.0);
+            th_col = vec3<f32>(1.18, 0.72, 1.38);
+        } else if (f_use == 5u) {
+            threads += cl_ring_xz(p, 0.42, 0.008, 82.0);
+            th_col = vec3<f32>(0.78, 1.18, 1.46);
+        }
+        col = vec3<f32>(0.24, 0.98, 1.46) * w_left
+            + vec3<f32>(1.38, 0.94, 0.32) * w_right
+            + th_col * threads
+            + zone_col * cl_feature_beacon(p, feat, 0.42, 0.04, time) * 0.65;
+        dens = (w_left + w_right) * 0.80 + threads * 0.84;
+    }
+
+    col *= (0.86 + 0.18 * voice + 0.14 * bass) * feat_hi * cue_p;
+    return vec4<f32>(col * env, dens * env);
+}
+
 // ============================================================================
 // EXP 21 (COSMIC LIFE), EXP 22 (CONTACT), EXP 23 (PERSPECTIVES),
 // EXP 24 (MEANING) & EXP 25 (FINAL HORIZON)
@@ -744,46 +1753,13 @@ fn march_doc_horizon_endgame(
         );
         return shade_doc_cosmic_life_stage(p, z_idx, feat, inst, zone_col, time, voice, bass);
     } else if (exp_id == 22u) {
-        // Disambiguate App 22 shared scene indices using BOTH zone and scene, tinted cleanly with zone_col
-        let mode = select(u32(max(scene, 0)), sub_v, sub_v < 10u);
-        let odd_zone = (zone % 2u) == 1u;
-        let pulse_phase = select(0.0, 1.8, odd_zone);
-        if (mode == 1u || mode == 2u) {
-            // Tilted Face-On Prime Number Concentric Beacons (2, 3, 5, 7, 11) + Binary Pulsar Rays
-            let pm = doc_rot_x(p, 0.42);
-            let p1 = doc_line_glow(sd_torus(pm, 0.12, 0.007), 92.0);
-            let p2 = doc_line_glow(sd_torus(pm, 0.19, 0.007), 92.0);
-            let p3 = doc_line_glow(sd_torus(pm, 0.31, 0.007), 92.0);
-            let p4 = doc_line_glow(sd_torus(pm, 0.44, 0.007), 92.0);
-            let p5 = doc_line_glow(sd_torus(pm, 0.62, 0.007), 92.0);
-            let ring_sum = p1 + p2 + p3 + p4 + p5;
-            let ang_pm = atan2(pm.z, pm.x);
-            let bin_code = 0.55 + 0.55 * step(0.15, sin(ang_pm * 13.0 + length(pm.xz) * 18.0));
-            let pulse = 0.75 + 0.45 * sin(r * 16.0 - time * 3.5 + pulse_phase);
-            let pulsar_rays = exp(-pow(abs(pm.y) * 44.0, 2.0)) * exp(-pow(min(abs(pm.x), abs(pm.z)) * 46.0, 2.0)) * smoothstep(0.68, 0.16, length(pm.xz));
-            let tint = mix(vec3<f32>(0.32, 1.38, 1.48), zone_col * 1.45, select(0.18, 0.62, odd_zone));
-            col += tint * ring_sum * pulse * bin_code + vec3<f32>(1.45, 1.05, 0.35) * pulsar_rays;
-            dens += ring_sum * 0.92 + pulsar_rays * 0.8;
-        } else {
-            // Crisp Parabolic SETI Dish + Tripod Feed Horn + Coherent Laser Beacon Pulse
-            let pd = doc_rot_x(doc_rot_y(p - vec3<f32>(0.0, -0.18, 0.0), f32(zone) * 0.25), 0.42);
-            let d_dish = ch_parabolic_dish_sdf(pd, 0.44, 0.22);
-            let dish_edge = exp(-pow(abs(d_dish) * 78.0, 2.0));
-            let grid_s = max(
-                exp(-pow(abs(fract(atan2(pd.z, pd.x) / TAU * 12.0) - 0.5) * 18.0, 2.0)),
-                exp(-pow(abs(fract(length(pd.xz) * 10.0) - 0.5) * 18.0, 2.0))
-            );
-            let tripod = doc_line_glow(sd_capsule(pd, vec3<f32>(0.28, 0.0, 0.0), vec3<f32>(0.0, 0.34, 0.0), 0.008), 90.0)
-                       + doc_line_glow(sd_capsule(pd, vec3<f32>(-0.14, 0.0, 0.24), vec3<f32>(0.0, 0.34, 0.0), 0.008), 90.0)
-                       + doc_line_glow(sd_capsule(pd, vec3<f32>(-0.14, 0.0, -0.24), vec3<f32>(0.0, 0.34, 0.0), 0.008), 90.0);
-            let beam_core = doc_line_glow(sd_capsule(pd, vec3<f32>(0.0, 0.34, 0.0), vec3<f32>(0.0, 0.88, 0.0), 0.012), 78.0);
-            let beam_wave = 0.45 + 0.85 * pow(max(sin(pd.y * 28.0 - time * 5.0 + pulse_phase), 0.0), 4.0);
-            let beam_c = mix(vec3<f32>(0.24, 1.48, 0.95), zone_col * 1.45, select(0.15, 0.60, odd_zone));
-            col += vec3<f32>(0.85, 1.15, 1.45) * dish_edge * (0.28 + 0.88 * grid_s)
-                 + vec3<f32>(1.45, 0.95, 0.34) * tripod
-                 + beam_c * beam_core * beam_wave;
-            dens += dish_edge * 0.88 + tripod * 0.8 + beam_core * beam_wave;
-        }
+        let legacy_mode = select(u32(max(scene, 0)), sub_v, sub_v < 10u);
+        let z_idx = select(
+            select(0u, 12u, legacy_mode == 1u || legacy_mode == 2u),
+            sub_v,
+            doc_is_canonical_zone_vid(inst.kind_tags.y)
+        );
+        return shade_doc_cosmic_contact_stage(p, z_idx, feat, inst, zone_col, time, voice, bass);
     } else if (exp_id == 23u) {
         // EXP 23 — Crisp Face-On 6-Lens Sensory Mandala + Converging Sight Rays
         let active_lens = (u32(max(scene, 0)) + feat + zone) % 6u;
@@ -902,15 +1878,15 @@ fn raymarch_doc_civilization_horizon(
     let exp_id = pair.x;
     let sub_v = pair.y;
 
-    let base_steps = select(42.0, 26.0, doc_is_canonical_zone_vid(vid) || exp_id == 21u);
-    let cap_steps = select(46.0, 28.0, doc_is_canonical_zone_vid(vid) || exp_id == 21u);
+    let base_steps = select(42.0, 26.0, doc_is_canonical_zone_vid(vid) || exp_id == 21u || exp_id == 22u);
+    let cap_steps = select(46.0, 28.0, doc_is_canonical_zone_vid(vid) || exp_id == 21u || exp_id == 22u);
     let steps: i32 = i32(clamp(base_steps * fovea_k, 18.0, cap_steps));
     let dt = (t1 - t0) / f32(steps);
     var t = t0 + dt * jitter;
     var accum = vec3<f32>(0.0);
     var trans: f32 = 1.0;
 
-    let front_locked = (exp_id == 19u) || (exp_id == 20u && sub_v != 2u) || (exp_id == 21u) || (exp_id == 23u) || (exp_id == 24u);
+    let front_locked = (exp_id == 19u) || (exp_id == 20u && sub_v != 2u) || (exp_id == 21u) || (exp_id == 22u) || (exp_id == 23u) || (exp_id == 24u);
     let rot_y_ang = select(time * 0.12, sin(time * 0.35) * 0.12, front_locked);
 
     for (var i = 0; i < 46; i = i + 1) {

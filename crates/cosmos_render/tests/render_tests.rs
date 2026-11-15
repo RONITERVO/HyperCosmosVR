@@ -2341,6 +2341,146 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
                 z + 1
             );
         }
+
+        // 14. Exp 22 Cosmic Contact: 28/28 zones (vid=3200..=3227), 168/168 features (F0..=F5), companions 3830..=3835
+        let mut zone22_f0: Vec<Vec<u8>> = Vec::with_capacity(28);
+        for zone in 0u16..=27u16 {
+            assert!(
+                is_zone_migrated_tier_a(22, zone),
+                "Exp 22 Z{zone:02} must be migrated Tier-A"
+            );
+            let doc_chk = DocumentaryFocusState {
+                active_zone_index: zone,
+                ..Default::default()
+            };
+            assert_eq!(resolve_zone_shader_vid(22, &doc_chk), 3200 + zone as u32);
+            let expected_mode = match zone {
+                2 | 8..=11 | 13..=14 | 26 => 14,
+                19..=22 | 25 | 27 => 15,
+                _ => 13,
+            };
+            assert_eq!(
+                select_compute_mode(17.8, 22, &doc_chk),
+                expected_mode,
+                "Exp 22 Z{zone:02} compute mode mismatch"
+            );
+            let far22 = build_far_shell_uniforms(17.8, 22, &doc_chk);
+            let base_far22 = build_far_shell_uniforms(17.8, 22, &DocumentaryFocusState::default());
+            if matches!(zone, 19 | 20 | 27) {
+                assert!(
+                    far22.regime_weights[0] <= base_far22.regime_weights[0] * 0.4 + 1e-4,
+                    "Exp 22 deep-space zone Z{zone:02} must attenuate galaxy plane"
+                );
+                assert!(
+                    far22.galaxy_north[3] <= base_far22.galaxy_north[3] * 0.7 + 1e-4,
+                    "Exp 22 deep-space zone Z{zone:02} must dim stars"
+                );
+            }
+
+            let mut renders = Vec::with_capacity(6);
+            for feat in 0u16..6u16 {
+                let mut stage_builder = UniverseSceneBuilder::new();
+                let mut input = SceneBuildInput::desktop_default(
+                    ScalePose64::new(SectorId::ORION_SPUR, eye21, 17.8, DQuat::IDENTITY),
+                    cam21,
+                    256,
+                    256,
+                );
+                input.active_experience_id = 22;
+                input.particle_budget = 256;
+                input.documentary = DocumentaryFocusState {
+                    active_zone_index: zone,
+                    active_feature_index: feat,
+                    scene_index: -1,
+                    narration_cue_progress: 0.68,
+                    narration_active_weight: 0.92,
+                    zone_accent_rgb: [0.24, 1.18, 0.95],
+                    telemetry: [0.0; 4],
+                    cue_tags_mask: 1u8 << (feat as u8),
+                    submode_override: 0,
+                    emphasis_boost: 1.0,
+                };
+                let scene = stage_builder.build(&idx_macro, &input);
+                assert_eq!(scene.compute.counts[0], expected_mode);
+                let expected_vid = 3200 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 9 && h.kind_tags[1] == expected_vid),
+                    "Exp 22 Z{zone:02} F{feat} must emit primary stage hero (kind=9, vid={expected_vid})"
+                );
+                assert!(
+                    scene.sprites.is_empty(),
+                    "Exp 22 Z{zone:02} F{feat} must emit 0 billboard sprites"
+                );
+                if matches!(zone, 4 | 5 | 19 | 21 | 22 | 25 | 26 | 27) {
+                    let comp_slot: u8 = match zone {
+                        4 => 0,
+                        5 => 1,
+                        19 => 2,
+                        21 | 22 => 3,
+                        25 | 26 => 4,
+                        _ => 5,
+                    };
+                    let comp_vid = canonical_companion_vid(22, comp_slot);
+                    assert!(
+                        scene
+                            .heroes_surface
+                            .iter()
+                            .any(|h| h.kind_tags[0] == 1 && h.kind_tags[1] == comp_vid),
+                        "Exp 22 Z{zone:02} must emit canonical companion sphere vid={comp_vid}"
+                    );
+                } else {
+                    assert!(
+                        scene.heroes_surface.is_empty(),
+                        "Exp 22 non-companion zone Z{zone:02} must emit 0 cluttering globes"
+                    );
+                }
+
+                let px = renderer21
+                    .render_to_offscreen_rgba8(&scene, 256, 256, |_, _| {})
+                    .expect("Exp 22 offscreen render");
+                let (void_px, lit_px) = count_void_and_lit(&px, 28);
+                let blown_px = px
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                    .count();
+                assert!(
+                    void_px * 100 >= total_px21 * 55,
+                    "Exp 22 Z{zone:02} F{feat} must preserve >=55% #000000 OLED void, got {void_px}/{total_px21}"
+                );
+                assert!(
+                    lit_px >= 450,
+                    "Exp 22 Z{zone:02} F{feat} must illuminate hero >=450 px, got {lit_px}"
+                );
+                assert_eq!(
+                    blown_px, 0,
+                    "Exp 22 Z{zone:02} F{feat} must have 0 clipped highlight pixels, got {blown_px}"
+                );
+                renders.push(px);
+            }
+            for i in 0..6usize {
+                for j in (i + 1)..6usize {
+                    let diff = count_diff_px(&renders[i], &renders[j]);
+                    assert!(
+                        diff >= 120,
+                        "Exp 22 Z{zone:02} features F{i} and F{j} must differ by >=120 px, got {diff}"
+                    );
+                }
+            }
+            zone22_f0.push(renders.remove(0));
+        }
+        for z in 0..27 {
+            let diff = count_diff_px(&zone22_f0[z], &zone22_f0[z + 1]);
+            assert!(
+                diff >= 400,
+                "Exp 22 consecutive zones Z{z:02} and Z{:02} must differ by >=400 px, got {diff}",
+                z + 1
+            );
+        }
     }
 }
 
