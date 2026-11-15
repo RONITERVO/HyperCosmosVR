@@ -95,6 +95,8 @@ pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool
             | (8, 0..=10)
             | (9, 0..=10)
             | (10, 0..=8)
+            | (13, 0..=11)
+            | (14, 0..=14)
             | (21, 0..=24)
             | (22, 0..=27)
     )
@@ -1239,12 +1241,20 @@ pub fn emit_doc_stage_hero(
         }
 
         // --------------------------------------------------------------------
-        // EXP 13 & 14: MATTER/ENERGY & SPACETIME
+        // EXP 13 & 14: MATTER/ENERGY & SPACETIME (TIER-A Act III)
         // --------------------------------------------------------------------
         13 | 14 => {
             let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
             let r_q = (rel_scale * 0.86).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
+            let base_flags = match (experience_id, doc.active_zone_index) {
+                (13, 5) | (14, 2 | 5 | 7 | 8 | 10 | 13) => 0x02,
+                _ => 0,
+            };
+            let submode = match (experience_id, doc.active_zone_index) {
+                (13, 6) | (14, 11) => 8,
+                _ => (doc.active_feature_index.min(7) as u32) + 1,
+            };
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_q],
                 rot_quat: face_quat,
@@ -1252,8 +1262,52 @@ pub fn emit_doc_stage_hero(
                 color_b: [zone_c.x, zone_c.y, zone_c.z, 1.0],
                 phys_a: [input.time_sec * 0.4, 0.0, 1.0, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(7, vid, 0, 0, doc),
+                kind_tags: pack_doc_tags(7, vid, base_flags, submode, doc),
             });
+
+            // Flanking companion surface sphere on non-showcase zones so canonical
+            // showcase screenshots remain unoccluded while exercising 3740..=3759.
+            if doc.active_zone_index != u16::MAX {
+                let comp_slot = if experience_id == 13 {
+                    match doc.active_zone_index {
+                        0 => Some(0u8),
+                        1 => Some(1),
+                        4 => Some(4),
+                        5 => Some(5),
+                        7 => Some(7),
+                        8 | 9 => Some(8),
+                        10 | 11 => Some(9),
+                        _ => None, // showcase zones 2, 3, 6
+                    }
+                } else {
+                    match doc.active_zone_index {
+                        0 => Some(0u8),
+                        1 => Some(1),
+                        2 | 3 => Some(2),
+                        4 => Some(3),
+                        5 => Some(4),
+                        6 => Some(5),
+                        7 => Some(6),
+                        9 => Some(8),
+                        10 | 12..=14 => Some(9),
+                        _ => None, // showcase zones 8, 11
+                    }
+                };
+                if let Some(slot) = comp_slot {
+                    let comp_p = pos + stage_right * (r_q * 0.62) + stage_up * (r_q * 0.16);
+                    let r_comp = (r_q * 0.13).clamp(0.025, 0.72);
+                    let comp_vid = canonical_companion_vid(experience_id, slot);
+                    heroes_surface.push(HeroVolumeInstance {
+                        pos_radius: [comp_p.x, comp_p.y, comp_p.z, r_comp],
+                        rot_quat,
+                        color_a: [accent.x, accent.y, accent.z, 1.0],
+                        color_b: [zone_c.x, zone_c.y, zone_c.z, 1.0],
+                        phys_a: [0.65, 0.0, 0.8, dwell],
+                        phys_b: sun,
+                        kind_tags: pack_doc_tags(1, comp_vid, base_flags, submode, doc),
+                    });
+                }
+            }
         }
 
         // --------------------------------------------------------------------

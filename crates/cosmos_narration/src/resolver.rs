@@ -1240,6 +1240,17 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "polarizacion", "polarization", "interferencia", "interference",
     "paralaje", "parallax", "entropia", "entropy", "diplomacia", "diplomacy",
     "reciprocidad", "reciprocity", "semiotica", "semiotic",
+    "molecula", "molecule", "isomero", "isomer", "absorcion", "absorption",
+    "emision", "emission", "proton", "neutron", "isotopo", "isotope",
+    "fision", "fission", "confinamiento", "confinement", "feynman", "casimir",
+    "simetria", "symmetry", "noether", "unificacion", "unification",
+    "simultaneidad", "simultaneity", "dilatacion", "dilation",
+    "contraccion", "contraction", "lorentz", "minkowski", "causalidad", "causality",
+    "equivalencia", "equivalence", "geodesica", "geodesic",
+    "ergosfera", "ergosphere", "curvatura", "curvature",
+    "interferometro", "interferometer", "ligo", "chirp",
+    "bekenstein", "holografia", "holography", "entrelazamiento", "entanglement",
+    "cuerdas", "ads", "mera",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {
