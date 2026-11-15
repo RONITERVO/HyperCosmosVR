@@ -399,10 +399,13 @@ pub fn select_compute_mode(
         },
         14 => match doc.active_zone_index {
             1..=5 => 13, // everyday, special, causality, spacetime, equivalence -> calm reference dust
-            6..=9 => 15, // curvature, blackholes, waves, cosmos -> relativistic geodesic flow
+            6..=9 => 16, // curvature, blackholes, waves, cosmos -> relativistic geodesic lensing flow
             _ => 5,      // frontier, horizons, planck, quantumgravity, emergent, origin -> Planck Spin-Foam
         },
-        15 => 12,
+        15 => match doc.active_zone_index {
+            9 => 6,  // selforganization -> local-rule flock / reaction swarm
+            _ => 12, // emergent convection vortex + Gray-Scott PDE
+        },
         16 => 6,
         17 => 7,
         18..=20 => 14,

@@ -97,6 +97,7 @@ pub const fn is_zone_migrated_tier_a(experience_id: u8, zone_index: u16) -> bool
             | (10, 0..=8)
             | (13, 0..=11)
             | (14, 0..=14)
+            | (15, 0..=15)
             | (21, 0..=24)
             | (22, 0..=27)
     )
@@ -1317,6 +1318,17 @@ pub fn emit_doc_stage_hero(
             let max_r = (pos.length() * 0.42).clamp(0.04, 6.0);
             let r_b = (rel_scale * 0.86).clamp(0.04, max_r);
             let vid = resolve_zone_shader_vid(experience_id, doc);
+            let z = doc.active_zone_index;
+            let submode = if experience_id == 15 && z != u16::MAX {
+                (z as u32).min(31)
+            } else {
+                0
+            };
+            let base_flags = if experience_id == 15 && matches!(z, 3 | 6 | 11 | 13 | 14) {
+                1
+            } else {
+                0
+            };
             heroes_volume.push(HeroVolumeInstance {
                 pos_radius: [pos.x, pos.y, pos.z, r_b],
                 rot_quat: face_quat,
@@ -1324,8 +1336,31 @@ pub fn emit_doc_stage_hero(
                 color_b: [zone_c.x, zone_c.y, zone_c.z, 1.0],
                 phys_a: [input.time_sec * 0.3, 0.0, 0.8, dwell],
                 phys_b: sun,
-                kind_tags: pack_doc_tags(8, vid, 0, 0, doc),
+                kind_tags: pack_doc_tags(8, vid, base_flags, submode, doc),
             });
+
+            if experience_id == 15 && z != u16::MAX {
+                let comp_slot = match z {
+                    4 => Some(0u8),       // 3760: Dissipative heat-reservoir Carnot frame sphere
+                    8 | 11 => Some(1u8),  // 3761: Scale-free network / catalytic monomer hub
+                    12 | 13 => Some(2u8), // 3762: Dividing lipid vesicle / template companion
+                    _ => None,
+                };
+                if let Some(slot) = comp_slot {
+                    let comp_p = pos + stage_right * (r_b * 0.58) + stage_up * (r_b * 0.24);
+                    let r_comp = (r_b * 0.13).clamp(0.03, 0.36);
+                    let comp_vid = canonical_companion_vid(15, slot);
+                    heroes_surface.push(HeroVolumeInstance {
+                        pos_radius: [comp_p.x, comp_p.y, comp_p.z, r_comp],
+                        rot_quat: face_quat,
+                        color_a: [accent.x, accent.y, accent.z, 1.05],
+                        color_b: [zone_c.x, zone_c.y, zone_c.z, 1.0],
+                        phys_a: [0.65, 0.0, 0.8, dwell],
+                        phys_b: sun,
+                        kind_tags: pack_doc_tags(1, comp_vid, base_flags, submode, doc),
+                    });
+                }
+            }
         }
 
         // --------------------------------------------------------------------

@@ -312,8 +312,22 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                 | "encelado"
                 | "enceladus"
                 | "adn"
+                | "arn"
+                | "rna"
                 | "mitocondria"
                 | "cloroplasto"
+                | "protocelula"
+                | "protocell"
+                | "hidrotermal"
+                | "hydrothermal"
+                | "catalizador"
+                | "catalyst"
+                | "autocatalitico"
+                | "autocatalytic"
+                | "replicacion"
+                | "replication"
+                | "mutacion"
+                | "mutation"
         ) {
             mask |= 0x08;
         }
@@ -400,6 +414,28 @@ pub fn encode_cue_tags_mask<S: AsRef<str>>(cue_tags: &[S]) -> u8 {
                     | "primo"
                     | "loto"
                     | "horizonte"
+                    | "emergencia"
+                    | "emergence"
+                    | "ruptura"
+                    | "breaking"
+                    | "viscosidad"
+                    | "viscosity"
+                    | "superconductividad"
+                    | "superconductivity"
+                    | "gradiente"
+                    | "gradient"
+                    | "disipacion"
+                    | "dissipation"
+                    | "fluctuacion"
+                    | "fluctuation"
+                    | "bifurcacion"
+                    | "bifurcation"
+                    | "morfogenesis"
+                    | "morphogenesis"
+                    | "retroalimentacion"
+                    | "feedback"
+                    | "homeostasis"
+                    | "autoorganizacion"
             )
         {
             mask |= 0x20;
@@ -1250,7 +1286,13 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "ergosfera", "ergosphere", "curvatura", "curvature",
     "interferometro", "interferometer", "ligo", "chirp",
     "bekenstein", "holografia", "holography", "entrelazamiento", "entanglement",
-    "cuerdas", "ads", "mera",
+    "cuerdas", "ads", "mera", "emergencia", "emergence", "ruptura", "breaking",
+    "viscosidad", "viscosity", "superconductividad", "superconductivity", "gradiente", "gradient",
+    "disipacion", "dissipation", "fluctuacion", "fluctuation", "bifurcacion", "bifurcation",
+    "morfogenesis", "morphogenesis", "retroalimentacion", "feedback", "homeostasis",
+    "autoorganizacion", "catalizador", "catalyst", "autocatalitico", "autocatalytic",
+    "replicacion", "replication", "mutacion", "mutation", "hidrotermal", "hydrothermal",
+    "arn", "rna",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

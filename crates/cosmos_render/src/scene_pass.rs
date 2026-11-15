@@ -815,7 +815,7 @@ fn make_sprite_bg(
     })
 }
 
-/// Deterministically initializes GPU particles in sector-local coordinates for compute modes `0..=15`.
+/// Deterministically initializes GPU particles in sector-local coordinates for compute modes `0..=16`.
 pub fn seed_particles_for_mode(mode: u32, count: u32, radius_scale: f32) -> Vec<SimParticle> {
     let mut out = Vec::with_capacity(count as usize);
     for i in 0..count {
@@ -835,11 +835,11 @@ pub fn seed_particles_for_mode(mode: u32, count: u32, radius_scale: f32) -> Vec<
         let radial = u2.cbrt() * radius_scale;
 
         let pos = match mode {
-            // Flat spiral galaxy / cymatic / Keplerian ring / Hyper-Lotus modes
-            0 | 8 | 10 | 15 => {
+            // Flat spiral galaxy / cymatic / Keplerian ring / Hyper-Lotus / Relativistic Geodesic modes
+            0 | 8 | 10 | 15 | 16 => {
                 let r_disk = (0.06 + 0.94 * u1.sqrt()) * radius_scale;
                 let arm = (i % 4) as f32 * (std::f32::consts::FRAC_PI_2);
-                let ang = if mode == 10 || mode == 15 {
+                let ang = if matches!(mode, 10 | 15 | 16) {
                     theta
                 } else {
                     theta * 0.25 + arm + (r_disk / radius_scale) * 3.8
