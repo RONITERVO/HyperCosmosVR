@@ -2,7 +2,7 @@
 
 [Master Visual Roadmap](../CONTRIBUTOR_VISUAL_ROADMAP.md) · [README](../../README.md) · [CONTRIBUTING](../../CONTRIBUTING.md) · [Shader Contracts](../../shaders/SHADER_CONTRACTS.md) · [Act I Map](ACT_1_EARTH_AND_SOLAR_SYSTEM_MAP.md) · [Act III Map](ACT_3_MATTER_AND_SPACETIME_MAP.md) · [Act IV Map](ACT_4_LIFE_MIND_AND_SENSES_MAP.md) · [Act V Map](ACT_5_CIVILIZATION_AND_HORIZONS_MAP.md)
 
-> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks**, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
+> **Scope & Ground Truth:** Complete Act II contributor & AI-agent execution map covering **8 Experiences**, **116 Zones**, **684 Features**, **31 Baked Landmarks** *(+1 runtime `Z12 galactic-edge` landmark in `assets.rs` = `32` live entities)*, and **26 Claimable Work Packages** (`PKG-ACT2-*`, out of **88** total packages catalog-wide: `3` P0 + `85` Content; **`3 / 26` Act II packages = `100%` of Ch 1 `05_milky_way` now `[COMPLETED — TIER-A]`**) in exact [`ODYSSEY_ACTS[1]`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) travel order (`&[5, 21, 22, 6, 7, 8, 9, 10]`). Every transcript summary, metric, evidence badge, landmark ID, code line number, and Tier count below is extracted directly from [`assets/baked/universe_catalog.v1.json`](../../assets/baked/universe_catalog.v1.json) and active Rust/WGSL sources (never aspirational prose in [documentary_visuals_spec.md](../documentary_visuals_spec.md)).
 
 > [!IMPORTANT]
 > **Odyssey Act II Travel Order (`&[5, 21, 22, 6, 7, 8, 9, 10]`):** [`odyssey.rs#L29-L32`](../../crates/cosmos_journey/src/odyssey.rs#L29-L32) embeds **Exp 21 (`21_cosmic_life`)** and **Exp 22 (`22_cosmic_contact`)** inside the Orion Spur between **Exp 05 (`05_milky_way`)** and **Exp 06 (`06_local_group`)**, while [`topology.rs#L419-L426`](../../crates/cosmos_spatial/src/topology.rs#L419-L426) links both `5 -> 21 -> 22` (`EmbeddedStellarArm`) and the outward cosmological ladder `5 -> 6 -> 7 -> 8 -> 9 -> 10` (`ScaleRiseOutward`). Chapters and Pick-Up Cards below follow exact **Odyssey Act II progression (`05 -> 21 -> 22 -> 06 -> 07 -> 08 -> 09 -> 10`)**.
@@ -11,7 +11,7 @@
 
 | Pos | Exp | Slug | Catalog Title (ES) | Zones | Zone `[A / B / C / D]` | Feats | Feat `[A / B / C / D]` | Landmarks | Current `doc_stage_variant_id` / Dispatch | Reserved `vid` Block | Packages |
 |---:|---:|---|---|---:|:---:|---:|:---:|---:|---|---|---:|
-| 1 / 8 | `05` | `05_milky_way` | Espectro de la Vía Láctea · Del sistema solar al borde galáctico | **13** | `0 / 3 / 10 / 0` | **65** | `0 / 9 / 50 / 6` | 12 | `ExperienceAnchor` -> `kind=4, vid=5`; `12` landmarks -> `z % 3 => 20..22` (`z=12` omitted) | `1500..=1512` (3660..=3671) | `3` |
+| 1 / 8 | `05` | `05_milky_way` | Espectro de la Vía Láctea · Del sistema solar al borde galáctico | **13** | `13 / 0 / 0 / 0` | **65** | `65 / 0 / 0 / 0` | 13 (`12` baked + `Z12`) | **`[TIER-A]` Complete:** canonical `1500..=1512` stages + `3660..=3671` companions + `Z12` landmark + `65/65` `doc_feat` | `1500..=1512` (3660..=3671) | `3` *(3 done)* |
 | 2 / 8 | `21` | `21_cosmic_life` | Espectro de la Vida Cósmica: del Planeta Habitable a la Inteligencia Extraterrestre | **25** | `0 / 4 / 4 / 17` | **200** | `0 / 10 / 32 / 158` | 0 | `z=12 -> vid=212`, all other `24` zones -> `vid=210` + twin `11/10` globes (`sc` ignored) | `3100..=3124` (3820..=3829) | `5` |
 | 3 / 8 | `22` | `22_cosmic_contact` | Espectro del Contacto Cósmico: de la Primera Señal al Diálogo entre Civilizaciones | **28** | `0 / 5 / 15 / 8` | **168** | `0 / 11 / 88 / 69` | 0 | `z=12 -> vid=221`, all other `27` zones -> `vid=220` SETI dish (`5` shared `scene` pairs) | `3200..=3227` (3830..=3839) | `6` |
 | 4 / 8 | `06` | `06_local_group` | Espectro del Grupo Local: de la Vía Láctea a Andrómeda | **9** | `0 / 3 / 0 / 6` | **45** | `0 / 9 / 0 / 36` | 9 | Anchor & all `9` landmarks emit identical `kind=3, vid=6` static spiral diorama | `1600..=1608` (3680..=3688) | `2` |
@@ -19,9 +19,9 @@
 | 6 / 8 | `08` | `08_cosmic_web` | Espectro de la Red Cósmica: de Laniakea a la Estructura del Universo | **11** | `0 / 6 / 3 / 2` | **55** | `0 / 19 / 6 / 30` | 0 | Single static `kind=3, vid=8` uniform Voronoi diorama (Mode 2) | `1800..=1810` (Zone-parameterized `submode` + `cs_field_grid` dark-matter scaffold) | `3` |
 | 7 / 8 | `09` | `09_observable_universe` | Espectro del Universo Observable: de la Red Cósmica al Horizonte Cósmico | **11** | `0 / 5 / 4 / 2` | **55** | `0 / 12 / 6 / 37` | 0 | Single static `kind=3, vid=9` CMB + quasar jet (Mode 2 lock + `cmb_alpha=1.0` leak) | `1900..=1910` (Epoch-gated `compute_mode`) | `3` |
 | 8 / 8 | `10` | `10_early_universe` | Espectro del Universo Temprano: del Fondo Cósmico a la Inflación | **9** | `0 / 2 / 4 / 3` | **46** | `0 / 6 / 8 / 32` | 0 | Single static `kind=3, vid=10` expansion ring (Mode 2 lock; Modes 3/5 unused) | `2000..=2008` (Zone-gated compute) | `2` |
-| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`0 / 33 / 40 / 43`** | **`684`** | **`0 / 86 / 190 / 408`** | **`31`** | **0.0% Tier-A · 28.4% B · 34.5% C · 37.1% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** |
+| **ALL** | **`8` Exps** | **Odyssey Act II** | **Milky Way, Life, Contact, Local Group, Laniakea, Cosmic Web, Observable & Early Universe** | **`116`** | **`13 / 30 / 30 / 43`** | **`684`** | **`65 / 77 / 140 / 402`** | **`32`** *(`31` baked + `Z12`)* | **11.2% Tier-A · 25.9% B · 25.9% C · 37.1% D (Zones)** | **`1500..=3227` + `3660..=3839`** | **`26`** *(`3` done)* |
 
-*Feature distribution across Act II (`684` features): `0.0%` Tier-A (`0`), `12.6%` Tier-B (`86`), `27.8%` Tier-C (`190`), `59.6%` Tier-D (`408`).*
+*Feature distribution across Act II (`684` features): `9.5%` Tier-A (`65`), `11.3%` Tier-B (`77`), `20.5%` Tier-C (`140`), `58.8%` Tier-D (`402`).*
 
 ## 2. P0 Core Pipeline Prerequisites & Act II Architectural Findings
 
@@ -46,9 +46,9 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 
 | Package ID | Exp | Zones | Feats | Phase & Priority | Zone Tier `[A/B/C/D]` | Feat Tier `[A/B/C/D]` | Focus Summary |
 |---|---:|:---:|---:|---|:---:|:---:|---|
-| [`PKG-ACT2-EXP05-Z00-04`](#pkg-act2-exp05-z00-04) | `05` | `Z00..Z04` (5) | `25` | Phase 1 + Phase 3 · **High** | `0/0/5/0` | `0/0/25/0` | Milky Way Local Vicinity & Solar Neighborhood (`z=00..04` + Landmark `z%3` Fix) |
-| [`PKG-ACT2-EXP05-Z05-08`](#pkg-act2-exp05-z05-08) | `05` | `Z05..Z08` (4) | `20` | Phase 1 + Phase 3 · **High** | `0/1/3/0` | `0/3/15/2` | Local Bubble, Orion Spur & Stellar Nurseries (`z=05..08`) |
-| [`PKG-ACT2-EXP05-Z09-12`](#pkg-act2-exp05-z09-12) | `05` | `Z09..Z12` (4) | `20` | Phase 1 + Phase 3 · **High** | `0/2/2/0` | `0/6/10/4` | Galactic Disk, Sgr A* Core, Halo & Galactic Edge (`z=09..12` + 13th Landmark) |
+| [`PKG-ACT2-EXP05-Z00-04`](#pkg-act2-exp05-z00-04) | `05` | `Z00..Z04` (5) | `25` | Phase 1 + Phase 3 · **`[COMPLETED — TIER-A]`** | `5/0/0/0` | `25/0/0/0` | **Completed (`1500..=1504` + `3660..=3664`):** Solar frontier -> Alpha Centauri bespoke geometry, landmark LOD floor, `25/25` `doc_feat` transitions |
+| [`PKG-ACT2-EXP05-Z05-08`](#pkg-act2-exp05-z05-08) | `05` | `Z05..Z08` (4) | `20` | Phase 1 + Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1505..=1508` + `3665..=3668`):** Stellar neighborhood, Local Bubble cavity, Orion Spur, pillar nursery + `20/20` `doc_feat` transitions |
+| [`PKG-ACT2-EXP05-Z09-12`](#pkg-act2-exp05-z09-12) | `05` | `Z09..Z12` (4) | `20` | Phase 1 + Phase 3 · **`[COMPLETED — TIER-A]`** | `4/0/0/0` | `20/0/0/0` | **Completed (`1509..=1512` + `3669..=3671` + 13th `Z12` landmark):** Galactic disk, Sgr A*, halo, Milky Way edge + `20/20` `doc_feat` transitions |
 | [`PKG-ACT2-EXP21-Z00-04`](#pkg-act2-exp21-z00-04) | `21` | `Z00..Z04` (5) | `40` | Phase 1 · **Critical** | `0/1/1/3` | `0/3/5/32` | Cosmic Life Origins & Planetary Habitability Lab (`z=00..04`) |
 | [`PKG-ACT2-EXP21-Z05-09`](#pkg-act2-exp21-z05-09) | `21` | `Z05..Z09` (5) | `40` | Phase 1 · **Critical** | `0/0/1/4` | `0/0/6/34` | Ocean Worlds, Biosphere Diversity & Evolutionary Thresholds (`z=05..09`) |
 | [`PKG-ACT2-EXP21-Z10-14`](#pkg-act2-exp21-z10-14) | `21` | `Z10..Z14` (5) | `40` | Phase 1 · **Critical** | `0/3/0/2` | `0/7/0/33` | Extremophiles, Europa Plumes, Exoplanet Detection & Biosignatures (`z=10..14`) |
@@ -77,16 +77,16 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 
 ## 4. Experience-by-Experience Gap Maps & Pick-Up Cards (`ODYSSEY_ACTS[1]`)
 
-### Exp 05: `05_milky_way` — Vía Láctea / Milky Way (`13` Zones, `65` Features, `12` Landmarks)
+### Exp 05: `05_milky_way` — Vía Láctea / Milky Way (`13` Zones, `65` Features, `13` Live Landmarks — **`100% [TIER-A]` COMPLETE**)
 
 > *Espectro de la Vía Láctea · Del sistema solar al borde galáctico* — Spectrum of the Milky Way · From the Solar System to the Galactic Edge
 
 - **Odyssey Position (`odyssey.rs#L29-L32`):** Act 2, Position **1 / 8** (Chapter `act2_exp05`)
 - **Spatial & Scale Band:** `SectorId::MILKY_WAY` · `u ∈ [13.6, 21.1]` · `focus_scale_exp = 20.5`
 - **Compute & Far Shell:** `mode = 0` (Milky Way 4-arm logarithmic spiral density wave + vertical disk harmonic, `compute_universe.wgsl:91-111`, `universe_scene.rs:307`) · `mw_alpha ≈ 1.0` narrow tilted galactic belt + pinpoint blackbody stars (`far_shell.wgsl:82-103`)
-- **Current Render Dispatch:** `ExperienceAnchor` -> `kind=4, vid=5` (`doc_stages.rs:657-677`, `hero_doc_cosmos.wgsl:422-485`); `12` `GalacticLandmark` entities -> `zone_index % 3 => 20 (Heliopause) / 21 (Orion Pillars) / 22 (Local Bubble)` (`doc_stages.rs:359-362`); `z=12` (`galactic-edge`) has **0 baked landmarks** (`ZoneShell` dot only).
-- **Granular Audit Tally:** Zones `0A / 3B / 10C / 0D` (`13`) · Features `0A / 9B / 50C / 6D` (`65`)
-- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs#L952-L961`) Needed Additions:** `frontera`, `heliosfera`, `oort`, `alfa`, `centauri`, `burbuja`, `orion`, `nebulosa`, `espiral`, `halo`, `disco`, `nucleo` (`sagitario` already exists!)
+- **Current Render Dispatch (`[COMPLETED — TIER-A]`):** Canonical zone hero dispatch (`doc_stages.rs` `is_zone_migrated_tier_a((5, 0..=12))` -> `1500..=1512`) + canonical `13` `GalacticLandmark` entities (`3660..=3671` for `Z00..=Z11` + synthesized 13th `Z12 galactic-edge` landmark routed via `1512` in `assets.rs` / `doc_stages.rs`) with active landmark LOD promotion/floor clamping and zone-aware macro modulation + `shade_doc_milky_way_stage` in `hero_doc_cosmos.wgsl` across all `65/65` features (`render_tests.rs` Section 6 GPU-verified).
+- **Live Audit Tally (`[COMPLETED — TIER-A]`):** Zones `13A / 0B / 0C / 0D` (`13`) · Features `65A / 0B / 0C / 0D` (`65`)
+- **`DOMAIN_CUE_KEYWORDS` (`resolver.rs`):** Added `40` bilingual `Exp 05` tokens (`frontera`, `heliosfera`, `oort`, `alfa`, `centauri`, `burbuja`, `orion`, `nebulosa`, `espiral`, `halo`, `disco`, `nucleo`, plus EN/ES companion cues).
 
 #### Baked Landmarks Cross-Reference (`universe_catalog.v1.json` -> Companion IDs `3660..=3671`)
 
@@ -104,12 +104,13 @@ Every Act II content package inherits four upstream pipeline blockers tracked by
 | `LM09` | `disk` (`milky-way-disk`) | `9` | `p=0.832`, `lane=0.08`, `size=94` | `20` (`z%3=0`) | `3669` (`vid=1509` synced) |
 | `LM10` | `center` (`galactic-center`) | `10` | `p=0.909`, `lane=-0.06`, `size=40` | `21` (`z%3=1`) | `3670` (`vid=1510` synced) |
 | `LM11` | `halo` (`halo`) | `11` | `p=0.963`, `lane=0.04`, `size=84` | `22` (`z%3=2`) | `3671` (`vid=1511` synced) |
-| `—` | *(missing 13th landmark)* (`galactic-edge`) | `12` | — | `ZoneShell` pinpoint dot only (`assets.rs#L290`) | Primary `vid=1512` (`submode=32` / optional baked `LM12`) |
+| `LM12` | `galactic-edge` (`galactic-edge`, synthesized in `assets.rs`) | `12` | `p=0.985`, `lane=-0.05`, `size=110` | `1512` (promoted primary/edge rim) | Primary `vid=1512` (`submode=0..1`, `65/65` synced) |
 
 <a id="pkg-act2-exp05-z00-04"></a>
-### PKG-ACT2-EXP05-Z00-04: Milky Way Local Vicinity & Solar Neighborhood (`z=00..04` + Landmark `z%3` Fix) — `Phase 1 + Phase 3` · Priority: **High**
+### PKG-ACT2-EXP05-Z00-04: Milky Way Local Vicinity & Solar Neighborhood (`z=00..04` + Landmark `z%3` Fix) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1 + Phase 3 (`1500..=1504` + `3660..=3664`, active landmark LOD promotion/floor clamping, `25/25` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z00..Z04` (`5` zones, `25` features) | Zone Tiers `0A / 0B / 5C / 0D` | Feature Tiers `0A / 0B / 25C / 0D` | Render path: [`doc_stages.rs#L358-L367`](../../crates/cosmos_render/src/doc_stages.rs#L358-L367) -> [`shaders/hero_doc_cosmos.wgsl#L422-L612`](../../shaders/hero_doc_cosmos.wgsl#L422-L612) — `ExperienceAnchor` -> `kind=4, vid=5`; `12` landmarks -> `z % 3 => 20..22` (`z=12` omitted). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `25` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z00..Z04` (`5` zones, `25` features) | Live Zone Tiers `5A / 0B / 0C / 0D` *(up from `0A / 0B / 5C / 0D`)* | Live Feature Tiers `25A / 0B / 0C / 0D` *(up from `0A / 0B / 25C / 0D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1500..=1504`, companions `3660..=3664`) -> `shade_doc_milky_way_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 6.
 
 **Reserved Target IDs:**
 
@@ -241,9 +242,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp05-z05-08"></a>
-### PKG-ACT2-EXP05-Z05-08: Local Bubble, Orion Spur & Stellar Nurseries (`z=05..08`) — `Phase 1 + Phase 3` · Priority: **High**
+### PKG-ACT2-EXP05-Z05-08: Local Bubble, Orion Spur & Stellar Nurseries (`z=05..08`) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1 + Phase 3 (`1505..=1508` + `3665..=3668`, Local Bubble supernova cavity, Orion Spur stellar filaments, stellar nursery pillar/IMF/feedback shaders, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z05..Z08` (`4` zones, `20` features) | Zone Tiers `0A / 1B / 3C / 0D` | Feature Tiers `0A / 3B / 15C / 2D` | Render path: [`doc_stages.rs#L358-L367`](../../crates/cosmos_render/src/doc_stages.rs#L358-L367) -> [`shaders/hero_doc_cosmos.wgsl#L422-L612`](../../shaders/hero_doc_cosmos.wgsl#L422-L612) — `ExperienceAnchor` -> `kind=4, vid=5`; `12` landmarks -> `z % 3 => 20..22` (`z=12` omitted). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z05..Z08` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 1B / 3C / 0D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 3B / 15C / 2D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1505..=1508`, companions `3665..=3668`) -> `shade_doc_milky_way_stage` in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 6.
 
 **Reserved Target IDs:**
 
@@ -357,9 +359,10 @@ REQUIRED VERIFICATION COMMANDS & HYGIENE:
 </details>
 
 <a id="pkg-act2-exp05-z09-12"></a>
-### PKG-ACT2-EXP05-Z09-12: Galactic Disk, Sgr A* Core, Halo & Galactic Edge (`z=09..12` + 13th Landmark) — `Phase 1 + Phase 3` · Priority: **High**
+### PKG-ACT2-EXP05-Z09-12: Galactic Disk, Sgr A* Core, Halo & Galactic Edge (`z=09..12` + 13th Landmark) `[COMPLETED — TIER-A]`
+- **Status & Rollout:** **`[COMPLETED — TIER-A]`** · Phase 1 + Phase 3 (`1509..=1512` + `3669..=3671` + synthesized 13th `Z12` landmark in `assets.rs`, barred spiral disk, Sgr A* core, stellar halo & globular clusters, outer disk flare & dark halo rim, `20/20` `doc_feat 0..=4` wired & GPU-verified) · Priority: **High** (`Completed`)
 
-**Current State:** Zones `Z09..Z12` (`4` zones, `20` features) | Zone Tiers `0A / 2B / 2C / 0D` | Feature Tiers `0A / 6B / 10C / 4D` | Render path: [`doc_stages.rs#L358-L367`](../../crates/cosmos_render/src/doc_stages.rs#L358-L367) -> [`shaders/hero_doc_cosmos.wgsl#L422-L612`](../../shaders/hero_doc_cosmos.wgsl#L422-L612) — `ExperienceAnchor` -> `kind=4, vid=5`; `12` landmarks -> `z % 3 => 20..22` (`z=12` omitted). `doc_feat(inst)` is unread or collapses to a single generic pulse/orbital offset across all `20` features; `cue_tags` dropped at [`engine.rs#L1691-L1699`](../../crates/cosmos_app/src/engine.rs#L1691-L1699).
+**Audited State (`[COMPLETED — TIER-A]`):** Zones `Z09..Z12` (`4` zones, `20` features) | Live Zone Tiers `4A / 0B / 0C / 0D` *(up from `0A / 2B / 2C / 0D`)* | Live Feature Tiers `20A / 0B / 0C / 0D` *(up from `0A / 6B / 10C / 4D`)* | Live render path: [`doc_stages.rs`](../../crates/cosmos_render/src/doc_stages.rs) (`1509..=1512`, companions `3669..=3671`) -> `shade_doc_milky_way_stage` + zone-aware `is_mw` macro modulation in [`shaders/hero_doc_cosmos.wgsl`](../../shaders/hero_doc_cosmos.wgsl), GPU-verified in [`render_tests.rs`](../../crates/cosmos_render/tests/render_tests.rs) Section 6.
 
 **Reserved Target IDs:**
 

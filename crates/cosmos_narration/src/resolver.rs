@@ -1210,7 +1210,13 @@ const DOMAIN_CUE_KEYWORDS: &[&str] = &[
     "metallic", "kirkwood", "galileana", "galilean", "hexagono", "hexagon", "cassini", "titan",
     "metano", "methane", "miranda", "supersonico", "supersonic", "triton", "geiser", "geyser",
     "kuiper", "haumea", "makemake", "resonancia", "resonance", "cometa", "comet", "sputnik",
-    "caronte", "charon",
+    "caronte", "charon", "frontera", "frontier", "heliosfera", "heliosphere", "heliopausa",
+    "heliopause", "voyager", "oort", "interestelar", "interstellar", "centauri", "proxima",
+    "exoplaneta", "exoplanet", "sirio", "sirius", "barnard", "enana", "dwarf", "burbuja",
+    "bubble", "supernova", "espolon", "orion", "molecular", "nebulosa", "nebula",
+    "protoestrella", "protostar", "pleyades", "pleiades", "espiral", "spiral", "barra",
+    "carril", "materia oscura", "globular", "corriente", "stream", "halo", "disco",
+    "intergalactico", "intergalactic",
 ];
 
 fn normalize_ascii_lower(text: &str) -> String {

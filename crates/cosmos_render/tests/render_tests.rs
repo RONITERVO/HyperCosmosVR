@@ -1351,6 +1351,168 @@ fn p0_canonical_id_registry_cue_plumbing_and_exp03_z05_08_tier_a_hold() {
             }
         }
     }
+
+    // 5b. Verify PR #5 completed-narration-weight (0.35) preservation + Z08 rings + Z10 Makemake vs resonance
+    for (zone, feat_a, feat_b, wt, label) in [
+        (1u16, 0u16, 1u16, 0.35f32, "Exp 04 Z01 Mercury F0 vs F1 at completed narration weight 0.35"),
+        (8u16, 2u16, 4u16, 0.92f32, "Exp 04 Z08 Uranus F2 dark rings vs F4 winds"),
+        (10u16, 2u16, 3u16, 0.92f32, "Exp 04 Z10 Kuiper F2 Makemake vs F3 orbital resonance"),
+        (10u16, 2u16, 3u16, 0.35f32, "Exp 04 Z10 Kuiper F2 vs F3 at completed narration weight 0.35"),
+    ] {
+        let ent = solar_idx.find_zone_entity(4, zone).expect("Exp 04 zone entity");
+        let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
+        let tang = DVec3::new(-rad.z, 0.0, rad.x);
+        let off = -rad * 0.34 + tang * 0.78 + DVec3::Y * 0.30;
+        let eye = ent.local_pos + off;
+        let target = ent.local_pos + tang * -0.05 + DVec3::Y * 0.02;
+        let look = (target - eye).normalize().as_vec3();
+        let cam_f = RenderCamera::mono(Quat::from_rotation_arc(Vec3::NEG_Z, look), 72.0_f32.to_radians(), 1.0, 0.02);
+        let mut pair = Vec::with_capacity(2);
+        for feat in [feat_a, feat_b] {
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::SOLAR_SYSTEM, eye, 10.72, DQuat::IDENTITY),
+                cam_f,
+                384,
+                384,
+            );
+            input.active_experience_id = 4;
+            input.documentary = DocumentaryFocusState {
+                active_zone_index: zone,
+                active_feature_index: feat,
+                scene_index: -1,
+                narration_cue_progress: 1.0,
+                narration_active_weight: wt,
+                zone_accent_rgb: [0.35, 0.95, 1.45],
+                telemetry: [0.0; 4],
+                cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                submode_override: 0,
+                emphasis_boost: 1.0,
+            };
+            let scene = builder.build(&solar_idx, &input);
+            let px = renderer.render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {}).expect("Exp 04 review fix render");
+            pair.push(px);
+        }
+        assert_ne!(pair[0], pair[1], "{label} must produce distinct GPU frames");
+    }
+
+    // 6. Exp 05 Milky Way full 13-zone (Z00..=Z12) [TIER-A] routing, 13th Z12 landmark, companions (3660..=3671), and 65/65 feature GPU verification
+    for z in 0u16..=12u16 {
+        assert!(
+            is_zone_migrated_tier_a(5, z),
+            "Exp 05 Z{z:02} must be migrated Tier-A"
+        );
+        let d = DocumentaryFocusState {
+            active_zone_index: z,
+            ..Default::default()
+        };
+        assert_eq!(resolve_zone_shader_vid(5, &d), 1500 + z as u32);
+    }
+    let mut mw_idx = build_default_universe_index();
+    let mw_sizes = [20.0f32, 58.0, 72.0, 52.0, 29.0, 62.0, 78.0, 84.0, 54.0, 94.0, 40.0, 84.0, 175.0];
+    let mw_lanes = [-0.10f32, 0.08, -0.05, 0.12, -0.10, 0.13, -0.07, 0.08, -0.12, 0.08, -0.06, 0.04, 0.08];
+    let mw_p = [0.048f32, 0.122, 0.218, 0.305, 0.392, 0.482, 0.578, 0.666, 0.748, 0.832, 0.909, 0.963, 0.96];
+    for zi in 0u16..=12u16 {
+        let (local_pos, lm_u, radius_m) =
+            cosmos_spatial::landmark_local_pose(mw_p[zi as usize], mw_lanes[zi as usize], mw_sizes[zi as usize], 20.5);
+        let _ = mw_idx.insert_entity(cosmos_spatial::SpatialEntity {
+            id: 96_000 + zi as u64,
+            experience_id: 5,
+            zone_index: zi,
+            feature_index: 0,
+            sector_id: SectorId::MILKY_WAY,
+            local_pos,
+            orient: DQuat::IDENTITY,
+            radius_m,
+            scale_exp: lm_u,
+            kind: cosmos_spatial::EntityKind::GalacticLandmark,
+            salience_weight: 1.65,
+        });
+    }
+    for zone in 0u16..=12u16 {
+        let ent = mw_idx
+            .find_zone_entity(5, zone)
+            .expect("Exp 05 Milky Way landmark entity must exist");
+        let rad = DVec3::new(ent.local_pos.x, 0.0, ent.local_pos.z).normalize_or(DVec3::X);
+        let tang = DVec3::new(-rad.z, 0.0, rad.x);
+        let eye = ent.local_pos + rad * 0.55 + tang * 1.85 + DVec3::Y * 0.38;
+        let target = ent.local_pos + tang * -0.04 + DVec3::Y * 0.02;
+        let look = (target - eye).normalize().as_vec3();
+        let cam_mw = RenderCamera::mono(Quat::from_rotation_arc(Vec3::NEG_Z, look), 72.0_f32.to_radians(), 1.0, 0.02);
+
+        let mut renders = Vec::with_capacity(5);
+        for feat in 0u16..5u16 {
+            let mut input = SceneBuildInput::desktop_default(
+                ScalePose64::new(SectorId::MILKY_WAY, eye, 20.15, DQuat::IDENTITY),
+                cam_mw,
+                384,
+                384,
+            );
+            input.active_experience_id = 5;
+            input.documentary = DocumentaryFocusState {
+                active_zone_index: zone,
+                active_feature_index: feat,
+                scene_index: -1,
+                narration_cue_progress: 0.68,
+                narration_active_weight: 0.92,
+                zone_accent_rgb: [0.35, 0.95, 1.55],
+                telemetry: [0.0; 4],
+                cue_tags_mask: 1u8 << (feat.min(5) as u8),
+                submode_override: 0,
+                emphasis_boost: 1.0,
+            };
+            let scene = builder.build(&mw_idx, &input);
+            let expected_vid = 1500 + zone as u32;
+            assert!(
+                scene
+                    .heroes_volume
+                    .iter()
+                    .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == expected_vid),
+                "Exp 05 Z{zone:02} F{feat} must emit primary landmark volume hero (kind=3, vid={expected_vid})"
+            );
+            if zone <= 11 {
+                let comp_vid = 3660 + zone as u32;
+                assert!(
+                    scene
+                        .heroes_volume
+                        .iter()
+                        .any(|h| h.kind_tags[0] == 3 && h.kind_tags[1] == comp_vid),
+                    "Exp 05 Z{zone:02} F{feat} must emit canonical companion landmark (kind=3, vid={comp_vid})"
+                );
+            }
+
+            let px = renderer
+                .render_to_offscreen_rgba8(&scene, 384, 384, |_, _| {})
+                .expect("Exp 05 offscreen render");
+            let (void_px, lit_px) = count_void_and_lit(&px, 28);
+            let blown_px = px
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|c| c[0] >= 250 && c[1] >= 250 && c[2] >= 250)
+                .count();
+            assert!(
+                void_px * 100 >= total_px * 58,
+                "Exp 05 Z{zone:02} F{feat} must preserve >=58% #000000 OLED void, got {void_px}/{total_px}"
+            );
+            assert!(
+                lit_px > 180,
+                "Exp 05 Z{zone:02} F{feat} must illuminate hero, got {lit_px}"
+            );
+            assert!(
+                blown_px * 1000 < total_px * 5,
+                "Exp 05 Z{zone:02} F{feat} must avoid highlight blowout, got {blown_px}"
+            );
+            renders.push(px);
+        }
+        for i in 0..5 {
+            for j in (i + 1)..5 {
+                assert_ne!(
+                    renders[i], renders[j],
+                    "Exp 05 Z{zone:02} features F{i} and F{j} must render distinctly"
+                );
+            }
+        }
+    }
 }
 
 trait BindGroupLayoutTestExt {
